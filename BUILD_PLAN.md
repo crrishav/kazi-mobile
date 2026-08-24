@@ -1,0 +1,117 @@
+# Kazi Mobile — Build Continuation Plan
+
+Source design: Claude Design project `8b0bd055-9d76-4713-a6cc-2839ebf51432` ("Kazi mobile ERP style guide"), read via `mcp__claude-design__read_file` (project_id above + file path like `"Kazi Production.dc.html"`).
+
+## Status: Phases 0–5 done (foundation, Login, Dashboard, Tasks, Inventory, Finance, More hub, Production, Purchases, Quality Control, Budget & Requirements, Sales, Customers, Marketing, Billing). Phase 6 in progress: Accounting and Employees & HR done; Attendance and Directors not yet started.
+
+Don't re-read or rebuild those screens. `npx tsc --noEmit` is clean as of this point, and the web bundle has been verified after Phase 3, 4, and 5 (`npx expo start --web`, fetch `/` and the real script src from that HTML — it's `/node_modules/expo-router/entry.bundle?...`, NOT bare `/entry.bundle?...` — look for `Web Bundled ... (N modules)` in the server log with no errors). The Phase 6 modules below have been verified with `npx tsc --noEmit` only so far — no web-bundle sanity check has been run yet since Phase 5; do one at the next natural checkpoint (e.g. after Attendance and Directors land too).
+
+### Phase 4 module notes (for consistency — read before starting Phase 5+)
+
+- **`ScreenHeader` gained an `onBack` prop** (`src/components/ui/screen-header.tsx`): optional override for the default `router.back()`. Every pushed module with a list→detail pattern uses this — list/board-level views let `onBack` default (pops the module back to More), detail views pass `onBack={() => setView('list')}` (steps back inside the module instead of exiting it). Use `ScreenHeader` for the fixed top bar on every pushed module screen (title/subtitle/rightSlot), same as before — for a module whose design header carries more than title+avatar (summary card, tabs, filter chips), put that extra content in its own fixed component rendered directly below `ScreenHeader` (see `screens/production/board-tabs.tsx`, `screens/purchases/list-summary.tsx`, `screens/budget-requirements/list-summary.tsx`) rather than replacing `ScreenHeader` outright.
+- **Toast gained a `warn` tone** (`src/components/toast/toast.tsx`, `ToastTone = 'ok' | 'warn' | 'bad'`): amber dot via `theme.onDark.warningWashText`. Quality Control's Flag action uses it; reuse for any future amber-toned confirmation.
+- **Stage/pipeline color ramps** (Production's 6-stage batches) are NOT put in the shared theme — each module that needs one defines its own `stageRampLight`/`stageRampDark` pair in its own `mock.ts`, duplicating values across modules that share the same conceptual pipeline (Dashboard's stage widget and Production's batch stages intentionally use the identical 6-hex ramp — "six segments, one language" per the design's own callout). Follow this pattern rather than centralizing.
+- **Snapshot-based undo via toast action** is now the default for every list add/decide/update flow (Purchases, Budget & Requirements): capture `const before = list` right before mutating, mutate, then `toast.show({ message, tone: 'ok', action: { label: 'Undo', onPress: () => restoreMutation.mutate(before) } })`. Each such module has a `useRestore<Thing>()` hook in its `hooks.ts` that just replaces the cached list with the snapshot (mirrors `useUndoExpenses`).
+- **Index-based reinsert undo** (Quality Control's queue clear) mirrors Tasks' delete/restore exactly: capture `index = list.findIndex(...)` before removing, `useRestoreToQueue({item, index})` splices it back in.
+- **Feather has no dedicated "bank/building" icon** — `home` was used as the closest available glyph for a bank/building context (Purchases' bank payment icon), always paired with the word "Bank" per the style guide's never-color-alone rule. Similarly no dedicated icons for check/flag/x-only tri-state actions beyond Feather's own `check`/`flag`/`x` — those do exist and were used as-is for Quality Control's Pass/Flag/Fail controls.
+- **`SegmentedProportionBar`** (equal-weight usage) is reused for any N-equal-segment stage bar, not just Dashboard's weighted one — pass `{ weight: 1, color }` per segment (see Production's batch cards and stage tracker).
+- A 7-column calendar-style grid (Production's month view) uses the same "under-50%-with-flexGrow" trick as `kpi-grid.tsx`'s 2-column grid: `width: '12.5%', flexGrow: 1` per cell, safely under `100/7≈14.28%` so the row never wraps early, then `flexGrow` stretches cells to fill the row.
+
+### Phase 5 module notes (for consistency — read before starting Phase 6+)
+
+- **`Avatar` gained a `shape?: 'tile' | 'circle'` prop** (`src/components/ui/avatar.tsx`, default `'tile'`): Customers' "companies get a squared tile, people get a circle" rule. Reuse for any future person-vs-org distinction (Directors, Employees & HR are likely candidates).
+- **Swipe-to-reveal-delete row** (Customers list): built with `react-native-gesture-handler`'s `Gesture.Pan()` + `GestureDetector` (v2 Gesture API, already available — `GestureHandlerRootView` wraps the whole app in `src/app/_layout.tsx`), not a third-party swipeable-row library. Pattern: `Gesture.Pan().activeOffsetX([-10, 10])` so small taps still register on the underlying `Pressable` (pan only activates past a 10px horizontal move); a shared `translateX` value clamps to `[-REVEAL, 0]` on `.onUpdate`, snaps via `withTiming` on `.onEnd`, and calls back to parent state (`runOnJS`) so only one row is open at a time — the parent tracks a single `openId` and every other row's `isOpen` prop flips false, which its own `useEffect` animates shut. See `src/screens/customers/customer-row.tsx` if another module needs this (Directors/Employees rows look like candidates).
+- **`Toast`'s `action` is now used for the "raise/confirm" case with no undo too** — action is optional, so a plain `toast.show({ message, tone })` with no `action` is correct when the source script's own `flash()` call passes no snapshot (e.g. Billing's "invoice raised" toast, vs. its "payment recorded" toast which does snapshot). Check the specific `flash(msg, snapshot)` call in the source script, not just the module in general — some flows have both kinds side by side.
+- **A full-screen takeover (not a bottom sheet)** — Billing's PDF preview and Customers' full add/edit form — is NOT built with `BottomSheet`. Customers' form reuses the pushed-module `ScreenHeader` shape but swapped for a dedicated `FormHeader` (Cancel-left / centered title / Save-right, since it's not a back-chevron case) rendered as the screen's only content (no tab/list underneath). Billing's PDF preview is a `Modal` with a plain fade (`FadeIn`/`FadeOut` from reanimated, no gesture dismiss) covering the entire screen edge-to-edge, deliberately styled in literal hex (not theme tokens) because it represents a fixed printed document that must look identical regardless of app theme — the one deliberate exception to "always consume via `useTheme()`".
+- **A compact, non-edge-to-edge confirm dialog** (Customers' delete-confirm) is its own small component (`confirm-delete-sheet.tsx`), not `BottomSheet` — margin on all sides, fully rounded corners, fade + small rise (22px) rather than a full slide-up-from-edge. Use this shape (not `BottomSheet`) whenever the source design's own sheet has `padding` around a rounded-all-corners card rather than `border-radius: X X 0 0` flush to the screen edges.
+- **Heavy derived-value modules keep their formulas in `utils.ts`, not inline in components** — Billing's `subtotal/vat/total/paid/balance/status/nprOf` functions take the raw `Invoice` + shared rate/VAT constants and are imported by the list row, detail view, PDF preview, and the pay sheet alike, so the math is defined exactly once. Do this for any module with more than one place that needs the same computed number (a running theme, worth defaulting to rather than recomputing per-component).
+- **Design-tool-only editable props** (`data-props` block at the top of a `<script>` — things like Billing's `vatRate`/`rateSource`/`showFxLine` sliders, meant for previewing variants inside Claude Design itself) are not real app state — pin them to their stated `default` value as a plain constant and drop the conditional branches for the other option entirely, rather than building a settings UI that doesn't exist in the mobile app.
+- Billing models "raised invoices" and "payments recorded against an invoice" as normal fields on the `Invoice` object via `mock-api.ts` (`addInvoice`, `addPayment(invoiceId, payment)`), NOT as the source script's separate `raised`/`extra` state slices glued together at render time — behaviorally identical, but matches every other module's one-query-key-per-resource shape and is what a real backend would actually look like.
+
+### Phase 6 module notes so far (Accounting, Employees & HR — read before starting Attendance/Directors)
+
+- **A single-sheet, hairline-row table (no per-row cards)** — Accounting's chart-of-accounts and ledger tables — is a plain `View` with `backgroundColor: theme.surface, boxShadow: theme.shadows.card, borderRadius: radii.lg, overflow: 'hidden'`, with each row getting `borderTopWidth: StyleSheet.hairlineWidth` (skipped on the first row) instead of being wrapped in the `Card` component — neither of `Card`'s `flat` (border, no shadow) or `raised` (different shadow formula) presets reproduces the design's literal card shadow, and this direct-`View` idiom is already how 27+ existing row/card components in the app apply `theme.shadows.card`. Use this shape whenever a design's own callout says "one sheet, not cards" for a data table.
+- **Delta-adjustment dict over seed balances** (Accounting's `adjust`/`adjustments`) is the right shape for a ledger-style resource where "posting" means *overlaying* a change on a base value rather than appending/replacing a list item: mock-api holds `Record<accountId, number>`, `hooks.ts` exposes fetch/post/restore, and the screen computes `before`/`next` snapshots for undo exactly like the list-snapshot pattern (`Purchases`' `save()`/`undo()`) but keyed by record id instead of a whole array.
+- **`Icon` has no `style` prop** — to rotate a chevron (collapsible group/section headers), wrap it in a plain `<View style={{ transform: [{ rotate: open ? '90deg' : '0deg' }] }}>` around the `Icon`, don't try to pass `style` to `Icon` itself (it only forwards `name`/`size`/`color` to Feather).
+- **A design's own hardcoded per-record avatar colors are almost always the app's existing 5 `AvatarTint` values in disguise** — Employees & HR's source script seeds each person with a literal `[initials, bg, fg]` hex tuple, but those hex pairs are pixel-identical to the app's existing `mint`/`clay`/`draft`/`amber`/`dark` tint tokens. Map them to `avatarTint: AvatarTint` on the record (import the type from `@/components/ui/avatar`, same as `data/tasks/types.ts`, `data/customers/mock.ts`, `data/production/types.ts`, `data/sales/mock.ts`, `data/marketing/mock.ts` already do) and render via `<Avatar tint={...} />` — don't carry raw `avatarBg`/`avatarFg` hex fields (Billing's `mock.ts` has unused dead fields from doing exactly that; don't repeat it). For a brand-new record created via an add-sheet (no design-assigned tint), fall back to `tintFromSeed(initials)`.
+- **A second full-screen literal-hex takeover** (Employees & HR's salary slip, `screens/employees-hr/salary-slip.tsx`) confirms Billing's PDF-preview shape (`Modal` + `FadeIn`/`FadeOut`, dark `#0A1512` root, white paper card, literal hex throughout, action bar pinned to the bottom) is the general "printed document" pattern — reuse that file's structure directly for any future document-style takeover rather than re-deriving it.
+- **Reuse `components/ui/switch.tsx` for any big settings-row toggle** even when the design's own inline markup specifies slightly different pixel dimensions (Employees & HR's Active/Inactive switch is 54×32 in the design vs. the shared component's 48×28) — reuse over pixel-perfect one-off reproduction, same as every other shared primitive.
+- **A source script's single global boolean gated by "is this the currently-open month/period"** (Employees & HR's `approved` flag, only ever meaningful for the one `open: true` month) generalizes cleanly to a `Record<PeriodKey, boolean>` resource behind its own query key — behaviorally identical (every other period ignores the flag), but matches the "shape a real backend would actually have" simplification already used for Billing's invoice/payment fields.
+- Design-tool-only `data-props` (Employees & HR's `maskAccounts`/`payrollState`/`density` sliders) pinned to their stated defaults again, per the Phase 5 convention: accounts always masked, always "comfortable" density, payroll run starts unapproved.
+
+## How to read a design file (every file is bigger than the token cap)
+
+Every `Kazi <Module>.dc.html` file is 30–85KB and **will** exceed the single-read token cap. The tool call errors but saves full content to a local temp file and tells you the path — `Read` that file in ~300-line chunks with `offset`/`limit` until you've seen the whole thing (check the reported total line count). Do not summarize from a partial read. The temp file path is session-specific — a new conversation must re-run `mcp__claude-design__read_file` from scratch; nothing from a prior session's reads persists.
+
+Each file has two halves: the HTML/JSX-like markup (visual structure, `{{ bindings }}`) and a `<script type="text/x-dc">` block at the bottom with a `class Component extends DCLogic` — **that class is the real spec**: exact state shape, seed data arrays, computed derived values, and event handlers. Port its logic faithfully; the markup tells you layout/styling.
+
+`support.js` and `Kazi Style Guide.dc.html` / `Canvas.dc.html` are not screens — already fully absorbed into `src/theme/`, skip them.
+
+## Conventions established so far — follow these exactly for every remaining module
+
+**Per-module file shape** (mirror `src/screens/tasks/` and `src/data/tasks/` as the reference example — Tasks has a list+filter+sheet pattern; `src/screens/inventory/` is the reference for a list/detail/multi-step-wizard pattern; `src/screens/finance/` is the reference for a multi-view (overview/years/ledger) pattern with a snapshot-based undo):
+
+```
+src/screens/<module>/index.tsx          # exported as a named function, e.g. `export function Production()`
+src/screens/<module>/<piece>.tsx        # header, rows, sheets, sub-views — split when a file would otherwise exceed ~150 lines
+src/data/<module>/types.ts
+src/data/<module>/mock.ts               # seed arrays + any static reference/option lists (ID/label/tint constants — NOT query-wrapped, matches how Tasks' PEOPLE/DUE_OPTIONS and Inventory's UNIT_OPTIONS are plain exports)
+src/data/<module>/keys.ts               # `{ all, list: () => [...] }` react-query key factory
+src/data/<module>/mock-api.ts           # in-memory `let db = [...seed]`, async functions with simulateLatency() wrapping real-repository-shaped signatures
+src/data/<module>/hooks.ts              # useX() query + mutations (optimistic onMutate, onError rollback via cache snapshot)
+src/app/(app)/<route>.tsx               # already exists as a `ComingSoon` stub — replace its body with `import { X } from '@/screens/x'; export default function XRoute() { return <X />; }`
+```
+
+**Undo pattern — two flavors already in use, pick whichever matches the source file's own logic:**
+- Index-based reinsert (Dashboard approvals, Tasks delete): capture `index = list.findIndex(...)` before mutating, a second mutation splices the item back in at that index.
+- Snapshot-based (Finance add-expense): capture `const before = currentList` before mutating, undo just restores that whole snapshot. Purchases' own `save()`/`undo()` uses this snapshot style (`before = this.state.entries`) — match it.
+
+**Reusable UI kit already built — use these, don't recreate:**
+- `components/ui/button.tsx` — variants `primary | secondary | ghost | danger | dangerOutline | invertedSheet`, sizes `default | small`, `loading`, `fullWidth`. Use `dangerOutline` for Reject/Delete-style actions (style guide rule: destructive is never a filled clay button).
+- `components/ui/card.tsx` — elevations `flat | raised | sheet | inverted`.
+- `components/ui/status-pill.tsx` — kinds `on-track | at-risk | blocked | draft | shipped`, accepts a `label` override for custom wording.
+- `components/ui/avatar.tsx` — `Avatar`/`AvatarStack`, tints `dark | mint | clay | draft | amber`, sizes `lg(44) | md(38) | sm(34)`. `tintFromSeed(initials)` auto-picks a tint when the design doesn't hardcode one per person.
+- `components/ui/kpi-card.tsx` — `delta` is `{ arrow?: 'up'|'down'|'flat', tone: 'good'|'warning'|'bad'|'neutral', text }`. **Arrow and tone are independent** — read the source file's actual chip color per metric, don't assume up=good.
+- `components/ui/text-field.tsx` — `label` optional (omit for a shared label above two fields, see Tasks' ref input), `compact` prop for the smaller mono secondary-field style, `secureTextEntry` auto-renders SHOW/HIDE.
+- `components/ui/segmented-proportion-bar.tsx` — flex-weighted multi-segment bar (Dashboard's stage bar).
+- `components/ui/threshold-bar.tsx` — single fill + tick-mark bar (Inventory's reorder bars). Reuse for any "value vs. threshold/target" bar.
+- `components/ui/sparkline.tsx`, `components/ui/spinner.tsx`, `components/ui/rise-in.tsx` (the `kazi-rise` 260ms fade+6px-slide, replays on `viewKey` change), `components/ui/switch.tsx`, `components/ui/bottom-sheet.tsx` (backdrop fade + sheet slide, manual-timed exit so it animates before unmount), `components/ui/empty-state.tsx`, `components/ui/screen-header.tsx` (back button + title, for pushed module screens — NOT tab roots, which build their own header per the design).
+- `components/ui/icon/index.tsx` exports `Icon` (wraps Feather from `@expo/vector-icons` — **verify any icon name is a real Feather glyph before using it**, no invented names) and the 5 hand-ported nav icons (`DashboardIcon` etc., only used by the tab bar).
+- `components/toast/toast-provider.tsx` — global `useToast().show({ message, tone: 'ok'|'bad', action? })`, auto-dismiss 4s. Use this instead of a per-screen toast reimplementation.
+- `data/mock/delay.ts` — `simulateLatency(ms?)`, every mock-api call wraps with it.
+
+**Theme**: always consume via `useTheme()` from `@/theme/theme-provider`, never raw hex. Semantic roles: `background, surface, surfaceRaised, surfaceInverted, border, textPrimary, textSecondary, accent, accentText, accentDeep, accentWash, accentWashText, danger, dangerText, dangerWash, dangerWashText, warning, warningWash, warningWashText, draftWash, draftWashText, draftDot, onDark.{text,textMuted,accent,accentWash,accentWashText,dangerWash,dangerWashText,warningWash,warningWashText,avatarBg,avatarText}, shadows.{card,raised,sheet,floating}`. `surfaceInverted` + `onDark.*` is for the one-inverted-card-per-screen pattern (ink900 bg in light mode).
+
+**Money formatting**: NPR screens use the literal `रु` glyph, not `Intl.NumberFormat`. Reuse the `fmt`/`money`/`lakh`-style helpers pattern from `src/data/finance/utils.ts` (each module that needs it gets its own tiny `utils.ts` — Purchases' source script defines its own `fmt`, `money`, and a `short()` variant, port those).
+
+**Animations**: list rows use `entering={FadeInUp.delay(i*30…40).duration(200-240)}`, removal uses `exiting={FadeOutUp.duration(180-200)}` + `layout={LinearTransition.duration(200)}`. View-switch transitions (list↔detail, wizard steps) use `RiseIn` or a plain `Animated.View entering={FadeInUp.duration(200)}` — check what the specific screen already has for precedent within itself.
+
+**Known gotchas already solved — don't rediscover these:**
+- `Tabs` from `expo-router` has **no** `tabBar` prop. Custom tab bar UI goes through its `layout={({state, navigation, children}) => ...}` prop instead — see `components/tab-bar/custom-tab-bar.tsx`. This is only relevant if you ever touch the tab shell again; the 5 tab routes are done.
+- `.npmrc` has `legacy-peer-deps=true` — required because `expo-router`'s web-only `@expo/ui`→radix-ui chain wants a newer `react-dom` than the SDK-pinned React version. Don't remove it.
+- RN's New-Architecture `boxShadow` CSS-string style works fine (`theme.shadows.card` etc.) — don't switch to `shadowColor`/`elevation`.
+- `Icon`'s `name` prop is typed from Feather's real glyph set — casting an invented name `as IconName` will typecheck but render nothing at runtime. Verify names against Feather's actual icon list.
+
+**Verification loop per module**: after writing each module, run `npx tsc --noEmit` from the repo root and fix errors before moving on. Every 2-3 modules (or at a natural checkpoint), do a bundle sanity check: `npx expo start --web --port <free-port>` (background), poll its output for `Web Bundled` vs an error, `curl` both `/` and the `entry.bundle?...` URL, then stop the server. Exact commands are in this session's transcript if needed, but the pattern is: set `$env:CI="1"` so Metro doesn't hang in watch mode, wait for "Waiting on http://localhost:PORT", then curl.
+
+## Remaining work
+
+### Phase 4 (Supply/Production) — done
+Production, Purchases, Quality Control, Budget & Requirements all built and routed. See "Phase 4 module notes" above for the conventions that came out of it.
+
+### Phase 5 (Commercial) — done
+Sales, Customers, Marketing, Billing all built and routed. See "Phase 5 module notes" above for the conventions that came out of it (gesture-handler swipe rows, Avatar `shape`, full-screen takeovers, compact confirm dialogs, `utils.ts`-centralized derived formulas).
+
+### Phase 6 (Financial/People) — Accounting, Employees & HR done; Attendance, Directors remaining
+Accounting and Employees & HR are built, routed, and `npx tsc --noEmit` clean. See "Phase 6 module notes so far" above for the conventions that came out of them (hairline-row sheet tables, delta-adjustment dicts, `Icon` has no `style` prop, avatar hex→`AvatarTint` mapping, the salary-slip full-screen takeover, reusing `Switch`, period-keyed approval dicts).
+
+Attendance and Directors: not yet read. Design file names follow the pattern `Kazi <Module Name>.dc.html` (match the exact names from `mcp__claude-design__list_files` if unsure — `Kazi Attendance.dc.html`, `Kazi Directors.dc.html`). Each already has a route stub at `src/app/(app)/<kebab-name>.tsx` rendering `<ComingSoon title="..." />` — replace it once the real screen exists, same as every module above. Note Directors is called out in the Phase 5 notes above as a likely candidate for the swipe-to-reveal-delete row and the `Avatar` `shape` (person-vs-org) prop — check its design file for both before assuming either applies.
+
+### Phase 7 (System/Comms/Admin) — Admin Panel, Messenger, Changelog
+
+Not yet read. Same pattern as above: route stubs already exist, replace once each screen is built.
+
+### Phase 8 — Polish & verification
+- Reconsider the bespoke pixel-for-pixel pull-to-refresh on Dashboard (currently uses plain `RefreshControl` — a deliberate, documented simplification, not a bug).
+- Final full `npx tsc --noEmit`.
+- Full app run-through: `npx expo start` (Android emulator/device ideally, since gesture/animation fidelity can't be judged from the web target alone), click through all 20 screens, confirm auth redirect both directions, confirm fonts load without a splash hang, confirm no New-Architecture console warnings.

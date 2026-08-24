@@ -1,0 +1,72 @@
+import type { Employee, PayMonth, PayResult } from './types';
+
+export function num(n: number): string {
+  return Math.round(n).toLocaleString('en-US');
+}
+
+export function npr(n: number): string {
+  return `NPR ${num(n)}`;
+}
+
+/** Masks all but the last 4 digits — bank details are the risky field, per the design's own callout. */
+export function maskAccount(acct: string): string {
+  return acct && acct.length > 4 ? `•••• •••• ${acct.slice(-4)}` : acct || '—';
+}
+
+export function acctDigits(acct: string): string {
+  return acct.replace(/[^0-9]/g, '');
+}
+
+export function acctValid(acct: string): boolean {
+  return acctDigits(acct).length === 13;
+}
+
+/** A typo here means an unpaid worker, not a rounding error — so the 13-digit check runs inline as you type. */
+export function acctHint(acct: string): string {
+  const digits = acctDigits(acct);
+  if (digits.length === 0) return 'Salary is credited on the last working day';
+  if (digits.length === 13) return `Checks out · ${maskAccount(digits)}`;
+  return `${digits.length} of 13 digits`;
+}
+
+export function pay(p: Employee, m: PayMonth): PayResult {
+  const ot = Math.round(p.otH * p.otR * m.factor);
+  const otHours = Math.round(p.otH * m.factor);
+  const cut = Math.round((p.absent * 950 + p.late * 100) * m.factor);
+  const gross = p.basic + p.allow + ot + p.bonus;
+  const ssf = Math.round((p.basic + p.allow) * 0.11);
+  const ded = ssf + p.adv + cut + p.tax;
+  return { ot, otHours, cut, gross, ssf, ded, net: gross - ded, absent: p.absent, late: p.late };
+}
+
+const ONES = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
+const TENS = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+function w3(n: number): string {
+  let s = '';
+  if (n > 99) {
+    s += `${ONES[Math.floor(n / 100)]} hundred`;
+    n %= 100;
+    if (n) s += ' ';
+  }
+  if (n > 19) {
+    s += TENS[Math.floor(n / 10)];
+    if (n % 10) s += `-${ONES[n % 10]}`;
+  } else if (n > 0) {
+    s += ONES[n];
+  }
+  return s;
+}
+
+/** Amount-in-words for the salary slip, Nepali lakh/thousand grouping. */
+export function inWords(n: number): string {
+  const l = Math.floor(n / 100000);
+  const k = Math.floor((n % 100000) / 1000);
+  const r = n % 1000;
+  const parts: string[] = [];
+  if (l) parts.push(`${w3(l)} lakh`);
+  if (k) parts.push(`${w3(k)} thousand`);
+  if (r) parts.push(w3(r));
+  const s = parts.join(' ') || 'zero';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
