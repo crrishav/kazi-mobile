@@ -1,5 +1,5 @@
-import { ComingSoon } from '@/screens/coming-soon';
+import { Attendance } from '@/screens/attendance';
 
 export default function AttendanceRoute() {
-  return <ComingSoon title="Attendance" />;
+  return <Attendance />;
 }

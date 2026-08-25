@@ -1,5 +1,5 @@
-import { ComingSoon } from '@/screens/coming-soon';
+import { Directors } from '@/screens/directors';
 
 export default function DirectorsRoute() {
-  return <ComingSoon title="Directors" />;
+  return <Directors />;
 }
