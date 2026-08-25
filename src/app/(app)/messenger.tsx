@@ -1,5 +1,5 @@
-import { ComingSoon } from '@/screens/coming-soon';
+import { Messenger } from '@/screens/messenger';
 
 export default function MessengerRoute() {
-  return <ComingSoon title="Messenger" />;
+  return <Messenger />;
 }

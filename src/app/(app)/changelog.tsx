@@ -1,5 +1,5 @@
-import { ComingSoon } from '@/screens/coming-soon';
+import { Changelog } from '@/screens/changelog';
 
 export default function ChangelogRoute() {
-  return <ComingSoon title="Changelog" />;
+  return <Changelog />;
 }

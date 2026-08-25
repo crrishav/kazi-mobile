@@ -1,16 +1,12 @@
-import { Tabs } from 'expo-router';
+import { Tabs } from 'expo-router/js-tabs';
 
-import { CustomTabBarLayout } from '@/components/tab-bar/custom-tab-bar';
+import { CustomTabBar } from '@/components/tab-bar/custom-tab-bar';
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{ headerShown: false }}
-      layout={({ state, navigation, children }) => (
-        <CustomTabBarLayout state={state} navigation={navigation}>
-          {children}
-        </CustomTabBarLayout>
-      )}
+      tabBar={(props) => <CustomTabBar {...props} />}
     >
       <Tabs.Screen name="index" />
       <Tabs.Screen name="tasks" />

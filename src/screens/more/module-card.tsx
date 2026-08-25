@@ -11,7 +11,7 @@ export function ModuleCard({ module }: { module: ModuleEntry }) {
 
   return (
     <Link href={module.route as never} asChild>
-      <Pressable style={[styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }]}>
+      <Pressable style={StyleSheet.flatten([styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }])}>
         <View style={[styles.iconWrap, { backgroundColor: theme.accentWash }]}>
           <Icon name={module.icon} size={20} color={theme.accentWashText} />
         </View>

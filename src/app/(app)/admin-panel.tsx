@@ -1,5 +1,5 @@
-import { ComingSoon } from '@/screens/coming-soon';
+import { AdminPanel } from '@/screens/admin-panel';
 
 export default function AdminPanelRoute() {
-  return <ComingSoon title="Admin Panel" />;
+  return <AdminPanel />;
 }
