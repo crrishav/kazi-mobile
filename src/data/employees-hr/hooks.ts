@@ -39,6 +39,28 @@ export function useUpdateEmployee() {
   });
 }
 
+export function useDeleteEmployee() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => api.deleteEmployee(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: employeesKeys.list() });
+      queryClient.setQueryData<Employee[]>(employeesKeys.list(), (old) => (old ?? []).filter((e) => e.id !== id));
+    },
+  });
+}
+
+export function useRestoreEmployees() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (previous: Employee[]) => api.restoreEmployees(previous),
+    onMutate: async (previous) => {
+      await queryClient.cancelQueries({ queryKey: employeesKeys.list() });
+      queryClient.setQueryData<Employee[]>(employeesKeys.list(), previous);
+    },
+  });
+}
+
 export function useApprovals() {
   return useQuery({ queryKey: employeesKeys.approvals(), queryFn: api.fetchApprovals });
 }

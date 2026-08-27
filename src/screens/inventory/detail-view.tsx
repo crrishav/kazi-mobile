@@ -6,17 +6,20 @@ import { Icon } from '@/components/ui/icon';
 import { ThresholdBar } from '@/components/ui/threshold-bar';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { stockHistory, stockMovements } from '@/data/inventory/mock';
+import { stockHistory } from '@/data/inventory/mock';
 import { stockLevel, stockRatio } from '@/data/inventory/utils';
-import type { StockItem } from '@/data/inventory/types';
+import type { StockItem, StockMovement } from '@/data/inventory/types';
 
 export interface DetailViewProps {
   item: StockItem;
+  movements: StockMovement[];
   onBack: () => void;
   onRaisePO: () => void;
+  onAdjust: () => void;
+  onEditDetails: () => void;
 }
 
-export function DetailView({ item, onBack, onRaisePO }: DetailViewProps) {
+export function DetailView({ item, movements, onBack, onRaisePO, onAdjust, onEditDetails }: DetailViewProps) {
   const theme = useTheme();
   const level = stockLevel(item);
   const barColor = level === 'low' ? theme.accent : level === 'near' ? theme.accent : theme.accent;
@@ -75,11 +78,20 @@ export function DetailView({ item, onBack, onRaisePO }: DetailViewProps) {
             tickColor={theme.onDark.text}
             height={6}
           />
+          <Text style={[styles.statusLine, { color: theme.onDark.avatarText }]}>{statusLine}</Text>
           <View style={styles.statusRow}>
-            <Text style={[styles.statusLine, { color: theme.onDark.avatarText }]}>{statusLine}</Text>
-            <Button label="Raise PO" size="small" onPress={onRaisePO} />
+            <Button label="Adjust stock" size="small" onPress={onAdjust} />
+            <Button label="Raise PO" size="small" variant="secondary" onPress={onRaisePO} />
           </View>
         </Card>
+
+        <View style={styles.detailsHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Details</Text>
+          <Pressable onPress={onEditDetails} hitSlop={8} style={styles.editLink}>
+            <Icon name="edit-2" size={13} color={theme.link} />
+            <Text style={[styles.editLinkText, { color: theme.link }]}>Edit</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.factsGrid}>
           {facts.map((f) => (
@@ -118,34 +130,38 @@ export function DetailView({ item, onBack, onRaisePO }: DetailViewProps) {
 
           <View style={[styles.divider, { backgroundColor: theme.background }]} />
 
-          <View>
-            {stockMovements.map((m, i) => (
-              <View key={i} style={[styles.movementRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }]}>
-                <View
-                  style={[
-                    styles.movementIcon,
-                    { backgroundColor: m.tone === 'in' ? theme.accentWash : theme.draftWash },
-                  ]}
-                >
-                  <Text style={[styles.movementSign, { color: m.tone === 'in' ? theme.accentWashText : theme.textSecondary }]}>{m.sign}</Text>
-                </View>
-                <View style={styles.movementTextWrap}>
-                  <View style={styles.movementLine}>
-                    <Text style={[styles.movementTitle, { color: theme.textPrimary }]}>{m.title}</Text>
-                    <Text style={[styles.movementAmount, tabularNums, { color: m.tone === 'in' ? theme.accentWashText : theme.textPrimary }]}>
-                      {m.amount}
-                    </Text>
+          {movements.length === 0 ? (
+            <Text style={[styles.noMoves, { color: theme.textSecondary }]}>No movements logged yet — tap “Adjust stock” to post one.</Text>
+          ) : (
+            <View>
+              {movements.map((m, i) => {
+                const isIn = m.delta >= 0;
+                return (
+                  <View key={m.id} style={[styles.movementRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }]}>
+                    <View style={[styles.movementIcon, { backgroundColor: isIn ? theme.accentWash : theme.draftWash }]}>
+                      <Text style={[styles.movementSign, { color: isIn ? theme.accentWashText : theme.textSecondary }]}>{isIn ? '+' : '−'}</Text>
+                    </View>
+                    <View style={styles.movementTextWrap}>
+                      <View style={styles.movementLine}>
+                        <Text style={[styles.movementTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                          {m.reason}
+                        </Text>
+                        <Text style={[styles.movementAmount, tabularNums, { color: isIn ? theme.accentWashText : theme.textPrimary }]}>
+                          {isIn ? '+' : '−'}{Math.abs(m.delta).toLocaleString()} {item.unit}
+                        </Text>
+                      </View>
+                      <View style={styles.movementLine}>
+                        <Text style={[styles.movementRef, { color: theme.textSecondary }]} numberOfLines={1}>
+                          {m.ref ? `${m.ref} · ` : ''}{m.date}{m.kind === 'adjust' ? ' · count' : ''}
+                        </Text>
+                        <Text style={[styles.movementBalance, tabularNums, { color: theme.textSecondary }]}>bal {m.balance.toLocaleString()}</Text>
+                      </View>
+                    </View>
                   </View>
-                  <View style={styles.movementLine}>
-                    <Text style={[styles.movementRef, { color: theme.textSecondary }]} numberOfLines={1}>
-                      {m.ref}
-                    </Text>
-                    <Text style={[styles.movementBalance, tabularNums, { color: theme.textSecondary }]}>bal {m.balance}</Text>
-                  </View>
-                </View>
-              </View>
-            ))}
-          </View>
+                );
+              })}
+            </View>
+          )}
         </Card>
 
         <Card elevation="raised" style={styles.section}>
@@ -205,8 +221,12 @@ const styles = StyleSheet.create({
   onHandValue: { fontFamily: fontFamily.semibold, fontSize: 32, letterSpacing: -0.03 * 32 },
   onHandUnit: { fontFamily: fontFamily.mono, fontSize: 12 },
   reorderValue: { fontFamily: fontFamily.semibold, fontSize: 17 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  statusLine: { flex: 1, fontSize: 13, lineHeight: 13 * 1.4 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  statusLine: { fontSize: 13, lineHeight: 13 * 1.4 },
+  detailsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 2, marginTop: 2 },
+  editLink: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  editLinkText: { fontFamily: fontFamily.semibold, fontSize: 12.5 },
+  noMoves: { fontSize: 12.5, lineHeight: 12.5 * 1.5 },
   factsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   factCard: { width: '47%', flexGrow: 1, borderRadius: 16, padding: 13, gap: 5 },
   factLabel: { fontFamily: fontFamily.mono, fontSize: 9.5, letterSpacing: 0.11 * 9.5, textTransform: 'uppercase' },

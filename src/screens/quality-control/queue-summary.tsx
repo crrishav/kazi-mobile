@@ -4,23 +4,31 @@ import { Card } from '@/components/ui/card';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 
-/** Pass rate / failed / flagged are a fixed 7-day snapshot in the source design, not derived from the live queue. */
-export function QueueSummary() {
+export interface QueueSummaryProps {
+  /** Rolled up from `qc_logs` (item 24). */
+  passRate: string;
+  failed: number;
+  flagged: number;
+  windowLabel: string;
+}
+
+/** Pass rate / failed / flagged, rolled up from the persisted QC logs. */
+export function QueueSummary({ passRate, failed, flagged, windowLabel }: QueueSummaryProps) {
   const theme = useTheme();
 
   return (
     <Card elevation="inverted" style={styles.card}>
       <View style={styles.gap4}>
-        <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Pass rate · 7 days</Text>
-        <Text style={[styles.value, tabularNums, { color: theme.onDark.text }]}>96.2%</Text>
+        <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Pass rate · {windowLabel}</Text>
+        <Text style={[styles.value, tabularNums, { color: theme.onDark.text }]}>{passRate}</Text>
       </View>
       <View style={styles.statsRow}>
         <View style={styles.statCell}>
-          <Text style={[styles.statValue, tabularNums, { color: theme.onDark.dangerWashText }]}>2</Text>
+          <Text style={[styles.statValue, tabularNums, { color: theme.onDark.dangerWashText }]}>{failed}</Text>
           <Text style={[styles.statLabel, { color: theme.onDark.textMuted }]}>Failed</Text>
         </View>
         <View style={styles.statCell}>
-          <Text style={[styles.statValue, tabularNums, { color: theme.onDark.warningWashText }]}>5</Text>
+          <Text style={[styles.statValue, tabularNums, { color: theme.onDark.warningWashText }]}>{flagged}</Text>
           <Text style={[styles.statLabel, { color: theme.onDark.textMuted }]}>Flagged</Text>
         </View>
       </View>

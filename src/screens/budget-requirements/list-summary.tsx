@@ -4,11 +4,9 @@ import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import type { Role, RequirementsFilter } from '@/data/budget-requirements/types';
+import type { RequirementsFilter } from '@/data/budget-requirements/types';
 
 export interface ListSummaryProps {
-  role: Role;
-  onRoleChange: (r: Role) => void;
   approvedTotal: string;
   pendingTotal: string;
   capLeft: string;
@@ -26,8 +24,6 @@ export interface ListSummaryProps {
 }
 
 export function ListSummary({
-  role,
-  onRoleChange,
   approvedTotal,
   pendingTotal,
   capLeft,
@@ -47,21 +43,6 @@ export function ListSummary({
 
   return (
     <View style={styles.wrap}>
-      <View style={[styles.segmented, { backgroundColor: theme.draftWash, borderColor: theme.border }]}>
-        <Pressable
-          onPress={() => onRoleChange('staff')}
-          style={[styles.segmentButton, { backgroundColor: role === 'staff' ? theme.surface : 'transparent', boxShadow: role === 'staff' ? theme.shadows.card : undefined }]}
-        >
-          <Text style={[styles.segmentLabel, { color: role === 'staff' ? theme.textPrimary : theme.textSecondary }]}>Staff</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => onRoleChange('admin')}
-          style={[styles.segmentButton, { backgroundColor: role === 'admin' ? theme.surface : 'transparent', boxShadow: role === 'admin' ? theme.shadows.card : undefined }]}
-        >
-          <Text style={[styles.segmentLabel, { color: role === 'admin' ? theme.textPrimary : theme.textSecondary }]}>Admin</Text>
-        </Pressable>
-      </View>
-
       <Card elevation="inverted" style={styles.capCard}>
         <View style={styles.capRow}>
           <View style={styles.gap5}>

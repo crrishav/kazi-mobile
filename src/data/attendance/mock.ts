@@ -1,10 +1,22 @@
-import type { AttendanceStatus, ClockStatus, MySummary, RollCallTotals, TeamMember, TeamMonthStats } from './types';
+import type { AttendanceStatus, ClockPunch, ClockStatus, MySummary, RollCallTotals, TeamMember, TeamMonthStats } from './types';
 
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const MONTH_LABEL = 'August 2026';
+/** AD ISO span of the displayed month — feeds the calendar's BS sub-label (§2.4). */
+export const MONTH_ISO_START = '2026-08-01';
+export const MONTH_ISO_END = '2026-08-31';
 export const WORKING_DAYS = 22;
 export const TODAY_DAY = 26;
 export const TARGET_SECONDS = 8 * 3600;
+
+/** Hours logged per calendar week this month, against a 48h (6×8h) target — the "Mine" weekly bar chart (§3.12). */
+export const WEEKLY_HOURS: { label: string; hours: number; target: number }[] = [
+  { label: 'Aug 1–2', hours: 15, target: 16 },
+  { label: 'Aug 3–9', hours: 46, target: 48 },
+  { label: 'Aug 10–16', hours: 38, target: 48 },
+  { label: 'Aug 17–23', hours: 49, target: 48 },
+  { label: 'Aug 24–26', hours: 20, target: 24 },
+];
 
 export const STATUS_LABELS: Record<AttendanceStatus, string> = {
   present: 'Present',
@@ -49,14 +61,53 @@ export const MY_SUMMARY: MySummary = {
 
 export const DEFAULT_CLOCK_STATUS: ClockStatus = { clockedIn: true, inTime: '08:12', outTime: null, elapsedSeconds: 6 * 3600 + 42 * 60 };
 
+export const TODAY_LABEL = 'Tue 26 Aug';
+
 export const TEAM: TeamMember[] = [
-  { id: 1, name: 'Anil Karki', role: 'Cutting', initials: 'AK', avatarTint: 'mint', status: 'present', times: '08:04 → —', hours: '6h 50m' },
-  { id: 2, name: 'Pramila Thapa', role: 'Sewing', initials: 'PT', avatarTint: 'clay', status: 'late', times: '09:22 → —', hours: '5h 32m' },
-  { id: 3, name: 'Rabin Bhandari', role: 'Finishing', initials: 'RB', avatarTint: 'draft', status: 'present', times: '07:58 → —', hours: '6h 56m' },
-  { id: 4, name: 'Manisha Gurung', role: 'Packing', initials: 'MG', avatarTint: 'amber', status: 'half', times: '08:10 → 12:30', hours: '4h 20m' },
-  { id: 5, name: 'Deepak Shrestha', role: 'QC', initials: 'DS', avatarTint: 'draft', status: 'absent', times: '— → —', hours: '0h 00m' },
-  { id: 6, name: 'Sunita Rai', role: 'Sewing', initials: 'SR', avatarTint: 'mint', status: 'leave', times: 'Approved leave', hours: '0h 00m' },
-  { id: 7, name: 'Bimal Katwal', role: 'Cutting', initials: 'BK', avatarTint: 'dark', status: 'present', times: '08:01 → —', hours: '6h 53m' },
+  { id: 1, name: 'Anil Karki', role: 'Cutting', initials: 'AK', avatarTint: 'mint', status: 'present', times: '08:04 → —', hours: '6h 50m', month: { present: 22, late: 1, absent: 0, half: 1, leave: 0, otHours: '9h 20m', hoursMTD: '176h 10m' } },
+  { id: 2, name: 'Pramila Thapa', role: 'Sewing', initials: 'PT', avatarTint: 'clay', status: 'late', times: '09:22 → —', hours: '5h 32m', month: { present: 18, late: 4, absent: 1, half: 1, leave: 0, otHours: '3h 05m', hoursMTD: '162h 40m' } },
+  { id: 3, name: 'Rabin Bhandari', role: 'Finishing', initials: 'RB', avatarTint: 'draft', status: 'present', times: '07:58 → —', hours: '6h 56m', month: { present: 23, late: 0, absent: 0, half: 0, leave: 1, otHours: '11h 45m', hoursMTD: '181h 05m' } },
+  { id: 4, name: 'Manisha Gurung', role: 'Packing', initials: 'MG', avatarTint: 'amber', status: 'half', times: '08:10 → 12:30', hours: '4h 20m', month: { present: 20, late: 2, absent: 0, half: 2, leave: 0, otHours: '1h 30m', hoursMTD: '156h 20m' } },
+  { id: 5, name: 'Deepak Shrestha', role: 'QC', initials: 'DS', avatarTint: 'draft', status: 'absent', times: '— → —', hours: '0h 00m', month: { present: 19, late: 1, absent: 3, half: 0, leave: 1, otHours: '0h 00m', hoursMTD: '148h 00m' } },
+  { id: 6, name: 'Sunita Rai', role: 'Sewing', initials: 'SR', avatarTint: 'mint', status: 'leave', times: 'Approved leave', hours: '0h 00m', month: { present: 17, late: 0, absent: 0, half: 0, leave: 6, otHours: '2h 10m', hoursMTD: '133h 15m' } },
+  { id: 7, name: 'Bimal Katwal', role: 'Cutting', initials: 'BK', avatarTint: 'dark', status: 'present', times: '08:01 → —', hours: '6h 53m', month: { present: 24, late: 0, absent: 0, half: 0, leave: 0, otHours: '14h 00m', hoursMTD: '188h 30m' } },
+];
+
+/** The signed-in "Mine" view persona — schedule + late-cut key into `schedule.ts`. */
+export const MY_NAME = 'Sita Rai';
+
+/** Recent GPS punches for the "Mine" persona — reference `clock_ins` collection (item 26). */
+export const CLOCK_PUNCHES: ClockPunch[] = [
+  {
+    id: 'ci-0825',
+    staffName: MY_NAME,
+    date: '2026-08-25',
+    clockedInAt: '2026-08-25T09:04:00+05:45',
+    clockedOutAt: '2026-08-25T17:36:00+05:45',
+    lat: 27.68159,
+    lng: 85.33702,
+    accuracyM: 18,
+    distanceToSiteM: 41,
+    bypassUsed: false,
+    status: 'Present',
+    lateMinutes: 4,
+    lateCutApplied: false,
+  },
+  {
+    id: 'ci-0822',
+    staffName: MY_NAME,
+    date: '2026-08-22',
+    clockedInAt: '2026-08-22T09:26:00+05:45',
+    clockedOutAt: '2026-08-22T17:40:00+05:45',
+    lat: 27.6817,
+    lng: 85.33681,
+    accuracyM: 24,
+    distanceToSiteM: 33,
+    bypassUsed: false,
+    status: 'Late',
+    lateMinutes: 26,
+    lateCutApplied: true,
+  },
 ];
 
 export const ROLL_CALL: RollCallTotals = { onRoll: 241, present: 213, late: 9, absent: 13, half: 6, leave: 6 };

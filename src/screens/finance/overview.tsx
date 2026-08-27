@@ -16,7 +16,7 @@ export interface OverviewProps {
 export function Overview({ expenses, onBrowseYears }: OverviewProps) {
   const theme = useTheme();
   const maxMargin = Math.max(...MARGINS);
-  const expenseSum = expenses.reduce((n, e) => n + e.amount, 0);
+  const expenseSum = expenses.reduce((n, e) => n + e.amountNPR, 0);
 
   return (
     <View style={styles.group}>
@@ -94,7 +94,7 @@ export function Overview({ expenses, onBrowseYears }: OverviewProps) {
       </View>
 
       {expenses.map((e) => {
-        const cat = CATEGORIES.find((c) => c.id === e.cat) ?? CATEGORIES[5];
+        const cat = CATEGORIES.find((c) => c.id === e.category) ?? CATEGORIES[5];
         return (
           <View key={e.id} style={[styles.expenseRow, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }]}>
             <View style={[styles.expenseTag, { backgroundColor: cat.bg }]}>
@@ -105,14 +105,14 @@ export function Overview({ expenses, onBrowseYears }: OverviewProps) {
                 {e.name}
               </Text>
               <Text style={[styles.expenseMeta, tabularNums, { color: theme.textSecondary }]} numberOfLines={1}>
-                {e.meta}
+                {e.note}
               </Text>
             </View>
             <View style={styles.expenseRight}>
-              <Text style={[styles.expenseAmount, tabularNums, { color: theme.textPrimary }]}>{rupees(e.amount)}</Text>
-              <View style={[styles.statusPill, { backgroundColor: e.status === 'paid' ? theme.accentWash : theme.dangerWash }]}>
-                <Text style={[styles.statusPillText, { color: e.status === 'paid' ? theme.accentWashText : theme.dangerWashText }]}>
-                  {e.status === 'paid' ? 'Paid' : 'Unpaid'}
+              <Text style={[styles.expenseAmount, tabularNums, { color: theme.textPrimary }]}>{rupees(e.amountNPR)}</Text>
+              <View style={[styles.statusPill, { backgroundColor: e.status === 'Paid' ? theme.accentWash : theme.dangerWash }]}>
+                <Text style={[styles.statusPillText, { color: e.status === 'Paid' ? theme.accentWashText : theme.dangerWashText }]}>
+                  {e.status}
                 </Text>
               </View>
             </View>

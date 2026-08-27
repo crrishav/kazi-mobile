@@ -46,3 +46,6 @@ yarn-error.*
 
 # gitignore itself
 .gitignore
+
+# Firebase service-account key — never commit
+key.json

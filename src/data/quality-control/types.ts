@@ -10,6 +10,8 @@ export interface QcPoint {
 
 export interface QueueItem {
   id: string;
+  /** The `production` batch this QC entry is for (item 24). */
+  batchId: string;
   product: string;
   code: string;
   qty: string;
@@ -17,6 +19,24 @@ export interface QueueItem {
   gate: string;
   priority: QueuePriority;
   waiting: string;
+}
+
+/** A completed QC inspection record (reference `qc_logs` collection, item 24). */
+export interface QcLog {
+  id: string;
+  batchId: string;
+  code: string;
+  product: string;
+  /** AD ISO date. */
+  date: string;
+  checkedCount: number;
+  passedCount: number;
+  defects: number;
+  /** 0–100. */
+  passRate: number;
+  verdict: CheckVerdict;
+  defectNotes: string;
+  inspector: string;
 }
 
 export interface QcPhoto {

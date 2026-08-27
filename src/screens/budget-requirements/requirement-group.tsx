@@ -2,11 +2,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
 import { Icon, type IconName } from '@/components/ui/icon';
+import { Money } from '@/components/ui/money';
 import { StatusPill, type StatusKind } from '@/components/ui/status-pill';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import { CATEGORY, STATUS } from '@/data/budget-requirements/mock';
-import { money, priorityBarColors } from '@/data/budget-requirements/utils';
+import { priorityBarColors } from '@/data/budget-requirements/utils';
 import type { Category, Requirement, RequestStatus } from '@/data/budget-requirements/types';
 
 const PILL_KIND: Record<RequestStatus, StatusKind> = {
@@ -16,10 +17,12 @@ const PILL_KIND: Record<RequestStatus, StatusKind> = {
 };
 
 const CATEGORY_ICON: Record<Category, IconName> = {
+  'Raw Materials': 'package',
+  Tools: 'tool',
   Machinery: 'settings',
-  Equipment: 'tool',
-  Materials: 'package',
-  'Office supplies': 'file-text',
+  'Office Supplies': 'file-text',
+  'Safety Equipment': 'shield',
+  Other: 'grid',
 };
 
 export interface RequirementGroupProps {
@@ -63,10 +66,10 @@ export function RequirementGroup({ title, total, rows, isAdmin, onOpen }: Requir
                       {r.item}
                     </Text>
                     <Text style={[styles.itemSub, tabularNums, { color: theme.textSecondary }]} numberOfLines={1}>
-                      {r.cat} · {r.who} · {r.team}
+                      {r.cat} · {r.quantity} · {r.who}
                     </Text>
                   </View>
-                  <Text style={[styles.amount, tabularNums, { color: theme.textPrimary }]}>{money(r.amount)}</Text>
+                  <Money npr={r.amount} align="right" size={15} />
                 </View>
                 <View style={styles.bottomLine}>
                   <StatusPill status={PILL_KIND[r.status]} label={status.label} />

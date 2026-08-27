@@ -1,12 +1,28 @@
 import { simulateLatency } from '../mock/delay';
-import { seedQueue } from './mock';
-import type { QueueItem } from './types';
+import { seedQcLogs, seedQueue } from './mock';
+import type { QcLog, QueueItem } from './types';
 
 let db: QueueItem[] = [...seedQueue];
+let logsDb: QcLog[] = seedQcLogs.map((l) => ({ ...l }));
 
 export async function fetchQueue(): Promise<QueueItem[]> {
   await simulateLatency();
   return [...db];
+}
+
+export async function fetchQcLogs(): Promise<QcLog[]> {
+  await simulateLatency(250);
+  return [...logsDb];
+}
+
+export async function addQcLog(log: QcLog): Promise<void> {
+  await simulateLatency(200);
+  logsDb = [log, ...logsDb];
+}
+
+export async function restoreQcLogs(previous: QcLog[]): Promise<void> {
+  await simulateLatency(120);
+  logsDb = [...previous];
 }
 
 export async function removeFromQueue(id: string): Promise<void> {

@@ -1,43 +1,88 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useAuth } from '@/auth/auth-context';
+import { canApprove } from '@/auth/permissions';
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
+import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { GBP_RATE, toGBP } from '@/lib/currency';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import { useAddRequirement, useRequirements, useRestoreRequirements, useUpdateRequirement } from '@/data/budget-requirements/hooks';
-import { CAP, STATUS, seedRequirements } from '@/data/budget-requirements/mock';
-import { money, short } from '@/data/budget-requirements/utils';
-import type { Requirement, RequirementDraft, RequirementsFilter, RequirementsView, RequestStatus, Role } from '@/data/budget-requirements/types';
+import {
+  useAddBudgetRequest,
+  useAddRequirement,
+  useBudgetRequests,
+  useRequirements,
+  useRestoreBudgetRequests,
+  useRestoreRequirements,
+  useUpdateBudgetRequest,
+  useUpdateRequirement,
+} from '@/data/budget-requirements/hooks';
+import { CAP, REVIEW_STATUS, STATUS, seedRequirements } from '@/data/budget-requirements/mock';
+import { gbp, money, short } from '@/data/budget-requirements/utils';
+import type {
+  BudgetRequest,
+  BudgetRequestDraft,
+  BudgetTab,
+  Requirement,
+  RequirementDraft,
+  RequirementsFilter,
+  RequirementsView,
+  RequestStatus,
+  ReviewStatus,
+} from '@/data/budget-requirements/types';
 
 import { AddSheet } from './add-sheet';
+import { BudgetTabs } from './budget-tabs';
 import { DetailView } from './detail-view';
 import { ListSummary } from './list-summary';
+import { RequestDetailView } from './request-detail-view';
+import { RequestGroup } from './request-group';
+import { RequestSheet } from './request-sheet';
 import { RequirementGroup } from './requirement-group';
+import { ReviewFilters } from './review-filters';
 
 function emptyDraft(): RequirementDraft {
-  return { cat: 'Machinery', item: '', amount: '', priority: 'Medium', by: 'This week', note: '', quote: false };
+  return { cat: 'Raw Materials', item: '', quantity: '', amount: '', amountGBP: '', autoSide: null, priority: 'Medium', by: 'This week', note: '', quote: false };
+}
+
+function emptyRequestDraft(): BudgetRequestDraft {
+  return { title: '', category: 'Equipment', amountGBP: '', urgency: 'Medium', justification: '' };
 }
 
 export function BudgetRequirements() {
   const theme = useTheme();
   const toast = useToast();
+  const { profile, can } = useAuth();
 
   const { data: requirements } = useRequirements();
+  const { data: requests } = useBudgetRequests();
   const addRequirement = useAddRequirement();
   const updateRequirement = useUpdateRequirement();
   const restoreRequirements = useRestoreRequirements();
+  const addBudgetRequest = useAddBudgetRequest();
+  const updateBudgetRequest = useUpdateBudgetRequest();
+  const restoreBudgetRequests = useRestoreBudgetRequests();
 
-  const [role, setRole] = useState<Role>('staff');
+  const canRaise = can('budget-requirements');
+  const isAdmin = canApprove(profile);
+
+  const [tab, setTab] = useState<BudgetTab>('requests');
   const [filter, setFilter] = useState<RequirementsFilter>('all');
+  const [reqStatus, setReqStatus] = useState<'all' | ReviewStatus>('all');
+  const [reqUrgency, setReqUrgency] = useState<string>('all');
   const [view, setView] = useState<RequirementsView>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedReqId, setSelectedReqId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [requestOpen, setRequestOpen] = useState(false);
   const [draft, setDraft] = useState<RequirementDraft>(emptyDraft());
+  const [reqDraft, setReqDraft] = useState<BudgetRequestDraft>(emptyRequestDraft());
 
-  if (!requirements) {
+  if (!requirements || !requests) {
     return (
       <View style={[styles.loading, { backgroundColor: theme.background }]}>
         <ActivityIndicator color={theme.accent} />
@@ -45,7 +90,29 @@ export function BudgetRequirements() {
     );
   }
 
-  const isAdmin = role === 'admin';
+  const pendingReqs = requirements.filter((r) => r.status === 'pending');
+  const pendingRequests = requests.filter((r) => r.status === 'Pending');
+  const pendingByTab: Record<BudgetTab, number> = { requests: pendingRequests.length, requirements: pendingReqs.length };
+
+  const flash = (message: string, undo: () => void) => {
+    toast.show({ message, tone: 'ok', action: { label: 'Undo', onPress: undo } });
+  };
+
+  const openDetail = (id: string) => {
+    setSelectedId(id);
+    setView('detail');
+  };
+  const openRequestDetail = (id: string) => {
+    setSelectedReqId(id);
+    setView('detail');
+  };
+  const backToList = () => {
+    setView('list');
+    setSelectedId(null);
+    setSelectedReqId(null);
+  };
+
+  // ---- Requirements tab ----
   const selected = requirements.find((r) => r.id === selectedId) ?? null;
 
   let rows = requirements;
@@ -53,9 +120,8 @@ export function BudgetRequirements() {
   if (filter === 'high') rows = rows.filter((r) => r.priority === 'High');
   if (filter === 'mine') rows = rows.filter((r) => r.who === 'Sita R.');
 
-  const pending = requirements.filter((r) => r.status === 'pending');
   const approvedTotal = requirements.filter((r) => r.status === 'approved').reduce((n, r) => n + r.amount, 0);
-  const pendingTotal = pending.reduce((n, r) => n + r.amount, 0);
+  const pendingTotal = pendingReqs.reduce((n, r) => n + r.amount, 0);
   const pct = (n: number) => Math.min(100, Math.round((n / CAP) * 100));
 
   const buckets: { key: string; title: string; rows: Requirement[] }[] = [
@@ -65,29 +131,16 @@ export function BudgetRequirements() {
 
   const filters: { id: RequirementsFilter; label: string; count: number }[] = [
     { id: 'all', label: 'All', count: requirements.length },
-    { id: 'pending', label: 'Pending', count: pending.length },
+    { id: 'pending', label: 'Pending', count: pendingReqs.length },
     { id: 'high', label: 'High', count: requirements.filter((r) => r.priority === 'High').length },
     { id: 'mine', label: isAdmin ? 'From Sita' : 'Mine', count: requirements.filter((r) => r.who === 'Sita R.').length },
   ];
-
-  const flash = (message: string, before: Requirement[]) => {
-    toast.show({ message, tone: 'ok', action: { label: 'Undo', onPress: () => restoreRequirements.mutate(before) } });
-  };
-
-  const openDetail = (id: string) => {
-    setSelectedId(id);
-    setView('detail');
-  };
-  const backToList = () => {
-    setView('list');
-    setSelectedId(null);
-  };
 
   const decide = (item: Requirement, status: RequestStatus) => {
     const before = requirements;
     updateRequirement.mutate({ id: item.id, updates: { status, decidedBy: 'A. Karki' } });
     backToList();
-    flash(`${item.ref} ${STATUS[status].label.toLowerCase()} · ${money(item.amount)}`, before);
+    flash(`${item.ref} ${STATUS[status].label.toLowerCase()} · ${money(item.amount)}`, () => restoreRequirements.mutate(before));
   };
 
   const openAdd = () => {
@@ -101,6 +154,8 @@ export function BudgetRequirements() {
       toast.show({ message: 'Add an estimated amount to submit', tone: 'bad' });
       return;
     }
+    const gbpTyped = parseFloat(draft.amountGBP.replace(/[^0-9.]/g, ''));
+    const amountGBP = gbpTyped > 0 ? Math.round(gbpTyped) : Math.round(toGBP(amount));
     const before = requirements;
     const n = 185 + (requirements.length - seedRequirements.length);
     const entry: Requirement = {
@@ -108,7 +163,9 @@ export function BudgetRequirements() {
       ref: `REQ-0${n}`,
       item: draft.item.trim() || 'Unspecified requirement',
       cat: draft.cat,
+      quantity: draft.quantity.trim() || '—',
       amount,
+      amountGBP,
       priority: draft.priority,
       status: 'pending',
       who: 'Sita R.',
@@ -121,10 +178,67 @@ export function BudgetRequirements() {
     };
     addRequirement.mutate(entry);
     setAddOpen(false);
-    flash(`${entry.ref} sent for approval`, before);
+    flash(`${entry.ref} sent for approval`, () => restoreRequirements.mutate(before));
   };
 
-  if (view === 'detail' && selected) {
+  // ---- Budget Requests tab ----
+  const selectedRequest = requests.find((r) => r.id === selectedReqId) ?? null;
+
+  const requestRows = requests
+    .filter((r) => reqStatus === 'all' || r.status === reqStatus)
+    .filter((r) => reqUrgency === 'all' || r.urgency === reqUrgency);
+  const requestBuckets: { key: string; title: string; rows: BudgetRequest[] }[] = [
+    { key: 'pending', title: isAdmin ? 'Awaiting your decision' : 'Waiting for a UK director', rows: requestRows.filter((r) => r.status === 'Pending') },
+    { key: 'decided', title: 'Decided', rows: requestRows.filter((r) => r.status !== 'Pending') },
+  ].filter((b) => b.rows.length);
+  const requestStatusOptions = [
+    { id: 'all', label: 'All', count: requests.length },
+    ...(['Pending', 'Approved', 'Rejected'] as ReviewStatus[]).map((s) => ({ id: s, label: s, count: requests.filter((r) => r.status === s).length })),
+  ];
+  const approvedGBP = requests.filter((r) => r.status === 'Approved').reduce((n, r) => n + r.amountGBP, 0);
+  const pendingGBP = pendingRequests.reduce((n, r) => n + r.amountGBP, 0);
+
+  const openRequest = () => {
+    setReqDraft(emptyRequestDraft());
+    setRequestOpen(true);
+  };
+
+  const handleSubmitRequest = () => {
+    const amountGBP = parseFloat(reqDraft.amountGBP.replace(/[^0-9.]/g, '')) || 0;
+    if (amountGBP <= 0 || reqDraft.justification.trim().length < 12) {
+      toast.show({ message: 'Add an amount and a justification', tone: 'bad' });
+      return;
+    }
+    const before = requests;
+    const nextNum = 43 + requests.filter((r) => r.id.startsWith('n')).length;
+    const entry: BudgetRequest = {
+      id: `n${Date.now()}`,
+      ref: `BR-00${nextNum}`,
+      title: reqDraft.title.trim() || 'Untitled request',
+      category: reqDraft.category,
+      amountGBP,
+      amountNPR: Math.round(amountGBP * GBP_RATE),
+      urgency: reqDraft.urgency,
+      status: 'Pending',
+      justification: reqDraft.justification.trim(),
+      requestedBy: profile?.name ?? 'You',
+      requestedByRole: profile?.jobRole ?? 'Staff',
+      date: '23 Aug',
+    };
+    addBudgetRequest.mutate(entry);
+    setRequestOpen(false);
+    flash(`${entry.ref} sent to the UK directors`, () => restoreBudgetRequests.mutate(before));
+  };
+
+  const decideRequest = (item: BudgetRequest, status: ReviewStatus) => {
+    const before = requests;
+    updateBudgetRequest.mutate({ id: item.id, updates: { status, reviewedBy: profile?.name ?? 'UK director' } });
+    backToList();
+    flash(`${item.ref} ${REVIEW_STATUS[status].label.toLowerCase()} · ${gbp(item.amountGBP)}`, () => restoreBudgetRequests.mutate(before));
+  };
+
+  // ---- Detail views ----
+  if (view === 'detail' && tab === 'requirements' && selected) {
     return (
       <View style={[styles.flex, { backgroundColor: theme.background }]}>
         <ScreenHeader title={selected.item} subtitle={`${selected.ref} · ${selected.cat}`} onBack={backToList} />
@@ -141,47 +255,130 @@ export function BudgetRequirements() {
     );
   }
 
+  if (view === 'detail' && tab === 'requests' && selectedRequest) {
+    return (
+      <View style={[styles.flex, { backgroundColor: theme.background }]}>
+        <ScreenHeader title={selectedRequest.title} subtitle={`${selectedRequest.ref} · ${selectedRequest.category}`} onBack={backToList} />
+        <ScrollView contentContainerStyle={styles.content}>
+          <RequestDetailView
+            item={selectedRequest}
+            canDecide={selectedRequest.status === 'Pending' && isAdmin}
+            awaitingReviewer={selectedRequest.status === 'Pending' && !isAdmin}
+            onApprove={() => decideRequest(selectedRequest, 'Approved')}
+            onReject={() => decideRequest(selectedRequest, 'Rejected')}
+          />
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <ScreenHeader title="Requirements" subtitle={`${requirements.length} raised · August 2026`} />
-      <ListSummary
-        role={role}
-        onRoleChange={(r) => {
-          setRole(r);
-          setView('list');
-          setSelectedId(null);
-        }}
-        approvedTotal={short(approvedTotal)}
-        pendingTotal={short(pendingTotal)}
-        capLeft={short(Math.max(0, CAP - approvedTotal))}
-        capPct={pct(approvedTotal)}
-        pendPct={pct(pendingTotal)}
-        capLine={`${pct(approvedTotal)}% committed`}
-        capOf={`cap ${short(CAP)}`}
-        isAdmin={isAdmin}
-        queueTitle={pending.length === 1 ? '1 request needs your decision' : `${pending.length} requests need your decision`}
-        queueSub={pending.length ? `${short(pendingTotal)} · oldest ${pending[pending.length - 1].ref}` : 'queue clear'}
-        onShowPending={() => setFilter('pending')}
-        filters={filters}
-        activeFilter={filter}
-        onFilterChange={setFilter}
-      />
+      <ScreenHeader title="Budget & Requirements" subtitle={`${requests.length + requirements.length} open · August 2026`} />
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {rows.length === 0 ? (
-          <EmptyState icon="file-text" title="Nothing waiting here" message={`Clear the filter to see all ${requirements.length} requests raised this month.`} />
-        ) : (
-          buckets.map((b) => <RequirementGroup key={b.key} title={b.title} total={short(b.rows.reduce((n, r) => n + r.amount, 0))} rows={b.rows} isAdmin={isAdmin} onOpen={openDetail} />)
-        )}
-      </ScrollView>
+      <View style={styles.tabsWrap}>
+        <BudgetTabs
+          active={tab}
+          pending={pendingByTab}
+          onChange={(t) => {
+            setTab(t);
+            backToList();
+          }}
+        />
+      </View>
 
-      <Pressable
-        onPress={openAdd}
-        style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}
-      >
-        <Icon name="plus" size={18} color={theme.onDark.accent} />
-        <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>New request</Text>
-      </Pressable>
+      {tab === 'requirements' ? (
+        <>
+          <ListSummary
+            approvedTotal={short(approvedTotal)}
+            pendingTotal={short(pendingTotal)}
+            capLeft={short(Math.max(0, CAP - approvedTotal))}
+            capPct={pct(approvedTotal)}
+            pendPct={pct(pendingTotal)}
+            capLine={`${pct(approvedTotal)}% committed`}
+            capOf={`cap ${short(CAP)}`}
+            isAdmin={isAdmin}
+            queueTitle={pendingReqs.length === 1 ? '1 request needs your decision' : `${pendingReqs.length} requests need your decision`}
+            queueSub={pendingReqs.length ? `${short(pendingTotal)} · oldest ${pendingReqs[pendingReqs.length - 1].ref}` : 'queue clear'}
+            onShowPending={() => setFilter('pending')}
+            filters={filters}
+            activeFilter={filter}
+            onFilterChange={setFilter}
+          />
+
+          <ScrollView contentContainerStyle={styles.content}>
+            <PermissionNotice section="budget-requirements" message="View only — you can’t raise or decide requests." />
+            {rows.length === 0 ? (
+              <EmptyState icon="file-text" title="Nothing waiting here" message={`Clear the filter to see all ${requirements.length} requests raised this month.`} />
+            ) : (
+              buckets.map((b) => (
+                <RequirementGroup key={b.key} title={b.title} total={short(b.rows.reduce((n, r) => n + r.amount, 0))} rows={b.rows} isAdmin={isAdmin} onOpen={openDetail} />
+              ))
+            )}
+          </ScrollView>
+
+          {canRaise ? (
+            <Pressable
+              onPress={openAdd}
+              style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}
+            >
+              <Icon name="plus" size={18} color={theme.onDark.accent} />
+              <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>New requirement</Text>
+            </Pressable>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <ScrollView contentContainerStyle={styles.content}>
+            <PermissionNotice section="budget-requirements" message="View only — you can’t raise or decide requests." />
+
+            <View style={[styles.requestStat, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={styles.requestStatCell}>
+                <Text style={[styles.requestStatValue, { color: theme.textPrimary }]}>{gbp(pendingGBP)}</Text>
+                <Text style={[styles.requestStatLabel, { color: theme.textSecondary }]}>Pending · {pendingRequests.length}</Text>
+              </View>
+              <View style={[styles.requestStatDivider, { backgroundColor: theme.border }]} />
+              <View style={styles.requestStatCell}>
+                <Text style={[styles.requestStatValue, { color: theme.textPrimary }]}>{gbp(approvedGBP)}</Text>
+                <Text style={[styles.requestStatLabel, { color: theme.textSecondary }]}>Approved this month</Text>
+              </View>
+            </View>
+
+            <ReviewFilters
+              status={reqStatus}
+              urgency={reqUrgency}
+              statusOptions={requestStatusOptions}
+              onStatus={(id) => setReqStatus(id as 'all' | ReviewStatus)}
+              onUrgency={setReqUrgency}
+            />
+
+            {requestBuckets.length === 0 ? (
+              <EmptyState icon="file-text" title="No requests here" message="Clear the filters to see every budget request." />
+            ) : (
+              requestBuckets.map((b) => (
+                <RequestGroup
+                  key={b.key}
+                  title={b.title}
+                  total={gbp(b.rows.reduce((n, r) => n + r.amountGBP, 0))}
+                  rows={b.rows}
+                  isReviewer={isAdmin}
+                  onOpen={openRequestDetail}
+                />
+              ))
+            )}
+          </ScrollView>
+
+          {canRaise ? (
+            <Pressable
+              onPress={openRequest}
+              style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}
+            >
+              <Icon name="plus" size={18} color={theme.onDark.accent} />
+              <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>New request</Text>
+            </Pressable>
+          ) : null}
+        </>
+      )}
 
       <AddSheet
         visible={addOpen}
@@ -191,6 +388,15 @@ export function BudgetRequirements() {
         onChange={(p) => setDraft((d) => ({ ...d, ...p }))}
         onSubmit={handleSubmit}
       />
+
+      <RequestSheet
+        visible={requestOpen}
+        draft={reqDraft}
+        who={`Raised as ${profile?.name ?? 'You'}${profile?.jobRole ? ` · ${profile.jobRole}` : ''}`}
+        onClose={() => setRequestOpen(false)}
+        onChange={(p) => setReqDraft((d) => ({ ...d, ...p }))}
+        onSubmit={handleSubmitRequest}
+      />
     </View>
   );
 }
@@ -198,7 +404,13 @@ export function BudgetRequirements() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  tabsWrap: { paddingHorizontal: 20, paddingBottom: 12 },
   content: { padding: 20, paddingTop: 4, paddingBottom: 110, gap: 16 },
+  requestStat: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, borderWidth: 1, padding: 16 },
+  requestStatCell: { flex: 1, gap: 4 },
+  requestStatDivider: { width: 1, alignSelf: 'stretch', marginHorizontal: 14 },
+  requestStatValue: { fontFamily: fontFamily.semibold, fontSize: 20, letterSpacing: -0.02 * 20 },
+  requestStatLabel: { fontFamily: fontFamily.mono, fontSize: 10, letterSpacing: 0.08 * 10, textTransform: 'uppercase' },
   fab: {
     position: 'absolute',
     right: 20,

@@ -6,27 +6,32 @@ import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { ACCOUNTS, METHODS, PILL, VAT_RATE } from '@/data/billing/mock';
+import { ACCOUNTS, INVOICE_PILL, METHODS, VAT_RATE } from '@/data/billing/mock';
 import type { Invoice } from '@/data/billing/types';
-import { balance, money, n0, n2, npr, paid, status, subtotal, total, vat } from '@/data/billing/utils';
+import { appliesVAT, balance, discountAmt, money, n0, n2, npr, paid, statusFull, subtotal, taxable, total, vat } from '@/data/billing/utils';
 
 export interface DetailViewProps {
   invoice: Invoice;
+  canEdit?: boolean;
   onAddPayment: () => void;
   onOpenPdf: () => void;
+  onEdit?: () => void;
+  onCancel?: () => void;
 }
 
-export function DetailView({ invoice: v, onAddPayment, onOpenPdf }: DetailViewProps) {
+export function DetailView({ invoice: v, canEdit = false, onAddPayment, onOpenPdf, onEdit, onCancel }: DetailViewProps) {
   const theme = useTheme();
-  const st = status(v);
-  const pill = PILL[st];
+  const st = statusFull(v);
+  const pill = INVOICE_PILL[st];
   const tot = total(v);
   const pd = paid(v);
   const bal = balance(v);
   const canPay = !v.cancelled && bal > 0.5;
-  const paidPct = Math.min(100, (pd / tot) * 100);
-  const bigLabel = st === 'collected' ? 'Collected in full' : v.cancelled ? 'Voided value' : 'Balance due';
-  const bigValue = npr((st === 'collected' || v.cancelled ? tot : bal) * v.rate);
+  const canCancel = !v.cancelled && pd < 0.5;
+  const paidPct = tot > 0 ? Math.min(100, (pd / tot) * 100) : 0;
+  const disc = discountAmt(v);
+  const bigLabel = st === 'Paid' ? 'Collected in full' : v.cancelled ? 'Voided value' : 'Balance due';
+  const bigValue = npr((st === 'Paid' || v.cancelled ? tot : bal) * v.rate);
 
   return (
     <Animated.View entering={FadeInUp.duration(220)} style={styles.wrap}>
@@ -73,6 +78,23 @@ export function DetailView({ invoice: v, onAddPayment, onOpenPdf }: DetailViewPr
         </View>
       ) : null}
 
+      {v.clientName || v.clientPAN || v.clientPhone || v.clientAddress ? (
+        <Card elevation="raised" style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Bill to</Text>
+            {v.clientPAN ? <Text style={[styles.sectionMeta, { color: theme.textSecondary }]}>PAN {v.clientPAN}</Text> : null}
+          </View>
+          {v.clientName ? <Text style={[styles.billToLine, { color: theme.textPrimary }]}>{v.clientName}</Text> : null}
+          {v.clientAddress ? <Text style={[styles.billToMeta, { color: theme.textSecondary }]}>{v.clientAddress}</Text> : null}
+          {v.clientPhone ? <Text style={[styles.billToMeta, { color: theme.textSecondary }]}>{v.clientPhone}</Text> : null}
+          {v.paymentType ? (
+            <Text style={[styles.billToMeta, { color: theme.textSecondary }]}>
+              Payment routes to {v.paymentType}{v.paymentType === 'Bank' && v.bankName ? ` · ${v.bankName}` : ''}
+            </Text>
+          ) : null}
+        </Card>
+      ) : null}
+
       <Card elevation="raised" style={styles.linesCard}>
         <View style={[styles.linesHeader, { backgroundColor: theme.surfaceRaised, borderBottomColor: theme.background }]}>
           <Text style={[styles.linesHeaderText, styles.flex1, { color: theme.textSecondary }]}>Line items · {v.cur}</Text>
@@ -84,7 +106,7 @@ export function DetailView({ invoice: v, onAddPayment, onOpenPdf }: DetailViewPr
             <View style={[styles.flex1, styles.gap3]}>
               <Text style={[styles.lineDesc, { color: theme.textPrimary }]}>{l.desc}</Text>
               <Text style={[styles.lineMeta, tabularNums, { color: theme.textSecondary }]}>
-                {l.challan} · {n2(l.rate)} / pc
+                {l.challan ? `${l.challan} · ` : ''}{n2(l.rate)} / {l.unit ?? 'pc'}
               </Text>
             </View>
             <Text style={[styles.lineValue, styles.qtyCol, tabularNums, { color: theme.textPrimary }]}>{n0(l.qty)}</Text>
@@ -95,9 +117,23 @@ export function DetailView({ invoice: v, onAddPayment, onOpenPdf }: DetailViewPr
           <Text style={[styles.flex1, styles.totalsLabel, { color: theme.textSecondary }]}>Subtotal</Text>
           <Text style={[styles.totalsValue, tabularNums, { color: theme.textPrimary }]}>{money(v.cur, subtotal(v))}</Text>
         </View>
+        {disc > 0.5 ? (
+          <>
+            <View style={[styles.totalsRow, { borderTopColor: theme.background, backgroundColor: theme.surfaceRaised }]}>
+              <Text style={[styles.flex1, styles.totalsLabel, { color: theme.textSecondary }]}>
+                Discount{v.discountMode === 'pct' && v.discountPct ? ` · ${v.discountPct}%` : ''}
+              </Text>
+              <Text style={[styles.totalsValue, tabularNums, { color: theme.textPrimary }]}>− {money(v.cur, disc)}</Text>
+            </View>
+            <View style={[styles.totalsRow, { borderTopColor: theme.background, backgroundColor: theme.surfaceRaised }]}>
+              <Text style={[styles.flex1, styles.totalsLabel, { color: theme.textSecondary }]}>Taxable amount</Text>
+              <Text style={[styles.totalsValue, tabularNums, { color: theme.textPrimary }]}>{money(v.cur, taxable(v))}</Text>
+            </View>
+          </>
+        ) : null}
         <View style={[styles.totalsRow, { borderTopColor: theme.background, backgroundColor: theme.surfaceRaised }]}>
-          <Text style={[styles.flex1, styles.totalsLabel, { color: theme.textSecondary }]}>{v.export ? 'VAT · zero-rated export' : `VAT ${VAT_RATE}%`}</Text>
-          <Text style={[styles.totalsValue, tabularNums, { color: theme.textPrimary }]}>{v.export ? '—' : money(v.cur, vat(v))}</Text>
+          <Text style={[styles.flex1, styles.totalsLabel, { color: theme.textSecondary }]}>{appliesVAT(v) ? `VAT ${VAT_RATE}%` : 'VAT · zero-rated / export'}</Text>
+          <Text style={[styles.totalsValue, tabularNums, { color: theme.textPrimary }]}>{appliesVAT(v) ? money(v.cur, vat(v)) : '—'}</Text>
         </View>
         <View style={[styles.grandRow, { borderTopColor: theme.border }]}>
           <Text style={[styles.flex1, styles.grandLabel, { color: theme.textPrimary }]}>Invoice total</Text>
@@ -165,6 +201,15 @@ export function DetailView({ invoice: v, onAddPayment, onOpenPdf }: DetailViewPr
         />
         <Button label="PDF" variant="secondary" onPress={onOpenPdf} style={styles.pdfButton} />
       </View>
+
+      {canEdit && (onEdit || onCancel) ? (
+        <View style={styles.actionsRow}>
+          {onEdit ? <Button label="Edit invoice" variant="secondary" onPress={onEdit} style={styles.flex1} /> : null}
+          {onCancel && canCancel ? (
+            <Button label="Cancel invoice" variant="dangerOutline" onPress={onCancel} style={styles.flex1} />
+          ) : null}
+        </View>
+      ) : null}
     </Animated.View>
   );
 }
@@ -222,6 +267,8 @@ const styles = StyleSheet.create({
   paymentAmount: { fontSize: 13.5, fontWeight: '600' },
   paymentFxNote: { fontFamily: fontFamily.mono, fontSize: 10 },
   noPayments: { fontSize: 13, lineHeight: 13 * 1.5 },
+  billToLine: { fontSize: 14, fontWeight: '600' },
+  billToMeta: { fontSize: 12.5, lineHeight: 12.5 * 1.45 },
   actionsRow: { flexDirection: 'row', gap: 8, paddingBottom: 4 },
   payButton: { flex: 1.4, height: 52 },
   pdfButton: { flex: 1, height: 52 },

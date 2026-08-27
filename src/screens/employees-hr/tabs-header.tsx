@@ -9,25 +9,31 @@ export interface TabsHeaderProps {
   onChange: (v: EmployeeView) => void;
 }
 
+const TABS: { id: EmployeeView; label: string; admin?: boolean }[] = [
+  { id: 'directory', label: 'Directory' },
+  { id: 'orgchart', label: 'Org chart' },
+  { id: 'payroll', label: 'Payroll', admin: true },
+];
+
 export function TabsHeader({ view, onChange }: TabsHeaderProps) {
   const theme = useTheme();
 
   return (
     <View style={styles.outer}>
       <View style={[styles.segmented, { backgroundColor: theme.draftWash }]}>
-        <Pressable
-          onPress={() => onChange('directory')}
-          style={[styles.segmentButton, { backgroundColor: view === 'directory' ? theme.surface : 'transparent', boxShadow: view === 'directory' ? theme.shadows.card : undefined }]}
-        >
-          <Text style={[styles.segmentLabel, { color: view === 'directory' ? theme.textPrimary : theme.textSecondary }]}>Directory</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => onChange('payroll')}
-          style={[styles.segmentButton, styles.payrollButton, { backgroundColor: view === 'payroll' ? theme.surface : 'transparent', boxShadow: view === 'payroll' ? theme.shadows.card : undefined }]}
-        >
-          <Text style={[styles.segmentLabel, { color: view === 'payroll' ? theme.textPrimary : theme.textSecondary }]}>Payroll</Text>
-          <Text style={[styles.adminBadge, { color: view === 'payroll' ? theme.textPrimary : theme.textSecondary }]}>ADMIN</Text>
-        </Pressable>
+        {TABS.map((t) => {
+          const on = view === t.id;
+          return (
+            <Pressable
+              key={t.id}
+              onPress={() => onChange(t.id)}
+              style={[styles.segmentButton, t.admin && styles.payrollButton, { backgroundColor: on ? theme.surface : 'transparent', boxShadow: on ? theme.shadows.card : undefined }]}
+            >
+              <Text style={[styles.segmentLabel, { color: on ? theme.textPrimary : theme.textSecondary }]}>{t.label}</Text>
+              {t.admin ? <Text style={[styles.adminBadge, { color: on ? theme.textPrimary : theme.textSecondary }]}>ADMIN</Text> : null}
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );

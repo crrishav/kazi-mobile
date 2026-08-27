@@ -10,7 +10,14 @@
     "plugins": [
       "expo-router",
       "expo-splash-screen",
-      "expo-font"
+      "expo-font",
+      "expo-sharing",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Kazi uses your location to confirm you're at the workshop when you clock in."
+        }
+      ]
     ],
     "scheme": "kazimobile",
     "ios": {

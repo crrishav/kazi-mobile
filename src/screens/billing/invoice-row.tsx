@@ -4,9 +4,9 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Avatar } from '@/components/ui/avatar';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { CLIENTS, PILL } from '@/data/billing/mock';
+import { CLIENTS, INVOICE_PILL } from '@/data/billing/mock';
 import type { Invoice } from '@/data/billing/types';
-import { money, npr, nprOf, paid, status, total as invTotal } from '@/data/billing/utils';
+import { money, npr, nprOf, paid, statusFull, total as invTotal } from '@/data/billing/utils';
 
 export interface InvoiceRowProps {
   invoice: Invoice;
@@ -18,14 +18,18 @@ export interface InvoiceRowProps {
 export function InvoiceRow({ invoice: v, index, showFx, onPress }: InvoiceRowProps) {
   const theme = useTheme();
   const client = CLIENTS[v.client];
-  const st = status(v);
-  const pill = PILL[st];
+  const st = statusFull(v);
+  const pill = INVOICE_PILL[st];
   const tot = invTotal(v);
   const pd = paid(v);
-  const part = st === 'accepted' && pd > 0.5;
-  const late = v.dueDays < 0 && st === 'accepted';
-  const challanLabel = v.challans.length > 1 ? `${v.challans[0].no} +${v.challans.length - 1}` : v.challans[0].no;
-  const due = v.cancelled ? 'voided' : st === 'collected' ? 'settled' : late ? `due ${v.due} · ${Math.abs(v.dueDays)}d late` : `due ${v.due}`;
+  const part = st === 'Partial';
+  const late = st === 'Overdue';
+  const challanLabel = v.challans.length
+    ? v.challans.length > 1
+      ? `${v.challans[0].no} +${v.challans.length - 1}`
+      : v.challans[0].no
+    : v.so || v.ref;
+  const due = v.cancelled ? 'voided' : st === 'Paid' ? 'settled' : late ? `due ${v.due} · ${Math.abs(v.dueDays)}d late` : `due ${v.due}`;
   const paidPct = Math.min(100, (pd / tot) * 100);
 
   return (

@@ -1,5 +1,7 @@
 import type { LibraryItem, StockItem, StockMovement } from './types';
 
+const daysAgoISO = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+
 export const seedStock: StockItem[] = [
   { id: 's1', name: 'Anti-Grunge Cotton', sku: 'FAB-AGC-180', supplier: 'Sunrise Mills', qty: 420, threshold: 900, unit: 'm', swatch: '#DCD6C8', swatchFg: '#3B4F47', swatchLabel: '180 GSM', lead: '12 days', location: 'Rack B2', cost: 'NPR 310/m', batches: '3 batches waiting' },
   { id: 's2', name: 'AP Cotton', sku: 'FAB-APC-160', supplier: 'Sunrise Mills', qty: 1040, threshold: 1200, unit: 'm', swatch: '#E7E9E2', swatchFg: '#3B4F47', swatchLabel: '160 GSM', lead: '12 days', location: 'Rack B4', cost: 'NPR 268/m', batches: '1 batch waiting' },
@@ -23,10 +25,12 @@ export const seedLibrary: LibraryItem[] = [
 
 export const stockHistory: number[] = [96, 94, 91, 88, 84, 79, 74, 70, 63, 58, 52, 47, 41, 38, 34, 31, 28, 24, 21, 19];
 
-export const stockMovements: StockMovement[] = [
-  { sign: '−', title: 'Issued to cutting', ref: 'BATCH-119 · Bimal S.', amount: '−280 m', balance: '420', tone: 'out' },
-  { sign: '−', title: 'Issued to cutting', ref: 'BATCH-118 · Bimal S.', amount: '−340 m', balance: '700', tone: 'out' },
-  { sign: '+', title: 'GRN received', ref: 'PO-2418 · Sunrise Mills', amount: '+600 m', balance: '1,040', tone: 'in' },
-  { sign: '−', title: 'Wastage written off', ref: 'QC fail · shade variance', amount: '−45 m', balance: '440', tone: 'out' },
-  { sign: '−', title: 'Issued to sampling', ref: 'SAMP-77 · Sabina R.', amount: '−60 m', balance: '485', tone: 'out' },
+/** Per-item stock ledger (item 19), newest first. Balance is the running qty after each move. */
+export const seedMovements: StockMovement[] = [
+  { id: 'm1', itemId: 's1', kind: 'out', delta: -280, balance: 420, reason: 'Issued to cutting', ref: 'BATCH-119 · Bimal S.', date: daysAgoISO(1) },
+  { id: 'm2', itemId: 's1', kind: 'out', delta: -340, balance: 700, reason: 'Issued to cutting', ref: 'BATCH-118 · Bimal S.', date: daysAgoISO(4) },
+  { id: 'm3', itemId: 's1', kind: 'out', delta: -45, balance: 1040, reason: 'Wastage written off', ref: 'QC fail · shade variance', date: daysAgoISO(6) },
+  { id: 'm4', itemId: 's2', kind: 'in', delta: 600, balance: 1040, reason: 'GRN received', ref: 'PO-2418 · Sunrise Mills', date: daysAgoISO(3) },
+  { id: 'm5', itemId: 's2', kind: 'out', delta: -60, balance: 440, reason: 'Issued to sampling', ref: 'SAMP-77 · Sabina R.', date: daysAgoISO(8) },
+  { id: 'm6', itemId: 's4', kind: 'adjust', delta: -12, balance: 310, reason: 'Cycle count correction', ref: 'STK-COUNT Aug', date: daysAgoISO(2) },
 ];

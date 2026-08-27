@@ -5,13 +5,25 @@ import { useToast } from '@/components/toast/toast-provider';
 import { Avatar, tintFromSeed } from '@/components/ui/avatar';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
-import { useAddEmployee, useApprovals, useApproveMonth, useEmployees, useUpdateEmployee } from '@/data/employees-hr/hooks';
+import {
+  useAddEmployee,
+  useApprovals,
+  useApproveMonth,
+  useDeleteEmployee,
+  useEmployees,
+  useRestoreEmployees,
+  useUpdateEmployee,
+} from '@/data/employees-hr/hooks';
+import { useTeamRoster } from '@/data/attendance/hooks';
+import { shareSalarySlipPdf } from '@/lib/pdf/salarySlip';
+import { attendancePrefill } from '@/data/employees-hr/attendance-sync';
 import { BANKS, DEPTS, MONTHS } from '@/data/employees-hr/mock';
 import { inWords, maskAccount, npr, num, pay } from '@/data/employees-hr/utils';
 import type { Employee, EmployeeDraft, EmployeeView, MonthKey, SheetMode } from '@/data/employees-hr/types';
 
 import { DirectoryView } from './directory-view';
 import { EmployeeSheet } from './employee-sheet';
+import { OrgChartView } from './org-chart-view';
 import { PayrollView, type RunPillState } from './payroll-view';
 import type { RecordRowModel } from './record-row';
 import { SalarySlip, type SlipData } from './salary-slip';
@@ -33,8 +45,11 @@ export function EmployeesHR() {
   const { data: employees } = useEmployees();
   const addEmployee = useAddEmployee();
   const updateEmployee = useUpdateEmployee();
+  const deleteEmployee = useDeleteEmployee();
+  const restoreEmployees = useRestoreEmployees();
   const { data: approvals } = useApprovals();
   const approveMonth = useApproveMonth();
+  const { data: attendanceTeam } = useTeamRoster();
 
   const [view, setView] = useState<EmployeeView>('directory');
   const [query, setQuery] = useState('');
@@ -145,13 +160,68 @@ export function EmployeesHR() {
   };
   const exportBankFile = () => toast.show({ message: `Transfer file exported · 4 banks, ${runRows.length} credits`, tone: 'ok' });
 
+  // Attendance-driven payroll auto-calc (item 28) — pull absent / late / OT from
+  // the month's roll-call into each matched payroll record, so `pay()` recomputes.
+  const syncFromAttendance = () => {
+    if (!attendanceTeam) {
+      toast.show({ message: 'Attendance data still loading', tone: 'bad' });
+      return;
+    }
+    const before = employees;
+    let changed = 0;
+    employees.forEach((e) => {
+      const pre = attendancePrefill(attendanceTeam, e);
+      if (!pre) return;
+      if (pre.absent === e.absent && pre.late === e.late && pre.otH === e.otH) return;
+      updateEmployee.mutate({ id: e.id, updates: pre });
+      changed += 1;
+    });
+    if (changed === 0) {
+      toast.show({ message: 'Payroll already matches attendance', tone: 'ok' });
+      return;
+    }
+    toast.show({
+      message: `Synced ${changed} ${changed === 1 ? 'record' : 'records'} from attendance · deductions recalculated`,
+      tone: 'ok',
+      action: { label: 'Undo', onPress: () => restoreEmployees.mutate(before) },
+    });
+  };
+
   const openSlip = (id: number) => setSlipId(id);
   const closeSlip = () => setSlipId(null);
-  const emailSlip = () => {
-    toast.show({ message: `Slip emailed · ${slipPerson ? slipPerson.name.split(' ')[0] : ''} and a copy to HR`, tone: 'ok' });
+
+  // Real salary-slip PDF (item 28) — expo-print → expo-sharing.
+  const shareSlip = async () => {
+    if (!slipData) return;
+    const who = slipPerson?.name.split(' ')[0] ?? '';
+    setSlipId(null);
+    try {
+      const shared = await shareSalarySlipPdf(slipData);
+      toast.show({
+        message: shared ? `${who}'s slip ready to share` : `Slip generated — sharing unavailable on this device`,
+        tone: 'ok',
+      });
+    } catch {
+      toast.show({ message: 'Could not generate the salary slip', tone: 'bad' });
+    }
   };
-  const downloadSlip = () => {
-    toast.show({ message: `Downloaded ${slipPerson ? slipPerson.code : ''} · ${month.label}`, tone: 'ok' });
+
+  const handleCreateLogin = () => {
+    const p = employees.find((e) => e.id === draft.id);
+    toast.show({ message: `App-login invite queued for ${p?.name ?? 'employee'} · Firebase Auth wiring is Track B`, tone: 'ok' });
+  };
+
+  const handleDeleteEmployee = () => {
+    if (!draft.id) return;
+    const p = employees.find((e) => e.id === draft.id);
+    const before = employees;
+    deleteEmployee.mutate(draft.id);
+    setSheet(null);
+    toast.show({
+      message: `${p?.name ?? 'Employee'} removed · login revoked`,
+      tone: 'ok',
+      action: { label: 'Undo', onPress: () => restoreEmployees.mutate(before) },
+    });
   };
 
   let slipData: SlipData | null = null;
@@ -207,7 +277,9 @@ export function EmployeesHR() {
       <TabsHeader view={view} onChange={setView} />
 
       <ScrollView contentContainerStyle={styles.content}>
-        {view === 'directory' ? (
+        {view === 'orgchart' ? (
+          <OrgChartView employees={employees} onOpenPerson={openEdit} />
+        ) : view === 'directory' ? (
           <DirectoryView
             activeCount={active.length}
             netPayrollTotal={npr(netTotal)}
@@ -237,6 +309,7 @@ export function EmployeesHR() {
             approveLabel={`Approve run · generate ${runRows.length} slips`}
             onApprove={approveRun}
             onExportBankFile={exportBankFile}
+            onSyncAttendance={runOpen ? syncFromAttendance : undefined}
             recordCount={`${runRows.length} · ${month.label}`}
             records={records}
             onOpenSlip={openSlip}
@@ -256,9 +329,11 @@ export function EmployeesHR() {
         saveHint={sheet === 'edit' ? 'Changes apply from the next run' : 'Added to the current month'}
         saveCode={sheet === 'edit' ? (employees.find((p) => p.id === draft.id)?.code ?? '') : 'KZ-next'}
         onViewSlip={() => draft.id && openSlip(draft.id)}
+        onCreateLogin={sheet === 'edit' ? handleCreateLogin : undefined}
+        onDelete={sheet === 'edit' ? handleDeleteEmployee : undefined}
       />
 
-      <SalarySlip visible={slipId !== null} slip={slipData} onClose={closeSlip} onEmail={emailSlip} onDownload={downloadSlip} />
+      <SalarySlip visible={slipId !== null} slip={slipData} onClose={closeSlip} onEmail={shareSlip} onDownload={shareSlip} />
     </View>
   );
 }

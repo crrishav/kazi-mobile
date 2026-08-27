@@ -32,6 +32,8 @@ export interface PayrollViewProps {
   approveLabel: string;
   onApprove: () => void;
   onExportBankFile: () => void;
+  /** Pull absent / late / OT from the month's roll-call (item 28). Hidden once the run is closed. */
+  onSyncAttendance?: () => void;
   recordCount: string;
   records: RecordRowModel[];
   onOpenSlip: (id: number) => void;
@@ -52,6 +54,7 @@ export function PayrollView({
   approveLabel,
   onApprove,
   onExportBankFile,
+  onSyncAttendance,
   recordCount,
   records,
   onOpenSlip,
@@ -99,6 +102,12 @@ export function PayrollView({
         </View>
 
         <Text style={[styles.runMeta, tabularNums, { color: theme.textSecondary }]}>{runMeta}</Text>
+
+        {onSyncAttendance ? (
+          <Pressable onPress={onSyncAttendance} style={[styles.syncButton, { borderColor: theme.border }]}>
+            <Text style={[styles.syncLabel, { color: theme.accentDeep }]}>Sync absent · late · OT from attendance</Text>
+          </Pressable>
+        ) : null}
 
         {runOpen ? (
           <Pressable onPress={onApprove} style={[styles.approveButton, { backgroundColor: theme.accent }]}>
@@ -152,6 +161,8 @@ const styles = StyleSheet.create({
   approveLabel: { fontSize: 15, fontWeight: '600' },
   exportButton: { height: 48, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   exportLabel: { fontSize: 14, fontWeight: '600' },
+  syncButton: { height: 44, borderRadius: 13, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+  syncLabel: { fontFamily: fontFamily.semibold, fontSize: 13 },
 
   recordsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 4 },
   recordsLabel: { fontFamily: fontFamily.mono, fontSize: 10, letterSpacing: 0.12 * 10, textTransform: 'uppercase' },

@@ -1,3 +1,5 @@
+import { asCurrency } from '@/lib/currency';
+
 import { PRIORITY } from './mock';
 import type { Priority } from './types';
 
@@ -18,4 +20,9 @@ export function money(n: number): string {
 /** "रु 1.9L" style lakh-compact formatting, matching the design's own `short()` helper. */
 export function short(n: number): string {
   return n >= 100000 ? `रु ${(n / 100000).toFixed(1).replace(/\.0$/, '')}L` : `रु ${fmt(n)}`;
+}
+
+/** GBP display for the Budget Requests tab (item 17) — `£1,450`, pence only when not round. */
+export function gbp(n: number): string {
+  return asCurrency(n, 'GBP');
 }

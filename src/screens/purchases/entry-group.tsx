@@ -1,12 +1,13 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
+import { DualDate } from '@/components/ui/dual-date';
 import { Icon } from '@/components/ui/icon';
+import { Money } from '@/components/ui/money';
 import { StatusPill, type StatusKind } from '@/components/ui/status-pill';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { DAY_LABEL, STATUS } from '@/data/purchases/mock';
-import { money } from '@/data/purchases/utils';
+import { STATUS } from '@/data/purchases/mock';
 import type { PurchaseEntry, PurchaseGroup, PurchaseStatus } from '@/data/purchases/types';
 
 const PILL_KIND: Record<PurchaseStatus, StatusKind> = {
@@ -17,7 +18,7 @@ const PILL_KIND: Record<PurchaseStatus, StatusKind> = {
 
 export interface EntryGroupProps {
   title: string;
-  total: string;
+  total: number;
   hasUnpaid: boolean;
   entries: PurchaseEntry[];
   group: PurchaseGroup;
@@ -36,17 +37,19 @@ export function EntryGroup({ title, total, hasUnpaid, entries, group, onOpen }: 
           </Text>
           {hasUnpaid ? <View style={[styles.dot, { backgroundColor: theme.danger }]} /> : null}
         </View>
-        <Text style={[styles.total, tabularNums, { color: theme.textPrimary }]}>{total}</Text>
+        <Money npr={total} compact inline size={11} secondary={false} />
       </View>
 
       {entries.map((e, i) => {
         const status = STATUS[e.status];
-        const isCash = e.method === 'Cash';
+        const isCash = e.paymentType === 'Cash';
+        const lead = e.items[0]?.particulars ?? e.category;
+        const more = e.items.length > 1 ? ` +${e.items.length - 1}` : '';
         return (
           <Animated.View key={e.id} entering={FadeInUp.delay(Math.min(i, 6) * 30).duration(220)}>
             <Pressable
               onPress={() => onOpen(e.id)}
-              style={[styles.row, { backgroundColor: theme.surface, boxShadow: theme.shadows.card, borderLeftColor: status.accent }]}
+              style={[styles.row, { backgroundColor: theme.surface, boxShadow: theme.shadows.card, borderLeftColor: status.dot }]}
             >
               <View style={[styles.methodIcon, { backgroundColor: isCash ? theme.draftWash : theme.accentWash }]}>
                 <Icon name={isCash ? 'credit-card' : 'home'} size={17} color={isCash ? theme.textSecondary : theme.accentDeep} />
@@ -55,23 +58,29 @@ export function EntryGroup({ title, total, hasUnpaid, entries, group, onOpen }: 
                 <View style={styles.topLine}>
                   <View style={styles.itemTextWrap}>
                     <Text style={[styles.itemName, { color: theme.textPrimary }]} numberOfLines={1}>
-                      {e.item}
+                      {group === 'date' ? e.party : e.expenseId}
                     </Text>
                     <Text style={[styles.itemSub, tabularNums, { color: theme.textSecondary }]} numberOfLines={1}>
-                      {group === 'date' ? `${e.supplier} · ${e.qty}` : `${e.ref} · ${e.qty}`}
+                      {lead}
+                      {more} · {e.category}
                     </Text>
                   </View>
-                  <Text style={[styles.amount, tabularNums, { color: theme.textPrimary }]}>{money(e.amount)}</Text>
+                  <Money npr={e.amountNPR} size={15} align="right" style={styles.amount} />
                 </View>
                 <View style={styles.bottomLine}>
                   <StatusPill status={PILL_KIND[e.status]} label={status.label} />
                   <View style={[styles.methodChip, { backgroundColor: theme.draftWash, borderColor: theme.border }]}>
-                    <Text style={[styles.methodText, { color: theme.textPrimary }]}>{e.method}</Text>
+                    <Text style={[styles.methodText, { color: theme.textPrimary }]}>
+                      {e.paymentType}
+                      {e.bankName ? ` · ${e.bankName}` : ''}
+                    </Text>
                   </View>
                   <View style={styles.flex1} />
-                  <Text style={[styles.tail, tabularNums, { color: theme.textSecondary }]}>
-                    {group === 'date' ? e.ref : (DAY_LABEL[e.date] ?? e.date).split(' · ').pop()}
-                  </Text>
+                  {group === 'date' ? (
+                    <Text style={[styles.tail, tabularNums, { color: theme.textSecondary }]}>{e.expenseId}</Text>
+                  ) : (
+                    <DualDate iso={e.date} inline size={10} bsStyle="numeric" secondary={false} />
+                  )}
                 </View>
               </View>
             </Pressable>
@@ -88,7 +97,6 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, minWidth: 0 },
   title: { fontFamily: fontFamily.mono, fontSize: 10.5, letterSpacing: 0.12 * 10.5, textTransform: 'uppercase' },
   dot: { width: 6, height: 6, borderRadius: 99 },
-  total: { fontFamily: fontFamily.mono, fontSize: 11 },
   row: { flexDirection: 'row', gap: 12, borderRadius: 18, padding: 14, borderLeftWidth: 4, marginTop: 9 },
   methodIcon: { width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   textWrap: { flex: 1, gap: 6, minWidth: 0 },
@@ -96,10 +104,10 @@ const styles = StyleSheet.create({
   itemTextWrap: { flex: 1, gap: 3, minWidth: 0 },
   itemName: { fontFamily: fontFamily.semibold, fontSize: 15, letterSpacing: -0.01 * 15 },
   itemSub: { fontFamily: fontFamily.mono, fontSize: 10.5 },
-  amount: { fontSize: 16, fontWeight: '600', flexShrink: 0 },
+  amount: { flexShrink: 0 },
   bottomLine: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   methodChip: { height: 24, paddingHorizontal: 9, borderRadius: 999, borderWidth: 1, justifyContent: 'center' },
-  methodText: { fontSize: 11.5 },
+  methodText: { fontSize: 11 },
   flex1: { flex: 1 },
   tail: { fontFamily: fontFamily.mono, fontSize: 10.5 },
 });

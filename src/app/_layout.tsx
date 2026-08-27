@@ -18,6 +18,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '@/auth/auth-context';
 import { ToastProvider } from '@/components/toast/toast-provider';
 import { queryClient } from '@/data/client';
+import { CurrencyProvider } from '@/lib/currency-context';
 import { ThemeProvider } from '@/theme/theme-provider';
 
 SplashScreen.preventAutoHideAsync();
@@ -59,11 +60,13 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider>
           <QueryClientProvider client={queryClient}>
-            <AuthProvider>
-              <ToastProvider>
-                <RootNavigator />
-              </ToastProvider>
-            </AuthProvider>
+            <CurrencyProvider>
+              <AuthProvider>
+                <ToastProvider>
+                  <RootNavigator />
+                </ToastProvider>
+              </AuthProvider>
+            </CurrencyProvider>
           </QueryClientProvider>
         </ThemeProvider>
       </SafeAreaProvider>

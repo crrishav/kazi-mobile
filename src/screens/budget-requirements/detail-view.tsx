@@ -4,11 +4,11 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
+import { Money } from '@/components/ui/money';
 import { StatusPill, type StatusKind } from '@/components/ui/status-pill';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import { STATUS } from '@/data/budget-requirements/mock';
-import { money } from '@/data/budget-requirements/utils';
 import type { RequestStatus, Requirement } from '@/data/budget-requirements/types';
 
 const PILL_KIND: Record<RequestStatus, StatusKind> = {
@@ -37,6 +37,7 @@ export function DetailView({ item, canDecide, awaitingAdmin, onApprove, onDeclin
         : `Declined by ${decidedBy} · can be raised again next month`;
 
   const facts = [
+    { label: 'Quantity', value: item.quantity },
     { label: 'Priority', value: item.priority },
     { label: 'Needed by', value: item.by },
     { label: 'Requested by', value: item.who },
@@ -65,7 +66,7 @@ export function DetailView({ item, canDecide, awaitingAdmin, onApprove, onDeclin
         <View style={styles.amountRow}>
           <View style={styles.gap5}>
             <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Amount requested</Text>
-            <Text style={[styles.amountValue, tabularNums, { color: theme.onDark.text }]}>{money(item.amount)}</Text>
+            <Money npr={item.amount} onDark size={30} primaryStyle={styles.amountValue} />
           </View>
           <StatusPill status={PILL_KIND[item.status]} label={status.label} />
         </View>

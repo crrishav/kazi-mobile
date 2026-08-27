@@ -1,6 +1,6 @@
 import type { AvatarTint } from '@/components/ui/avatar';
 
-export type EmployeeView = 'directory' | 'payroll';
+export type EmployeeView = 'directory' | 'payroll' | 'orgchart';
 export type SheetMode = 'add' | 'edit' | null;
 export type MonthKey = 'aug' | 'jul' | 'jun';
 
@@ -13,6 +13,8 @@ export interface Employee {
   active: boolean;
   joined: string;
   left?: string;
+  /** Manager's employee id — powers the Org Chart tab (item 28). */
+  reportsTo?: number;
   bank: string;
   acct: string;
   branch: string;

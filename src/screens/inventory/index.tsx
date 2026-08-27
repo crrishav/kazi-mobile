@@ -6,12 +6,22 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import { useAddStockItem, useLibrary, useStock } from '@/data/inventory/hooks';
+import {
+  useAddStockItem,
+  useLibrary,
+  usePostStockMovement,
+  useRestoreInventory,
+  useStock,
+  useStockMovements,
+  useUpdateStockItem,
+} from '@/data/inventory/hooks';
 import { stockLevel } from '@/data/inventory/utils';
-import type { LibraryItem, StockItem } from '@/data/inventory/types';
+import type { LibraryItem, StockDetailsDraft, StockItem, StockMovementDraft } from '@/data/inventory/types';
 
 import { AddSheet, type AddDraft, type UploadEntry } from './add-sheet';
+import { AdjustSheet } from './adjust-sheet';
 import { DetailView } from './detail-view';
+import { EditSheet } from './edit-sheet';
 import { ListHeader, type InventoryFilter, type InventoryTab } from './list-header';
 import { LibraryGroup } from './library-row';
 import { StockRow } from './stock-row';
@@ -20,13 +30,21 @@ function emptyDraft(): AddDraft {
   return { name: '', qty: '', threshold: '', unit: 'm', kind: 'Sketch', note: '' };
 }
 
+function emptyMovementDraft(): StockMovementDraft {
+  return { kind: 'out', qty: '', reason: '', ref: '' };
+}
+
 export function Inventory() {
   const theme = useTheme();
   const toast = useToast();
 
   const { data: stock } = useStock();
   const { data: library } = useLibrary();
+  const { data: movements } = useStockMovements();
   const addStockItem = useAddStockItem();
+  const postMovement = usePostStockMovement();
+  const updateStockItem = useUpdateStockItem();
+  const restoreInventory = useRestoreInventory();
 
   const [tab, setTab] = useState<InventoryTab>('inventory');
   const [query, setQuery] = useState('');
@@ -38,7 +56,12 @@ export function Inventory() {
   const [draft, setDraft] = useState<AddDraft>(emptyDraft());
   const [uploads, setUploads] = useState<UploadEntry[]>([]);
 
-  if (!stock || !library) {
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  const [moveDraft, setMoveDraft] = useState<StockMovementDraft>(emptyMovementDraft());
+  const [editOpen, setEditOpen] = useState(false);
+  const [detailsDraft, setDetailsDraft] = useState<StockDetailsDraft>({ threshold: '', lead: '', location: '', cost: '', supplier: '' });
+
+  if (!stock || !library || !movements) {
     return (
       <View style={[styles.loading, { backgroundColor: theme.background }]}>
         <ActivityIndicator color={theme.accent} />
@@ -122,13 +145,93 @@ export function Inventory() {
     flash(`${name} added${uploads.length ? ' with photo' : ''}`);
   };
 
+  const openAdjust = () => {
+    setMoveDraft(emptyMovementDraft());
+    setAdjustOpen(true);
+  };
+
+  const handlePostMovement = () => {
+    if (!selectedItem) return;
+    const qty = parseInt(moveDraft.qty.replace(/[^0-9]/g, ''), 10) || 0;
+    if (qty <= 0 && !(moveDraft.kind === 'adjust' && moveDraft.qty.trim() !== '')) {
+      toast.show({ message: 'Enter a quantity', tone: 'bad' });
+      return;
+    }
+    const beforeStock = stock;
+    const beforeMoves = movements;
+    postMovement.mutate({
+      itemId: selectedItem.id,
+      kind: moveDraft.kind,
+      qty,
+      reason: moveDraft.reason.trim(),
+      ref: moveDraft.ref.trim(),
+    });
+    setAdjustOpen(false);
+    const verb = moveDraft.kind === 'in' ? 'stocked in' : moveDraft.kind === 'out' ? 'issued' : 'adjusted';
+    toast.show({
+      message: `${selectedItem.name} · ${qty.toLocaleString()} ${selectedItem.unit} ${verb}`,
+      tone: 'ok',
+      action: { label: 'Undo', onPress: () => restoreInventory.mutate({ stock: beforeStock, movements: beforeMoves }) },
+    });
+  };
+
+  const openEdit = () => {
+    if (!selectedItem) return;
+    setDetailsDraft({
+      threshold: String(selectedItem.threshold),
+      lead: selectedItem.lead,
+      location: selectedItem.location,
+      cost: selectedItem.cost,
+      supplier: selectedItem.supplier,
+    });
+    setEditOpen(true);
+  };
+
+  const handleSaveDetails = () => {
+    if (!selectedItem) return;
+    const threshold = parseInt(detailsDraft.threshold.replace(/[^0-9]/g, ''), 10);
+    updateStockItem.mutate({
+      id: selectedItem.id,
+      updates: {
+        threshold: Number.isFinite(threshold) ? threshold : selectedItem.threshold,
+        lead: detailsDraft.lead.trim() || selectedItem.lead,
+        location: detailsDraft.location.trim() || selectedItem.location,
+        cost: detailsDraft.cost.trim() || selectedItem.cost,
+        supplier: detailsDraft.supplier.trim() || selectedItem.supplier,
+      },
+    });
+    setEditOpen(false);
+    flash(`${selectedItem.name} updated`);
+  };
+
   if (selectedItem) {
     return (
-      <DetailView
-        item={selectedItem}
-        onBack={() => setSelectedId(null)}
-        onRaisePO={() => flash(`PO draft started for ${selectedItem.sku}`)}
-      />
+      <>
+        <DetailView
+          item={selectedItem}
+          movements={movements.filter((m) => m.itemId === selectedItem.id)}
+          onBack={() => setSelectedId(null)}
+          onRaisePO={() => flash(`PO draft started for ${selectedItem.sku}`)}
+          onAdjust={openAdjust}
+          onEditDetails={openEdit}
+        />
+        <AdjustSheet
+          visible={adjustOpen}
+          item={selectedItem}
+          draft={moveDraft}
+          onClose={() => setAdjustOpen(false)}
+          onChange={(p) => setMoveDraft((d) => ({ ...d, ...p }))}
+          onSubmit={handlePostMovement}
+        />
+        <EditSheet
+          visible={editOpen}
+          item={selectedItem}
+          draft={detailsDraft}
+          onClose={() => setEditOpen(false)}
+          onChange={(p) => setDetailsDraft((d) => ({ ...d, ...p }))}
+          onSubmit={handleSaveDetails}
+        />
+      </>
     );
   }
 

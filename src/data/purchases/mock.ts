@@ -8,22 +8,53 @@ export const STATUS: Record<PurchaseStatus, { label: string; dot: string; bg: st
 
 export const SUPPLIERS = ['Sunrise Mills', 'Kathmandu Trims', 'Bagmati Knits', 'Print House KTM', 'Highland Yarn (UK)'];
 
-export const DAY_LABEL: Record<string, string> = {
-  '2026-08-23': 'Today · 23 Aug',
-  '2026-08-22': 'Yesterday · 22 Aug',
-  '2026-08-21': 'Friday · 21 Aug',
-  '2026-08-20': 'Thursday · 20 Aug',
-  '2026-08-19': 'Wednesday · 19 Aug',
-  '2026-08-18': 'Tuesday · 18 Aug',
-};
+export const BANKS = ['NIC Asia', 'Nabil Bank', 'Global IME', 'Standard Chartered'];
 
+/** Seeds carry the shared `finance_purchases` shape — multi-line, `EXP0NN` ids, ISO dates. */
 export const seedEntries: PurchaseEntry[] = [
-  { id: 'p1', ref: 'PUR-0412', supplier: 'Sunrise Mills', item: 'Anti-Grunge Cotton', qty: '600 m @ 310', amount: 186000, method: 'Bank', status: 'unpaid', date: '2026-08-23', due: '07 Sep', grn: 'GRN-1188', bill: 'Not attached', lines: [{ name: 'Anti-Grunge Cotton 180 GSM', qty: '600 m @ NPR 310', value: '186,000' }] },
-  { id: 'p2', ref: 'PUR-0411', supplier: 'Kathmandu Trims', item: 'Recycled poly zips', qty: '3,000 pcs @ 46', amount: 138000, method: 'Cash', status: 'paid', date: '2026-08-23', due: '—', grn: 'GRN-1187', bill: 'IMG · 23 Aug', lines: [{ name: 'Recycled poly zips 45 cm', qty: '3,000 pcs @ NPR 46', value: '138,000' }] },
-  { id: 'p3', ref: 'PUR-0410', supplier: 'Print House KTM', item: 'Woven care labels', qty: '20,000 pcs @ 3', amount: 60000, method: 'Cash', status: 'paid', date: '2026-08-22', due: '—', grn: 'GRN-1186', bill: 'IMG · 22 Aug', lines: [{ name: 'Woven care labels · satin', qty: '20,000 pcs @ NPR 3', value: '60,000' }] },
-  { id: 'p4', ref: 'PUR-0409', supplier: 'Bagmati Knits', item: 'Terry fleece · ink', qty: '1,200 m @ 540', amount: 648000, method: 'Bank', status: 'partial', date: '2026-08-21', due: '05 Sep', grn: 'GRN-1184', bill: 'PDF · 21 Aug', lines: [{ name: 'Terry fleece 320 GSM · ink', qty: '1,200 m @ NPR 540', value: '648,000' }] },
-  { id: 'p5', ref: 'PUR-0408', supplier: 'Sunrise Mills', item: 'AP Cotton', qty: '900 m @ 268', amount: 241200, method: 'Bank', status: 'paid', date: '2026-08-20', due: '—', grn: 'GRN-1181', bill: 'PDF · 20 Aug', lines: [{ name: 'AP Cotton 160 GSM', qty: '900 m @ NPR 268', value: '241,200' }] },
-  { id: 'p6', ref: 'PUR-0407', supplier: 'Kathmandu Trims', item: 'Ribbed collar tape', qty: '4,000 m @ 22', amount: 88000, method: 'Cash', status: 'unpaid', date: '2026-08-19', due: '02 Sep', grn: 'GRN-1179', bill: 'Not attached', lines: [{ name: 'Ribbed collar tape 2 cm', qty: '4,000 m @ NPR 22', value: '88,000' }] },
-  { id: 'p7', ref: 'PUR-0406', supplier: 'Highland Yarn (UK)', item: 'Merino jersey 19.5µ', qty: '400 m @ 1,890', amount: 756000, method: 'Bank', status: 'paid', date: '2026-08-18', due: '—', grn: 'GRN-1176', bill: 'PDF · 18 Aug', lines: [{ name: 'Merino jersey 19.5µ', qty: '400 m @ NPR 1,890', value: '756,000' }] },
-  { id: 'p8', ref: 'PUR-0405', supplier: 'Print House KTM', item: 'Hangtags · AW26', qty: '8,000 pcs @ 7', amount: 56000, method: 'Cash', status: 'paid', date: '2026-08-18', due: '—', grn: 'GRN-1175', bill: 'IMG · 18 Aug', lines: [{ name: 'Hangtags · AW26 recycled board', qty: '8,000 pcs @ NPR 7', value: '56,000' }] },
+  {
+    id: 'p1', expenseId: 'EXP184', party: 'Sunrise Mills', category: 'Raw Materials', paymentType: 'Bank', bankName: 'NIC Asia',
+    date: '2026-08-23', vatBill: true, discountAmt: 0, status: 'unpaid', loggedBy: 'Prakash Thapa', grn: 'GRN-1188',
+    items: [{ particulars: 'Anti-Grunge Cotton', quantity: 600, unit: 'm', rate: 310, amount: 186000 }],
+    subtotalNPR: 186000, taxableAmt: 186000, vatAmountNPR: 24180, amountNPR: 210180,
+  },
+  {
+    id: 'p2', expenseId: 'EXP183', party: 'Kathmandu Trims', category: 'Trims', paymentType: 'Cash',
+    date: '2026-08-23', vatBill: false, discountAmt: 0, status: 'paid', loggedBy: 'Prakash Thapa', grn: 'GRN-1187',
+    items: [{ particulars: 'Recycled Poly Zips', quantity: 3000, unit: 'pcs', rate: 46, amount: 138000 }],
+    subtotalNPR: 138000, taxableAmt: 138000, vatAmountNPR: 0, amountNPR: 138000,
+  },
+  {
+    id: 'p3', expenseId: 'EXP182', party: 'Print House KTM', category: 'Packaging', paymentType: 'Cash',
+    date: '2026-08-22', vatBill: false, discountAmt: 0, status: 'paid', loggedBy: 'Sita Rai', grn: 'GRN-1186',
+    items: [{ particulars: 'Woven Care Labels', quantity: 20000, unit: 'pcs', rate: 3, amount: 60000 }],
+    subtotalNPR: 60000, taxableAmt: 60000, vatAmountNPR: 0, amountNPR: 60000,
+  },
+  {
+    id: 'p4', expenseId: 'EXP181', party: 'Bagmati Knits', category: 'Raw Materials', paymentType: 'Bank', bankName: 'Nabil Bank',
+    date: '2026-08-21', vatBill: true, discountAmt: 12000, status: 'partial', loggedBy: 'Prakash Thapa', grn: 'GRN-1184',
+    items: [
+      { particulars: 'Terry Fleece · Ink', quantity: 1200, unit: 'm', rate: 540, amount: 648000 },
+      { particulars: 'Ribbed Collar Tape', quantity: 800, unit: 'm', rate: 22, amount: 17600 },
+    ],
+    subtotalNPR: 665600, taxableAmt: 653600, vatAmountNPR: 84968, amountNPR: 738568,
+  },
+  {
+    id: 'p5', expenseId: 'EXP180', party: 'Sunrise Mills', category: 'Raw Materials', paymentType: 'Bank', bankName: 'NIC Asia',
+    date: '2026-08-20', vatBill: true, discountAmt: 0, status: 'paid', loggedBy: 'Prakash Thapa', grn: 'GRN-1181',
+    items: [{ particulars: 'AP Cotton', quantity: 900, unit: 'm', rate: 268, amount: 241200 }],
+    subtotalNPR: 241200, taxableAmt: 241200, vatAmountNPR: 31356, amountNPR: 272556,
+  },
+  {
+    id: 'p6', expenseId: 'EXP179', party: 'Kathmandu Trims', category: 'Trims', paymentType: 'Cash',
+    date: '2026-08-19', vatBill: false, discountAmt: 0, status: 'unpaid', loggedBy: 'Sita Rai', grn: 'GRN-1179',
+    items: [{ particulars: 'Ribbed Collar Tape', quantity: 4000, unit: 'm', rate: 22, amount: 88000 }],
+    subtotalNPR: 88000, taxableAmt: 88000, vatAmountNPR: 0, amountNPR: 88000,
+  },
+  {
+    id: 'p7', expenseId: 'EXP178', party: 'Highland Yarn (UK)', category: 'Raw Materials', paymentType: 'Bank', bankName: 'Standard Chartered',
+    date: '2026-08-18', vatBill: true, discountAmt: 0, status: 'paid', loggedBy: 'Prakash Thapa', grn: 'GRN-1176',
+    items: [{ particulars: 'Merino Jersey 19.5µ', quantity: 400, unit: 'm', rate: 1890, amount: 756000 }],
+    subtotalNPR: 756000, taxableAmt: 756000, vatAmountNPR: 98280, amountNPR: 854280,
+  },
 ];

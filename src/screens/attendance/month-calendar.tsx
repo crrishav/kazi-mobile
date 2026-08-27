@@ -2,21 +2,36 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { MONTH_LABEL, STATUS_LABELS, STATUS_RAMP, WEEKDAYS, WORKING_DAYS } from '@/data/attendance/mock';
+import { BS_MONTHS_EN, bsFromAD } from '@/lib/nepaliDate';
+import { MONTH_ISO_END, MONTH_ISO_START, MONTH_LABEL, STATUS_LABELS, STATUS_RAMP, WEEKDAYS, WORKING_DAYS } from '@/data/attendance/mock';
 import { buildMonthDays } from '@/data/attendance/utils';
 import type { AttendanceStatus } from '@/data/attendance/types';
 
 const LEGEND_STATUSES: AttendanceStatus[] = ['present', 'late', 'absent', 'half', 'leave'];
 
+/** BS span covering the displayed AD month, e.g. "Shrawan–Bhadra 2083 BS". */
+function bsSpanLabel(): string {
+  const a = bsFromAD(MONTH_ISO_START);
+  const b = bsFromAD(MONTH_ISO_END);
+  const from = BS_MONTHS_EN[a.month - 1];
+  const to = BS_MONTHS_EN[b.month - 1];
+  if (a.year === b.year && a.month === b.month) return `${from} ${a.year} BS`;
+  return `${from} ${a.date}–${to} ${b.date}, ${b.year} BS`;
+}
+
 export function MonthCalendar() {
   const theme = useTheme();
   const ramp = STATUS_RAMP[theme.scheme];
   const days = buildMonthDays();
+  const bsSpan = bsSpanLabel();
 
   return (
     <View style={[styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }]}>
       <View style={styles.headerRow}>
-        <Text style={[styles.title, { color: theme.textPrimary }]}>{MONTH_LABEL}</Text>
+        <View style={styles.titleWrap}>
+          <Text style={[styles.title, { color: theme.textPrimary }]}>{MONTH_LABEL}</Text>
+          <Text style={[styles.bsLabel, { color: theme.textSecondary }]}>{bsSpan}</Text>
+        </View>
         <Text style={[styles.workingDays, tabularNums, { color: theme.textSecondary }]}>{WORKING_DAYS} working days</Text>
       </View>
 
@@ -67,9 +82,11 @@ export function MonthCalendar() {
 
 const styles = StyleSheet.create({
   card: { borderRadius: 20, padding: 18, gap: 14 },
-  headerRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  headerRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },
+  titleWrap: { gap: 2, flexShrink: 1 },
   title: { fontFamily: fontFamily.semibold, fontSize: 15 },
-  workingDays: { fontFamily: fontFamily.mono, fontSize: 11 },
+  bsLabel: { fontFamily: fontFamily.mono, fontSize: 10, letterSpacing: 0.08 * 10 },
+  workingDays: { fontFamily: fontFamily.mono, fontSize: 11, flexShrink: 0 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   weekdayCell: { width: '12.5%', flexGrow: 1, alignItems: 'center', paddingBottom: 2 },
   weekdayLabel: { fontFamily: fontFamily.mono, fontSize: 9.5, letterSpacing: 0.1 * 9.5, textTransform: 'uppercase' },

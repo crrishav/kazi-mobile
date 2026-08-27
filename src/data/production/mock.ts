@@ -55,6 +55,7 @@ export const seedBatches: Batch[] = [
     stage: 'finishing', status: 'active', person: 'pt', day: 31,
     photos: [{ label: 'Press line output', time: '07:30' }],
     notes: [{ id: 'n1', who: 'pt', body: 'Pressing at 148°C, seam pucker within tolerance on first 200.', time: '07:34', photo: 'Seam check · first 200' }],
+    output: { checked: 200, passed: 197, failed: 3 },
   },
   {
     id: 'b4', product: 'Merino base layers', code: 'BATCH-115', ref: 'PO-2279', qty: '900 pcs', due: '26 Aug',
@@ -67,6 +68,7 @@ export const seedBatches: Batch[] = [
     stage: 'delivered', status: 'done', person: 'sr', day: 22,
     photos: [{ label: 'Loaded container', time: '22 Aug 11:02' }],
     notes: [{ id: 'n1', who: 'sr', body: 'Handed to freight forwarder, POD received.', time: '22 Aug', photo: null }],
+    output: { checked: 180, passed: 180, failed: 0 },
   },
   {
     id: 'b6', product: 'Denim overshirts', code: 'BATCH-113', ref: 'PO-2270', qty: '600 pcs', due: '—',

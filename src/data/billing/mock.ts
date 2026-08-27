@@ -1,4 +1,18 @@
-import type { Account, Client, ClientId, Currency, Invoice, InvoiceStatus, OpenChallan, PaymentMethod } from './types';
+import type {
+  Account,
+  Challan,
+  ChallanStatus,
+  Client,
+  ClientId,
+  Currency,
+  Invoice,
+  InvoiceStatus,
+  InvoiceStatusFull,
+  OpenChallan,
+  PaymentMethod,
+  Quotation,
+  QuotationStatus,
+} from './types';
 
 /** Design-tool-editable defaults in the source file — pinned here since the mobile app has no settings panel for them. */
 export const VAT_RATE = 13;
@@ -26,6 +40,19 @@ export const PILL: Record<InvoiceStatus, { label: string; bg: string; fg: string
   collected: { bg: '#E2F6EC', fg: '#0E5E43', dot: '#22A97A', label: 'Collected', accent: '#5FD2A0' },
   cancelled: { bg: '#F8E7DF', fg: '#8E4327', dot: '#C0603C', label: 'Cancelled', accent: '#C0603C' },
 };
+
+/** The 6-state IRD status model (item 14). */
+export const INVOICE_PILL: Record<InvoiceStatusFull, { label: string; bg: string; fg: string; dot: string; accent: string }> = {
+  Draft: { bg: '#EDEAE0', fg: '#5B6C64', dot: '#8C9A92', label: 'Draft', accent: '#DCD6C8' },
+  Sent: { bg: '#F1EEE5', fg: '#3B4F47', dot: '#8C9A92', label: 'Sent', accent: '#DCD6C8' },
+  Partial: { bg: '#F7EEDA', fg: '#7A5709', dot: '#DBB55C', label: 'Partial', accent: '#DBB55C' },
+  Paid: { bg: '#E2F6EC', fg: '#0E5E43', dot: '#22A97A', label: 'Paid', accent: '#5FD2A0' },
+  Overdue: { bg: '#F8E7DF', fg: '#8E4327', dot: '#C0603C', label: 'Overdue', accent: '#C0603C' },
+  Cancelled: { bg: '#F8E7DF', fg: '#8E4327', dot: '#C0603C', label: 'Cancelled', accent: '#C0603C' },
+};
+
+/** IRD rule: a tax invoice above this NPR value must carry the buyer's PAN. */
+export const PAN_REQUIRED_ABOVE_NPR = 50000;
 
 export const METHODS: { id: PaymentMethod; label: string; badge: string; badgeBg: string; badgeFg: string }[] = [
   { id: 'cash', label: 'Cash', badge: 'CRV', badgeBg: '#F1EEE5', badgeFg: '#3B4F47' },
@@ -112,4 +139,97 @@ export const seedOpenChallans: OpenChallan[] = [
   { id: 'k1', no: 'DC-0886', client: 'northfield', pcs: 900, date: '22 Aug', so: 'SO-2291', cur: 'GBP', rate: 12.0, desc: 'Oversized hoodie · AW26 · ecru' },
   { id: 'k2', no: 'DC-0885', client: 'thamel', pcs: 400, date: '22 Aug', so: 'SO-2287', cur: 'NPR', rate: 700, desc: 'Cotton overshirt · assorted' },
   { id: 'k3', no: 'DC-0883', client: 'baselayer', pcs: 300, date: '20 Aug', so: 'SO-2289', cur: 'EUR', rate: 24.5, desc: 'Merino base layer · sand' },
+];
+
+// ---- Challans + Quotations (item 13) ----
+
+export const DOC_TYPE_LABELS: Record<'invoice' | 'challan' | 'quotation', string> = {
+  invoice: 'Invoices',
+  challan: 'Challans',
+  quotation: 'Quotations',
+};
+
+export const CHALLAN_STATUSES: ChallanStatus[] = ['Draft', 'Dispatched', 'Delivered', 'Cancelled'];
+export const QUOTATION_STATUSES: QuotationStatus[] = ['Draft', 'Sent', 'Accepted', 'Rejected', 'Cancelled'];
+
+export const DOC_UNITS = ['Pcs', 'Set', 'Kg', 'Metre', 'Box', 'Roll'];
+
+export const QUOTATION_TERMS_DEFAULT =
+  '1. Prices valid for 30 days.\n2. 50% advance, 50% on delivery.\n3. Delivery within 2–4 weeks.';
+
+/** Status → pill colours, keyed by label (shared by challan + quotation). Tones match the invoice `PILL`. */
+export const DOC_STATUS_PILL: Record<string, { bg: string; fg: string; dot: string }> = {
+  Draft: { bg: '#F1EEE5', fg: '#3B4F47', dot: '#8C9A92' },
+  Sent: { bg: '#F7EEDA', fg: '#7A5709', dot: '#DBB55C' },
+  Dispatched: { bg: '#F7EEDA', fg: '#7A5709', dot: '#DBB55C' },
+  Delivered: { bg: '#E2F6EC', fg: '#0E5E43', dot: '#22A97A' },
+  Accepted: { bg: '#E2F6EC', fg: '#0E5E43', dot: '#22A97A' },
+  Rejected: { bg: '#F8E7DF', fg: '#8E4327', dot: '#C0603C' },
+  Cancelled: { bg: '#F8E7DF', fg: '#8E4327', dot: '#C0603C' },
+};
+
+export const seedChallans: Challan[] = [
+  {
+    id: 'ch1', number: 'CH-013', date: '2026-08-22', clientName: 'Northfield Apparel', clientPAN: '301142857',
+    clientPhone: '+44 113 496 0281', clientAddress: 'Unit 7, Sweet Street, Leeds LS11 9DH, UK',
+    status: 'Dispatched', fiscalYear: '2083/84', vehicleNo: 'BA 2 KHA 4471', driverName: 'Ram Bahadur Thapa',
+    routeFrom: 'Kuleshwor, Kathmandu', routeTo: 'Birgunj ICD', relatedInvoice: '',
+    discountMode: 'pct', discountPct: 0, discountFlatAmt: 0,
+    note: 'Handle with care — pressed & polybagged.', createdBy: 'Anil Karki',
+    lines: [
+      { desc: 'Oversized hoodie · AW26 · black', qty: 1400, unit: 'Pcs', rate: 1810 },
+      { desc: 'Oversized hoodie · AW26 · ecru', qty: 1000, unit: 'Pcs', rate: 1810 },
+    ],
+  },
+  {
+    id: 'ch2', number: 'CH-012', date: '2026-08-19', clientName: 'Thamel Threads', clientPAN: '609883021',
+    clientPhone: '+977 1-4700221', clientAddress: 'Chaksibari Marg, Thamel, Kathmandu',
+    status: 'Delivered', fiscalYear: '2083/84', vehicleNo: 'BA 12 CHA 8890', driverName: 'Suresh Lama',
+    routeFrom: 'Kuleshwor, Kathmandu', routeTo: 'Thamel, Kathmandu', relatedInvoice: 'INV-1040',
+    discountMode: 'pct', discountPct: 0, discountFlatAmt: 0,
+    note: '', createdBy: 'Anil Karki',
+    lines: [{ desc: 'Cotton overshirt · assorted', qty: 1200, unit: 'Pcs', rate: 700 }],
+  },
+  {
+    id: 'ch3', number: 'CH-011', date: '2026-08-14', clientName: 'Base Layer Studio', clientPAN: '—',
+    clientPhone: '+47 22 09 41 00', clientAddress: 'Storgata 10, 0155 Oslo, Norway',
+    status: 'Draft', fiscalYear: '2083/84', vehicleNo: '', driverName: '',
+    routeFrom: 'Kuleshwor, Kathmandu', routeTo: 'TIA cargo', relatedInvoice: '',
+    discountMode: 'pct', discountPct: 0, discountFlatAmt: 0,
+    note: 'Awaiting export docs before dispatch.', createdBy: 'Sita Rai',
+    lines: [
+      { desc: 'Merino base layer · charcoal', qty: 540, unit: 'Pcs', rate: 3690 },
+      { desc: 'Merino base layer · sand', qty: 360, unit: 'Pcs', rate: 3690 },
+    ],
+  },
+];
+
+export const seedQuotations: Quotation[] = [
+  {
+    id: 'qt1', number: 'QT-009', date: '2026-08-20', clientName: 'Karve Outdoor', clientPAN: '',
+    clientPhone: '+44 117 325 1120', clientAddress: '14 Gasferry Road, Bristol BS1 6UN, UK',
+    status: 'Sent', currency: 'GBP', validUntil: '2026-09-19', terms: QUOTATION_TERMS_DEFAULT,
+    relatedInvoice: '', discountMode: 'pct', discountPct: 5, discountFlatAmt: 0,
+    note: 'FOB Kathmandu. Lead time from PO confirmation.', createdBy: 'Anil Karki',
+    lines: [
+      { desc: 'Fleece jogger · heather grey', qty: 1800, unit: 'Pcs', rate: 8.4 },
+      { desc: 'Fleece jogger · black', qty: 1200, unit: 'Pcs', rate: 8.4 },
+    ],
+  },
+  {
+    id: 'qt2', number: 'QT-008', date: '2026-08-12', clientName: 'Ridgeline Supply', clientPAN: '',
+    clientPhone: '+44 141 221 7788', clientAddress: '30 Bell Street, Glasgow G1 1LG, UK',
+    status: 'Accepted', currency: 'GBP', validUntil: '2026-09-11', terms: QUOTATION_TERMS_DEFAULT,
+    relatedInvoice: '', discountMode: 'pct', discountPct: 0, discountFlatAmt: 0,
+    note: '', createdBy: 'Anil Karki',
+    lines: [{ desc: 'Terry crew sweat · grey marl', qty: 3200, unit: 'Pcs', rate: 8.9 }],
+  },
+  {
+    id: 'qt3', number: 'QT-007', date: '2026-08-04', clientName: 'Thamel Threads', clientPAN: '609883021',
+    clientPhone: '+977 1-4700221', clientAddress: 'Chaksibari Marg, Thamel, Kathmandu',
+    status: 'Draft', currency: 'NPR', validUntil: '2026-09-03', terms: QUOTATION_TERMS_DEFAULT,
+    relatedInvoice: '', discountMode: 'amount', discountPct: 0, discountFlatAmt: 25000,
+    note: 'Domestic — 13% VAT added on invoicing.', createdBy: 'Sita Rai',
+    lines: [{ desc: 'Cotton overshirt · assorted', qty: 800, unit: 'Pcs', rate: 720 }],
+  },
 ];

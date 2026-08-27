@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 
+import { useAuth } from '@/auth/auth-context';
+import type { SectionId } from '@/auth/permissions';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii } from '@/theme';
 import { DashboardIcon, FinanceIcon, InventoryIcon, MoreIcon, TasksIcon, type NavIconProps } from '@/components/ui/icon';
@@ -27,8 +29,23 @@ const TAB_LABELS: Record<string, string> = {
   more: 'More',
 };
 
+// Tab route name -> RBAC section. `more` is always shown (it's the overflow).
+const TAB_SECTION: Record<string, SectionId> = {
+  index: 'dashboard',
+  tasks: 'tasks',
+  inventory: 'inventory',
+  finance: 'finance',
+};
+
 export function CustomTabBar({ state, navigation, insets }: CustomTabBarProps) {
   const theme = useTheme();
+  const { canView } = useAuth();
+
+  const activeKey = state.routes[state.index]?.key;
+  const routes = state.routes.filter((route) => {
+    const section = TAB_SECTION[route.name];
+    return !section || canView(section);
+  });
 
   return (
     <View
@@ -41,8 +58,8 @@ export function CustomTabBar({ state, navigation, insets }: CustomTabBarProps) {
         },
       ]}
     >
-      {state.routes.map((route, index) => {
-        const isFocused = state.index === index;
+      {routes.map((route) => {
+        const isFocused = route.key === activeKey;
         const IconComponent = TAB_ICONS[route.name] ?? MoreIcon;
         const label = TAB_LABELS[route.name] ?? route.name;
         const color = isFocused ? theme.accentWashText : theme.textSecondary;

@@ -39,6 +39,17 @@ export function useUpdateEntry() {
   });
 }
 
+export function useDeleteEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteEntry(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: purchasesKeys.list() });
+      queryClient.setQueryData<PurchaseEntry[]>(purchasesKeys.list(), (old) => (old ?? []).filter((e) => e.id !== id));
+    },
+  });
+}
+
 /** Undo restores the pre-mutation snapshot the screen captured — mirrors the prototype's own snapshot-based undo. */
 export function useRestoreEntries() {
   const queryClient = useQueryClient();

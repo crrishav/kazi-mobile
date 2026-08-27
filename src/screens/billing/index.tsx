@@ -1,19 +1,62 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 
+import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
+import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { TextField } from '@/components/ui/text-field';
+import { toCSV } from '@/lib/export/csv';
+import { shareInvoicePdf } from '@/lib/pdf/invoice';
+import { fiscalYearForAD } from '@/lib/nepaliDate';
 import { useTheme } from '@/theme/theme-provider';
-import { useAddInvoice, useAddPayment, useInvoices, useOpenChallans, useRemoveOpenChallan, useRestoreInvoices } from '@/data/billing/hooks';
+import { fontFamily } from '@/theme';
+import {
+  useAddChallan,
+  useAddInvoice,
+  useAddPayment,
+  useAddQuotation,
+  useChallans,
+  useInvoices,
+  useOpenChallans,
+  useQuotations,
+  useRemoveOpenChallan,
+  useRestoreChallans,
+  useRestoreInvoices,
+  useRestoreQuotations,
+  useUpdateChallanStatus,
+  useUpdateInvoice,
+  useUpdateQuotation,
+  useUpdateQuotationStatus,
+} from '@/data/billing/hooks';
 import { CLIENTS, RATES, SYM } from '@/data/billing/mock';
-import type { BillingFilter, BillingView, Invoice, OpenChallan, Payment } from '@/data/billing/types';
-import { balance, lakh, money, n0, npr, nprOf, paid, status, total } from '@/data/billing/utils';
+import type {
+  BillingFilter,
+  BillingView,
+  Challan,
+  ChallanStatus,
+  DocType,
+  Invoice,
+  InvoiceLine,
+  InvoiceStatusFull,
+  OpenChallan,
+  Payment,
+  Quotation,
+  QuotationStatus,
+} from '@/data/billing/types';
+import { balance, lakh, money, n0, nextDocNumber, npr, nprOf, paid, statusFull, total } from '@/data/billing/utils';
 
 import { ChallansSheet } from './challans-sheet';
 import { DetailView } from './detail-view';
+import { DocDetailSheet } from './doc-detail-sheet';
+import { DocList } from './doc-list';
+import { DocSheet, emptyDocDraft, type DocDraft } from './doc-sheet';
+import { DocTypeSwitch } from './doc-type-switch';
+import { InvoiceSheet, draftFromInvoice, draftFromQuotation, emptyInvoiceDraft, type InvoiceDraft } from './invoice-sheet';
 import { InvoiceRow } from './invoice-row';
 import { PaySheet, type PayDraft } from './pay-sheet';
 import { PdfPreview } from './pdf-preview';
@@ -25,31 +68,167 @@ function emptyPayDraft(invoice: Invoice): PayDraft {
   return { amount: '', cur: invoice.cur, method: invoice.cur === 'NPR' ? 'cash' : 'bank', acct: 'nic', ref: '' };
 }
 
-export function Billing() {
+export interface BillingProps {
+  /** Deep link (item 15): an invoice id or ref (e.g. `INV-1043`) to open on mount. */
+  focus?: string;
+  /** With `focus`, also open the edit sheet for that invoice. */
+  autoEdit?: boolean;
+}
+
+export function Billing({ focus, autoEdit }: BillingProps = {}) {
   const theme = useTheme();
   const toast = useToast();
+  const { profile, can } = useAuth();
+  const canEdit = can('billing');
+  const createdBy = profile?.name ?? 'You';
 
   const { data: invoices } = useInvoices();
   const { data: openChallans } = useOpenChallans();
+  const { data: challans } = useChallans();
+  const { data: quotations } = useQuotations();
   const addInvoice = useAddInvoice();
+  const updateInvoice = useUpdateInvoice();
   const addPayment = useAddPayment();
   const restoreInvoices = useRestoreInvoices();
   const removeOpenChallan = useRemoveOpenChallan();
+  const addChallan = useAddChallan();
+  const updateChallanStatus = useUpdateChallanStatus();
+  const restoreChallans = useRestoreChallans();
+  const addQuotation = useAddQuotation();
+  const updateQuotationStatus = useUpdateQuotationStatus();
+  const updateQuotation = useUpdateQuotation();
+  const restoreQuotations = useRestoreQuotations();
 
+  const [docType, setDocType] = useState<DocType>('invoice');
   const [view, setView] = useState<BillingView>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<BillingFilter>('all');
   const [sheet, setSheet] = useState<'challans' | 'pay' | null>(null);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [payDraft, setPayDraft] = useState<PayDraft | null>(null);
+  const [docStatusFilter, setDocStatusFilter] = useState('all');
+  const [openDoc, setOpenDoc] = useState<{ kind: 'challan' | 'quotation'; id: string } | null>(null);
+  const [docSheet, setDocSheet] = useState<'challan' | 'quotation' | null>(null);
+  const [docDraft, setDocDraft] = useState<DocDraft>(emptyDocDraft('challan'));
+  const [invoiceSheetOpen, setInvoiceSheetOpen] = useState(false);
+  const [invoiceDraft, setInvoiceDraft] = useState<InvoiceDraft>(emptyInvoiceDraft());
+  const [convertQuoteId, setConvertQuoteId] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [focusHandled, setFocusHandled] = useState(false);
+  const [printCounts, setPrintCounts] = useState<Record<string, number>>({});
 
-  if (!invoices || !openChallans) {
+  // Deep link (item 15): open (and optionally edit) a specific invoice on mount.
+  useEffect(() => {
+    if (focusHandled || !focus || !invoices) return;
+    const key = String(focus).toLowerCase();
+    const match = invoices.find((v) => v.id.toLowerCase() === key || v.ref.toLowerCase() === key);
+    if (!match) return;
+    setFocusHandled(true);
+    setDocType('invoice');
+    setView('detail');
+    setSelectedId(match.id);
+    if (autoEdit && can('billing')) {
+      setConvertQuoteId(null);
+      setInvoiceDraft(draftFromInvoice(match));
+      setInvoiceSheetOpen(true);
+    }
+  }, [focus, autoEdit, invoices, focusHandled, can]);
+
+  if (!invoices || !openChallans || !challans || !quotations) {
     return (
       <View style={[styles.loading, { backgroundColor: theme.background }]}>
         <ActivityIndicator color={theme.accent} />
       </View>
     );
   }
+
+  const docCounts: Record<DocType, number> = { invoice: invoices.length, challan: challans.length, quotation: quotations.length };
+  const activeDoc =
+    openDoc?.kind === 'challan'
+      ? (challans.find((c) => c.id === openDoc.id) ?? null)
+      : openDoc?.kind === 'quotation'
+        ? (quotations.find((q) => q.id === openDoc.id) ?? null)
+        : null;
+
+  const openNewDoc = (kind: 'challan' | 'quotation') => {
+    setDocDraft(emptyDocDraft(kind));
+    setDocSheet(kind);
+  };
+
+  const handleSaveDoc = () => {
+    if (!docSheet) return;
+    const toNum = (s: string) => parseFloat(s.replace(/[^0-9.]/g, '')) || 0;
+    const lines = docDraft.lines
+      .filter((l) => l.desc.trim() || l.qty || l.rate)
+      .map((l) => ({ desc: l.desc.trim(), qty: toNum(l.qty), unit: l.unit, rate: toNum(l.rate) }));
+    if (!docDraft.clientName.trim() || lines.length === 0) {
+      toast.show({ message: 'Add a client and at least one line item', tone: 'bad' });
+      return;
+    }
+    const base = {
+      date: docDraft.date,
+      clientName: docDraft.clientName.trim(),
+      clientPAN: docDraft.clientPAN.trim(),
+      clientPhone: docDraft.clientPhone.trim(),
+      clientAddress: docDraft.clientAddress.trim(),
+      lines,
+      discountMode: docDraft.discountMode,
+      discountPct: toNum(docDraft.discountPct),
+      discountFlatAmt: toNum(docDraft.discountFlatAmt),
+      note: docDraft.note.trim(),
+      createdBy,
+    };
+
+    if (docSheet === 'challan') {
+      const before = challans;
+      const number = nextDocNumber('CH', challans.map((c) => c.number));
+      const challan: Challan = {
+        ...base,
+        id: `ch${Date.now()}`,
+        number,
+        status: docDraft.status as ChallanStatus,
+        fiscalYear: fiscalYearForAD(docDraft.date).label,
+        vehicleNo: docDraft.vehicleNo.trim(),
+        driverName: docDraft.driverName.trim(),
+        routeFrom: docDraft.routeFrom.trim(),
+        routeTo: docDraft.routeTo.trim(),
+        relatedInvoice: '',
+      };
+      addChallan.mutate(challan);
+      setDocSheet(null);
+      toast.show({ message: `${number} created`, tone: 'ok', action: { label: 'Undo', onPress: () => restoreChallans.mutate(before) } });
+    } else {
+      const before = quotations;
+      const number = nextDocNumber('QT', quotations.map((q) => q.number));
+      const quotation: Quotation = {
+        ...base,
+        id: `qt${Date.now()}`,
+        number,
+        status: docDraft.status as QuotationStatus,
+        currency: docDraft.currency,
+        validUntil: docDraft.validUntil,
+        terms: docDraft.terms.trim(),
+        relatedInvoice: '',
+      };
+      addQuotation.mutate(quotation);
+      setDocSheet(null);
+      toast.show({ message: `${number} created`, tone: 'ok', action: { label: 'Undo', onPress: () => restoreQuotations.mutate(before) } });
+    }
+  };
+
+  const handleDocStatus = (next: ChallanStatus | QuotationStatus) => {
+    if (!openDoc) return;
+    if (openDoc.kind === 'challan') {
+      const before = challans;
+      updateChallanStatus.mutate({ id: openDoc.id, status: next as ChallanStatus });
+      toast.show({ message: `Challan marked ${next.toLowerCase()}`, tone: 'ok', action: { label: 'Undo', onPress: () => restoreChallans.mutate(before) } });
+    } else {
+      const before = quotations;
+      updateQuotationStatus.mutate({ id: openDoc.id, status: next as QuotationStatus });
+      toast.show({ message: `Quotation marked ${next.toLowerCase()}`, tone: 'ok', action: { label: 'Undo', onPress: () => restoreQuotations.mutate(before) } });
+    }
+    setOpenDoc(null);
+  };
 
   const selected = invoices.find((v) => v.id === selectedId) ?? null;
   const live = invoices.filter((v) => !v.cancelled);
@@ -67,22 +246,42 @@ export function Billing() {
     : 'All balances in NPR';
 
   const collected = invoices.reduce((n, v) => n + v.payments.reduce((m, p) => m + (p.cur === 'NPR' ? p.amt : p.amt * p.rate), 0), 0);
-  const overdue = openList.filter((v) => v.dueDays < 0);
+  const overdue = openList.filter((v) => statusFull(v) === 'Overdue');
   const overdueNpr = overdue.reduce((n, v) => n + nprOf(v, balance(v)), 0);
 
-  const counts = {
-    all: invoices.length,
-    accepted: invoices.filter((v) => status(v) === 'accepted').length,
-    collected: invoices.filter((v) => status(v) === 'collected').length,
-    cancelled: invoices.filter((v) => status(v) === 'cancelled').length,
-  };
+  const FULL_STATUSES: InvoiceStatusFull[] = ['Draft', 'Sent', 'Partial', 'Paid', 'Overdue', 'Cancelled'];
   const filters: { id: BillingFilter; label: string; count: number }[] = [
-    { id: 'all', label: 'All', count: counts.all },
-    { id: 'accepted', label: 'Accepted', count: counts.accepted },
-    { id: 'collected', label: 'Collected', count: counts.collected },
-    { id: 'cancelled', label: 'Cancelled', count: counts.cancelled },
+    { id: 'all', label: 'All', count: invoices.length },
+    ...FULL_STATUSES.map((s) => ({ id: s as BillingFilter, label: s as string, count: invoices.filter((v) => statusFull(v) === s).length })),
   ];
-  const shown = invoices.filter((v) => filter === 'all' || status(v) === filter);
+  const q = query.trim().toLowerCase();
+  const shown = invoices
+    .filter((v) => filter === 'all' || statusFull(v) === filter)
+    .filter(
+      (v) =>
+        !q ||
+        (v.clientName ?? CLIENTS[v.client].name).toLowerCase().includes(q) ||
+        v.ref.toLowerCase().includes(q) ||
+        v.so.toLowerCase().includes(q) ||
+        statusFull(v).toLowerCase().includes(q),
+    );
+
+  const handleExportCsv = async () => {
+    const csv = toCSV(shown, [
+      { header: 'Invoice', value: (v) => v.ref },
+      { header: 'Client', value: (v) => v.clientName ?? CLIENTS[v.client].name },
+      { header: 'Issued', value: (v) => v.issuedISO ?? v.issued },
+      { header: 'Due', value: (v) => v.dueISO ?? v.due },
+      { header: 'Status', value: (v) => statusFull(v) },
+      { header: 'Currency', value: (v) => v.cur },
+      { header: 'Total', value: (v) => Math.round(total(v)) },
+      { header: 'Paid', value: (v) => Math.round(paid(v)) },
+      { header: 'Balance', value: (v) => Math.round(balance(v)) },
+      { header: 'Total NPR', value: (v) => Math.round(nprOf(v, total(v))) },
+    ]);
+    await Clipboard.setStringAsync(csv);
+    toast.show({ message: `${shown.length} invoice${shown.length === 1 ? '' : 's'} copied as CSV`, tone: 'ok' });
+  };
 
   const openDetail = (id: string) => {
     setView('detail');
@@ -140,6 +339,12 @@ export function Billing() {
       return;
     }
     const rate = payDraft.cur === 'NPR' ? 1 : RATES[payDraft.cur];
+    const creditFx = payDraft.cur === selected.cur ? amt : payDraft.cur === 'NPR' ? amt / selected.rate : (amt * rate) / selected.rate;
+    // Payment ceiling (item 14): a payment can't exceed what's still owed.
+    if (creditFx > balance(selected) + 0.5) {
+      toast.show({ message: `That's more than the ${money(selected.cur, balance(selected))} outstanding`, tone: 'bad' });
+      return;
+    }
     const prefix = payDraft.method === 'cash' ? 'CRV-01' : payDraft.method === 'bank' ? 'BRV-02' : 'CN-00';
     const totalExtra = invoices.reduce((n, v) => n + v.payments.filter((p) => p.ref.startsWith(prefix.slice(0, 3))).length, 0);
     const ref = payDraft.ref.trim() || `${prefix}${32 + totalExtra}`;
@@ -150,17 +355,146 @@ export function Billing() {
     setSheet(null);
     setPayDraft(null);
 
-    const creditFx = payDraft.cur === selected.cur ? amt : payDraft.cur === 'NPR' ? amt / selected.rate : (amt * rate) / selected.rate;
     const after = total(selected) - (paid(selected) + creditFx);
     flash(`${ref} · ${money(payDraft.cur, amt)} recorded${after < 0.5 ? ' · invoice collected in full' : ''}`, before);
+  };
+
+  // ---- Invoice create / edit / cancel (item 14) ----
+  const shortDate = (iso: string) => {
+    const [, m, d] = iso.split('-');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${parseInt(d, 10)} ${months[parseInt(m, 10) - 1]}`;
+  };
+  const daysUntil = (iso: string) => Math.round((new Date(iso).getTime() - Date.now()) / 86400000);
+
+  const openNewInvoice = () => {
+    setConvertQuoteId(null);
+    setInvoiceDraft(emptyInvoiceDraft());
+    setInvoiceSheetOpen(true);
+  };
+
+  const openEditInvoice = (v: Invoice) => {
+    setConvertQuoteId(null);
+    setInvoiceDraft(draftFromInvoice(v));
+    setInvoiceSheetOpen(true);
+  };
+
+  // Convert a quotation → new invoice (item 15): open the editor prefilled; the
+  // quotation is marked Accepted + linked once the invoice is actually created.
+  const handleConvertQuotation = (quote: Quotation) => {
+    setOpenDoc(null);
+    setConvertQuoteId(quote.id);
+    setInvoiceDraft(draftFromQuotation(quote));
+    setInvoiceSheetOpen(true);
+  };
+
+  const closeInvoiceSheet = () => {
+    setInvoiceSheetOpen(false);
+    setConvertQuoteId(null);
+  };
+
+  const handleSaveInvoice = () => {
+    const d = invoiceDraft;
+    const toN = (s: string) => parseFloat(s.replace(/[^0-9.]/g, '')) || 0;
+    const lines: InvoiceLine[] = d.lines
+      .filter((l) => l.desc.trim() || l.qty || l.rate)
+      .map((l) => ({ desc: l.desc.trim(), challan: '', qty: toN(l.qty), rate: toN(l.rate), unit: l.unit }));
+    const nprRate = d.cur === 'GBP' ? RATES.GBP : 1;
+    const sub = lines.reduce((n, l) => n + l.qty * l.rate, 0);
+    const disc = d.discountMode === 'amount' ? Math.min(sub, toN(d.discountFlatAmt)) : sub * (Math.min(100, toN(d.discountPct)) / 100);
+    const taxableV = sub - disc;
+    const grand = taxableV + (d.applyVAT ? taxableV * 0.13 : 0);
+    if (!d.clientName.trim() || lines.length === 0) {
+      toast.show({ message: 'Add a client and at least one line item', tone: 'bad' });
+      return;
+    }
+    if (grand * nprRate > 50000 && !d.clientPAN.trim()) {
+      toast.show({ message: 'Client PAN is required for invoices over NPR 50,000', tone: 'bad' });
+      return;
+    }
+
+    const common = {
+      cur: d.cur as Invoice['cur'],
+      rate: nprRate,
+      export: false,
+      applyVAT: d.applyVAT,
+      so: d.so.trim(),
+      issued: shortDate(d.issuedISO),
+      due: shortDate(d.dueISO),
+      dueDays: daysUntil(d.dueISO),
+      issuedISO: d.issuedISO,
+      dueISO: d.dueISO,
+      terms: d.paymentTerms.trim(),
+      paymentTerms: d.paymentTerms.trim(),
+      lines,
+      clientName: d.clientName.trim(),
+      clientPAN: d.clientPAN.trim(),
+      clientPhone: d.clientPhone.trim(),
+      clientAddress: d.clientAddress.trim(),
+      discountMode: d.discountMode,
+      discountPct: toN(d.discountPct),
+      discountFlatAmt: toN(d.discountFlatAmt),
+      paymentType: d.paymentType,
+      bankName: d.paymentType === 'Bank' ? d.bankName : undefined,
+      explicitStatus: d.status,
+    };
+
+    const before = invoices;
+    if (d.id) {
+      updateInvoice.mutate({ id: d.id, updates: common });
+      closeInvoiceSheet();
+      flash(`${invoices.find((v) => v.id === d.id)?.ref ?? 'Invoice'} updated`, before);
+    } else {
+      const ref = nextDocNumber('INV', invoices.map((v) => v.ref));
+      const fromQuote = convertQuoteId ? quotations.find((qt) => qt.id === convertQuoteId) : undefined;
+      const invoice: Invoice = {
+        id: `n${Date.now()}`,
+        ref,
+        client: 'thamel',
+        cancelled: false,
+        challans: [],
+        payments: [],
+        ...common,
+        relatedQuotation: fromQuote?.number,
+      };
+      addInvoice.mutate(invoice);
+      if (fromQuote) {
+        updateQuotation.mutate({ id: fromQuote.id, updates: { status: 'Accepted', relatedInvoice: ref } });
+      }
+      closeInvoiceSheet();
+      flash(fromQuote ? `${ref} created from ${fromQuote.number}` : `${ref} created for ${common.clientName}`, before);
+    }
+  };
+
+  // Real IRD PDF (item 16) — expo-print → expo-sharing; reprints stamp "Copy of Original — N".
+  const handleInvoicePdf = async () => {
+    if (!selected) return;
+    const copyNumber = (printCounts[selected.id] ?? 0) + 1;
+    setPrintCounts((c) => ({ ...c, [selected.id]: copyNumber }));
+    setPdfOpen(false);
+    try {
+      const shared = await shareInvoicePdf(selected, { copyNumber });
+      toast.show({
+        message: shared ? `${selected.ref}.pdf ready to share` : `${selected.ref}.pdf generated — sharing unavailable on this device`,
+        tone: 'ok',
+      });
+    } catch {
+      toast.show({ message: `Could not generate ${selected.ref}.pdf`, tone: 'bad' });
+    }
+  };
+
+  const handleCancelInvoice = (v: Invoice) => {
+    const before = invoices;
+    updateInvoice.mutate({ id: v.id, updates: { cancelled: true, cancelNote: v.cancelNote ?? `Cancelled ${shortDate(new Date().toISOString().slice(0, 10))} — record retained for IRD.` } });
+    flash(`${v.ref} cancelled`, before);
   };
 
   if (view === 'detail' && selected) {
     return (
       <View style={[styles.flex, { backgroundColor: theme.background }]}>
         <ScreenHeader
-          title={CLIENTS[selected.client].name}
-          subtitle={`${selected.ref} · ${status(selected)}`}
+          title={selected.clientName ?? CLIENTS[selected.client].name}
+          subtitle={`${selected.ref} · ${statusFull(selected)}`}
           onBack={backToList}
           rightSlot={
             <Pressable onPress={() => setPdfOpen(true)} style={[styles.pdfIconButton, { borderColor: theme.border, backgroundColor: theme.surface }]}>
@@ -169,7 +503,14 @@ export function Billing() {
           }
         />
         <ScrollView contentContainerStyle={styles.content}>
-          <DetailView invoice={selected} onAddPayment={openPay} onOpenPdf={() => setPdfOpen(true)} />
+          <DetailView
+            invoice={selected}
+            canEdit={canEdit}
+            onAddPayment={openPay}
+            onOpenPdf={() => setPdfOpen(true)}
+            onEdit={() => openEditInvoice(selected)}
+            onCancel={() => handleCancelInvoice(selected)}
+          />
         </ScrollView>
 
         <PaySheet
@@ -187,14 +528,16 @@ export function Billing() {
           visible={pdfOpen}
           invoice={selected}
           onClose={() => setPdfOpen(false)}
-          onShare={() => {
-            setPdfOpen(false);
-            flash(`Draft email opened · ${selected.ref}.pdf attached`);
-          }}
-          onDownload={() => {
-            setPdfOpen(false);
-            flash(`${selected.ref}.pdf saved to device`);
-          }}
+          onShare={handleInvoicePdf}
+          onDownload={handleInvoicePdf}
+        />
+        <InvoiceSheet
+          visible={invoiceSheetOpen}
+          draft={invoiceDraft}
+          nextNumber={invoiceDraft.id ? (invoices.find((v) => v.id === invoiceDraft.id)?.ref ?? '') : nextDocNumber('INV', invoices.map((v) => v.ref))}
+          onClose={closeInvoiceSheet}
+          onChange={(patch) => setInvoiceDraft((d) => ({ ...d, ...patch }))}
+          onSave={handleSaveInvoice}
         />
       </View>
     );
@@ -202,8 +545,46 @@ export function Billing() {
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <ScreenHeader title="Billing" subtitle="23 Aug 2026 · invoice FX" rightSlot={<Avatar initials="AK" tint="dark" size="lg" />} />
+      <ScreenHeader
+        title="Billing"
+        subtitle="23 Aug 2026 · invoice FX"
+        rightSlot={
+          <View style={styles.headerRight}>
+            {docType === 'invoice' ? (
+              <Pressable
+                onPress={handleExportCsv}
+                style={[styles.pdfIconButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
+              >
+                <Icon name="download" size={15} color={theme.textPrimary} />
+              </Pressable>
+            ) : null}
+            <Avatar initials="AK" tint="dark" size="lg" />
+          </View>
+        }
+      />
       <ScrollView contentContainerStyle={styles.content}>
+        <DocTypeSwitch
+          active={docType}
+          counts={docCounts}
+          onChange={(t) => {
+            setDocType(t);
+            setDocStatusFilter('all');
+          }}
+        />
+
+        {docType !== 'invoice' ? (
+          <>
+            {!canEdit ? <PermissionNotice section="billing" /> : null}
+            <DocList
+              kind={docType === 'challan' ? 'challan' : 'quotation'}
+              docs={docType === 'challan' ? challans : quotations}
+              statusFilter={docStatusFilter}
+              onStatusFilter={setDocStatusFilter}
+              onOpen={(d) => setOpenDoc({ kind: docType === 'challan' ? 'challan' : 'quotation', id: d.id })}
+            />
+          </>
+        ) : (
+        <>
         <Summary
           outstandingTotal={npr(outstandingNpr)}
           openCount={openList.length}
@@ -214,6 +595,13 @@ export function Billing() {
           overdueTotal={overdue.length ? lakh(overdueNpr) : 'रु 0'}
           hasOverdue={overdue.length > 0}
           overdueMeta={overdue.length ? `${npr(overdueNpr)} · ${Math.abs(overdue[0].dueDays)}d late` : 'nothing past terms'}
+        />
+
+        <TextField
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search client, number, SO or status"
+          compact
         />
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
@@ -243,13 +631,66 @@ export function Billing() {
         ) : null}
 
         {shown.length === 0 ? (
-          <EmptyState icon="file-text" title="Nothing in this status" message={`Tap "All" to see every one of the ${invoices.length} invoices raised this quarter.`} />
+          <EmptyState
+            icon="file-text"
+            title={q ? 'No invoices match' : 'Nothing in this status'}
+            message={q ? `No invoice matches "${query.trim()}".` : `Tap "All" to see every one of the ${invoices.length} invoices raised this quarter.`}
+          />
         ) : (
           shown.map((v, i) => <InvoiceRow key={v.id} invoice={v} index={i} showFx={SHOW_FX} onPress={() => openDetail(v.id)} />)
+        )}
+        </>
         )}
       </ScrollView>
 
       <ChallansSheet visible={sheet === 'challans'} challans={openChallans} onClose={() => setSheet(null)} onRaise={handleRaise} />
+
+      {canEdit ? (
+        <Pressable
+          onPress={() => (docType === 'invoice' ? openNewInvoice() : openNewDoc(docType === 'challan' ? 'challan' : 'quotation'))}
+          style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}
+        >
+          <Icon name="plus" size={18} color={theme.onDark.accent} />
+          <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>
+            {docType === 'invoice' ? 'New invoice' : docType === 'challan' ? 'New challan' : 'New quotation'}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      <DocDetailSheet
+        visible={openDoc !== null}
+        doc={activeDoc}
+        kind={openDoc?.kind ?? 'challan'}
+        canEdit={canEdit}
+        onClose={() => setOpenDoc(null)}
+        onStatus={handleDocStatus}
+        onConvert={
+          openDoc?.kind === 'quotation' && activeDoc ? () => handleConvertQuotation(activeDoc as Quotation) : undefined
+        }
+      />
+
+      <DocSheet
+        visible={docSheet !== null}
+        kind={docSheet ?? 'challan'}
+        draft={docDraft}
+        nextNumber={
+          docSheet === 'quotation'
+            ? nextDocNumber('QT', quotations.map((q) => q.number))
+            : nextDocNumber('CH', challans.map((c) => c.number))
+        }
+        onClose={() => setDocSheet(null)}
+        onChange={(patch) => setDocDraft((d) => ({ ...d, ...patch }))}
+        onSave={handleSaveDoc}
+      />
+
+      <InvoiceSheet
+        visible={invoiceSheetOpen}
+        draft={invoiceDraft}
+        nextNumber={invoiceDraft.id ? (invoices.find((v) => v.id === invoiceDraft.id)?.ref ?? '') : nextDocNumber('INV', invoices.map((v) => v.ref))}
+        onClose={() => setInvoiceSheetOpen(false)}
+        onChange={(patch) => setInvoiceDraft((d) => ({ ...d, ...patch }))}
+        onSave={handleSaveInvoice}
+      />
     </View>
   );
 }
@@ -257,12 +698,26 @@ export function Billing() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 20, paddingTop: 4, paddingBottom: 32, gap: 12 },
+  content: { padding: 20, paddingTop: 4, paddingBottom: 100, gap: 12 },
   pdfIconButton: { height: 34, width: 34, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   chipsRow: { gap: 7, paddingTop: 2 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 13, borderRadius: 999, borderWidth: 1 },
   chipLabel: { fontWeight: '600', fontSize: 12.5 },
   chipCount: { fontSize: 10.5, opacity: 0.85 },
   challanBanner: { flexDirection: 'row', alignItems: 'center', gap: 11, borderRadius: 16, borderWidth: 1, padding: 14 },
   challanBannerText: { flex: 1, fontSize: 13.5, lineHeight: 13.5 * 1.4 },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    height: 52,
+    paddingLeft: 17,
+    paddingRight: 20,
+    borderRadius: 17,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  fabLabel: { fontFamily: fontFamily.semibold, fontSize: 14.5 },
 });

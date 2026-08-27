@@ -20,6 +20,17 @@ export async function updateEmployee(id: number, updates: Partial<Employee>): Pr
   db = db.map((e) => (e.id === id ? { ...e, ...updates } : e));
 }
 
+/** Remove an employee (item 28) — real backend also revokes the Firebase login (Track B). */
+export async function deleteEmployee(id: number): Promise<void> {
+  await simulateLatency(250);
+  db = db.filter((e) => e.id !== id);
+}
+
+export async function restoreEmployees(previous: Employee[]): Promise<void> {
+  await simulateLatency(150);
+  db = [...previous];
+}
+
 export async function fetchApprovals(): Promise<Record<string, boolean>> {
   await simulateLatency();
   return { ...approvals };

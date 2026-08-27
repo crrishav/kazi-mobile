@@ -1,14 +1,14 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Icon } from '@/components/ui/icon';
+import { DualDate } from '@/components/ui/dual-date';
+import { Money } from '@/components/ui/money';
 import { StatusPill, type StatusKind } from '@/components/ui/status-pill';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { DAY_LABEL, STATUS } from '@/data/purchases/mock';
-import { money } from '@/data/purchases/utils';
+import { STATUS } from '@/data/purchases/mock';
 import type { PurchaseEntry, PurchaseStatus } from '@/data/purchases/types';
 
 const PILL_KIND: Record<PurchaseStatus, StatusKind> = {
@@ -19,55 +19,43 @@ const PILL_KIND: Record<PurchaseStatus, StatusKind> = {
 
 export interface DetailViewProps {
   entry: PurchaseEntry;
+  canEdit: boolean;
+  onEdit: () => void;
   onMarkPaid: () => void;
+  onDelete: () => void;
 }
 
-export function DetailView({ entry, onMarkPaid }: DetailViewProps) {
+export function DetailView({ entry, canEdit, onEdit, onMarkPaid, onDelete }: DetailViewProps) {
   const theme = useTheme();
   const status = STATUS[entry.status];
-  const dayLabel = DAY_LABEL[entry.date] ?? entry.date;
-  const statusLine =
-    entry.status === 'paid'
-      ? `Settled in full · ${entry.method.toLowerCase()}`
-      : entry.status === 'partial'
-        ? `50% advance paid · balance due ${entry.due}`
-        : `Outstanding · due ${entry.due}`;
 
   const facts = [
-    { label: 'Method', value: entry.method },
-    { label: 'Recorded by', value: 'Prakash T.' },
-    { label: 'GRN', value: entry.grn },
-    { label: 'Due', value: entry.due },
-    { label: 'Quantity', value: entry.qty },
-    { label: 'Reference', value: entry.ref },
-  ];
-
-  const trail = [
-    { who: 'PT', what: 'Entry created', when: `${dayLabel} · 09:12`, bg: theme.accentWash, fg: theme.accentWashText },
-    { who: 'BS', what: `Goods received against ${entry.grn}`, when: `${dayLabel} · 11:40`, bg: theme.draftWash, fg: theme.textSecondary },
-    {
-      who: 'AK',
-      what: entry.status === 'paid' ? `Payment released · ${entry.method.toLowerCase()}` : 'Awaiting finance approval',
-      when: entry.status === 'paid' ? 'Same day · 16:05' : 'Pending',
-      bg: entry.status === 'paid' ? theme.accentWash : theme.dangerWash,
-      fg: entry.status === 'paid' ? theme.accentWashText : theme.dangerWashText,
-    },
+    { label: 'Payment', value: entry.bankName ? `${entry.paymentType} · ${entry.bankName}` : entry.paymentType },
+    { label: 'Category', value: entry.category },
+    { label: 'VAT bill', value: entry.vatBill ? 'Yes · 13%' : 'No' },
+    { label: 'GRN', value: entry.grn ?? '—' },
+    { label: 'Logged by', value: entry.loggedBy },
+    { label: 'Reference', value: entry.expenseId },
   ];
 
   return (
     <Animated.View entering={FadeInUp.duration(220)} style={styles.wrap}>
+      <DualDate iso={entry.date} inline size={12} style={styles.dateLine} />
+
       <Card elevation="inverted" style={styles.amountCard}>
         <View style={styles.amountRow}>
           <View style={styles.gap5}>
-            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Amount</Text>
-            <Text style={[styles.amountValue, tabularNums, { color: theme.onDark.text }]}>{money(entry.amount)}</Text>
+            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Grand total</Text>
+            <Money npr={entry.amountNPR} size={30} onDark primaryStyle={styles.amountValue} />
           </View>
           <StatusPill status={PILL_KIND[entry.status]} label={status.label} />
         </View>
         <View style={[styles.divider, { backgroundColor: 'rgba(233,241,236,0.14)' }]} />
         <View style={styles.statusLineRow}>
-          <Text style={[styles.statusLine, { color: theme.onDark.avatarText }]}>{statusLine}</Text>
-          {entry.status !== 'paid' ? <Button label="Mark paid" size="small" onPress={onMarkPaid} /> : null}
+          <Text style={[styles.statusLine, { color: theme.onDark.avatarText }]}>
+            {entry.party} · {entry.items.length} {entry.items.length === 1 ? 'line' : 'lines'}
+          </Text>
+          {canEdit && entry.status !== 'paid' ? <Button label="Mark paid" size="small" onPress={onMarkPaid} /> : null}
         </View>
       </Card>
 
@@ -83,63 +71,65 @@ export function DetailView({ entry, onMarkPaid }: DetailViewProps) {
       <Card elevation="raised" style={styles.section}>
         <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Line items</Text>
         <View>
-          {entry.lines.map((l, i) => (
+          {entry.items.map((l, i) => (
             <View key={i} style={[styles.lineRow, { borderTopColor: theme.background }]}>
               <View style={styles.lineTextWrap}>
-                <Text style={[styles.lineName, { color: theme.textPrimary }]}>{l.name}</Text>
-                <Text style={[styles.lineQty, tabularNums, { color: theme.textSecondary }]}>{l.qty}</Text>
+                <Text style={[styles.lineName, { color: theme.textPrimary }]}>{l.particulars}</Text>
+                <Text style={[styles.lineQty, tabularNums, { color: theme.textSecondary }]}>
+                  {l.quantity.toLocaleString('en-IN')} {l.unit} @ रु {l.rate.toLocaleString('en-IN')}
+                </Text>
               </View>
-              <Text style={[styles.lineValue, tabularNums, { color: theme.textPrimary }]}>{l.value}</Text>
+              <Text style={[styles.lineValue, tabularNums, { color: theme.textPrimary }]}>रु {l.amount.toLocaleString('en-IN')}</Text>
             </View>
           ))}
-          <View style={[styles.totalRow, { borderTopColor: theme.border }]}>
-            <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>Total</Text>
-            <Text style={[styles.totalValue, tabularNums, { color: theme.textPrimary }]}>{money(entry.amount)}</Text>
+
+          <View style={[styles.totalsBlock, { borderTopColor: theme.border }]}>
+            <TotalRow label="Subtotal" text={`रु ${entry.subtotalNPR.toLocaleString('en-IN')}`} theme={theme} />
+            {entry.discountAmt > 0 ? <TotalRow label="Discount" text={`− रु ${entry.discountAmt.toLocaleString('en-IN')}`} theme={theme} /> : null}
+            <TotalRow label="Taxable" text={`रु ${entry.taxableAmt.toLocaleString('en-IN')}`} theme={theme} />
+            {entry.vatBill ? <TotalRow label="VAT · 13%" text={`रु ${entry.vatAmountNPR.toLocaleString('en-IN')}`} theme={theme} /> : null}
+          </View>
+          <View style={[styles.grandRow, { borderTopColor: theme.border }]}>
+            <Text style={[styles.grandLabel, { color: theme.textSecondary }]}>Grand total</Text>
+            <Money npr={entry.amountNPR} size={16} align="right" />
           </View>
         </View>
       </Card>
 
-      <Card elevation="raised" style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Trail</Text>
-        {trail.map((t, i) => (
-          <View key={i} style={styles.trailRow}>
-            <View style={[styles.trailAvatar, { backgroundColor: t.bg }]}>
-              <Text style={[styles.trailWho, { color: t.fg }]}>{t.who}</Text>
-            </View>
-            <View style={styles.trailTextWrap}>
-              <Text style={[styles.trailWhat, { color: theme.textPrimary }]}>{t.what}</Text>
-              <Text style={[styles.trailWhen, tabularNums, { color: theme.textSecondary }]}>{t.when}</Text>
-            </View>
-          </View>
-        ))}
-      </Card>
-
-      <Pressable style={[styles.billRow, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }]}>
-        <View style={[styles.billThumb, { borderColor: theme.border, backgroundColor: theme.draftWash }]} />
-        <View style={styles.billTextWrap}>
-          <Text style={[styles.billTitle, { color: theme.textPrimary }]}>Bill photo</Text>
-          <Text style={[styles.billHint, tabularNums, { color: theme.textSecondary }]}>{entry.bill}</Text>
+      {canEdit ? (
+        <View style={styles.actions}>
+          <Button label="Edit purchase" variant="secondary" onPress={onEdit} style={styles.flex1} />
+          <Button label="Delete" variant="dangerOutline" onPress={onDelete} style={styles.flex1} />
         </View>
-        <Icon name="chevron-right" size={16} color={theme.textSecondary} />
-      </Pressable>
+      ) : null}
     </Animated.View>
+  );
+}
+
+function TotalRow({ label, text, theme }: { label: string; text: string; theme: ReturnType<typeof useTheme> }) {
+  return (
+    <View style={styles.totalRow}>
+      <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <Text style={[styles.totalValue, tabularNums, { color: theme.textPrimary }]}>{text}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { gap: 12 },
+  dateLine: { paddingHorizontal: 2 },
   amountCard: { padding: 18, gap: 14 },
   amountRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14 },
   gap5: { gap: 5 },
   eyebrow: { fontFamily: fontFamily.mono, fontSize: 10, letterSpacing: 0.12 * 10, textTransform: 'uppercase' },
-  amountValue: { fontFamily: fontFamily.semibold, fontSize: 32, letterSpacing: -0.03 * 32, lineHeight: 32 },
+  amountValue: { fontFamily: fontFamily.semibold, fontSize: 30, letterSpacing: -0.03 * 30, lineHeight: 30 },
   divider: { height: 1 },
   statusLineRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   statusLine: { flex: 1, fontSize: 13, lineHeight: 13 * 1.4 },
   factsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   factCard: { width: '47%', flexGrow: 1, borderRadius: 16, padding: 13, gap: 5 },
   factLabel: { fontFamily: fontFamily.mono, fontSize: 9.5, letterSpacing: 0.11 * 9.5, textTransform: 'uppercase' },
-  factValue: { fontSize: 14.5, fontWeight: '600' },
+  factValue: { fontSize: 14, fontWeight: '600' },
   section: { padding: 16, gap: 12 },
   sectionTitle: { fontFamily: fontFamily.semibold, fontSize: 15 },
   lineRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, paddingVertical: 10, borderTopWidth: 1 },
@@ -147,18 +137,12 @@ const styles = StyleSheet.create({
   lineName: { fontSize: 14, fontWeight: '600' },
   lineQty: { fontFamily: fontFamily.mono, fontSize: 10.5 },
   lineValue: { fontSize: 14, fontWeight: '600', flexShrink: 0 },
-  totalRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, paddingTop: 12, marginTop: 4, borderTopWidth: 1.5 },
-  totalLabel: { fontFamily: fontFamily.mono, fontSize: 10.5, letterSpacing: 0.1 * 10.5, textTransform: 'uppercase' },
-  totalValue: { fontSize: 16, fontWeight: '600' },
-  trailRow: { flexDirection: 'row', gap: 11 },
-  trailAvatar: { width: 30, height: 30, borderRadius: 11, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  trailWho: { fontSize: 11, fontWeight: '600' },
-  trailTextWrap: { flex: 1, gap: 3, minWidth: 0 },
-  trailWhat: { fontSize: 13.5, fontWeight: '600' },
-  trailWhen: { fontFamily: fontFamily.mono, fontSize: 10.5 },
-  billRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 20, padding: 16 },
-  billThumb: { width: 44, height: 54, borderRadius: 11, borderWidth: 1, flexShrink: 0 },
-  billTextWrap: { flex: 1, gap: 3, minWidth: 0 },
-  billTitle: { fontSize: 13.5, fontWeight: '600' },
-  billHint: { fontFamily: fontFamily.mono, fontSize: 10.5 },
+  totalsBlock: { borderTopWidth: 1.5, paddingTop: 10, marginTop: 4, gap: 7 },
+  totalRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  totalLabel: { fontFamily: fontFamily.mono, fontSize: 10, letterSpacing: 0.08 * 10, textTransform: 'uppercase' },
+  totalValue: { fontSize: 13, fontWeight: '600' },
+  grandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, paddingTop: 10, marginTop: 6 },
+  grandLabel: { fontFamily: fontFamily.mono, fontSize: 10.5, letterSpacing: 0.1 * 10.5, textTransform: 'uppercase' },
+  actions: { flexDirection: 'row', gap: 10 },
+  flex1: { flex: 1 },
 });

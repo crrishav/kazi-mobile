@@ -18,12 +18,15 @@ export interface DetailViewProps {
   onNoteDraft: (text: string) => void;
   onAddNote: () => void;
   onAddPhoto: () => void;
+  onLogOutput: () => void;
   onAdvance: () => void;
   onCancel: () => void;
 }
 
-export function DetailView({ batch, noteDraft, onNoteDraft, onAddNote, onAddPhoto, onAdvance, onCancel }: DetailViewProps) {
+export function DetailView({ batch, noteDraft, onNoteDraft, onAddNote, onAddPhoto, onLogOutput, onAdvance, onCancel }: DetailViewProps) {
   const theme = useTheme();
+  const output = batch.output;
+  const passRate = output && output.passed + output.failed > 0 ? Math.round((output.passed / (output.passed + output.failed)) * 100) : null;
   const ramp = theme.scheme === 'dark' ? stageRampDark : stageRampLight;
   const stageIndex = stageIndexOf(batch);
   const canAdvance = batch.status !== 'cancelled' && stageIndex < STAGES.length - 1;
@@ -90,6 +93,28 @@ export function DetailView({ batch, noteDraft, onNoteDraft, onAddNote, onAddPhot
         })}
       </Card>
 
+      <Card elevation="raised" style={styles.outputCard}>
+        <View style={styles.outputHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Output &amp; QC</Text>
+          <Button label={output ? 'Update' : 'Log output'} size="small" variant="secondary" onPress={onLogOutput} />
+        </View>
+        {output ? (
+          <>
+            <View style={styles.outputStatsRow}>
+              <OutputStat label="Checked" value={output.checked.toLocaleString()} theme={theme} />
+              <OutputStat label="Passed" value={output.passed.toLocaleString()} theme={theme} tone={theme.accentWashText} />
+              <OutputStat label="Failed" value={output.failed.toLocaleString()} theme={theme} tone={output.failed > 0 ? theme.dangerWashText : undefined} />
+            </View>
+            <View style={[styles.rateTrack, { backgroundColor: theme.background }]}>
+              <View style={[styles.rateFill, { width: `${passRate ?? 0}%`, backgroundColor: (passRate ?? 0) >= 95 ? theme.accent : (passRate ?? 0) >= 85 ? theme.warning : theme.danger }]} />
+            </View>
+            <Text style={[styles.rateLabel, { color: theme.textSecondary }]}>{passRate}% pass rate · feeds QC and the dashboard</Text>
+          </>
+        ) : (
+          <Text style={[styles.outputEmpty, { color: theme.textSecondary }]}>No inspected output logged yet.</Text>
+        )}
+      </Card>
+
       <DetailActivity batch={batch} noteDraft={noteDraft} onNoteDraft={onNoteDraft} onAddNote={onAddNote} onAddPhoto={onAddPhoto} />
 
       <View style={styles.actions}>
@@ -107,8 +132,27 @@ export function DetailView({ batch, noteDraft, onNoteDraft, onAddNote, onAddPhot
   );
 }
 
+function OutputStat({ label, value, theme, tone }: { label: string; value: string; theme: ReturnType<typeof useTheme>; tone?: string }) {
+  return (
+    <View style={styles.outputStat}>
+      <Text style={[styles.outputStatLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <Text style={[styles.outputStatValue, { color: tone ?? theme.textPrimary }]}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   wrap: { gap: 14 },
+  outputCard: { padding: 18, gap: 12 },
+  outputHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  outputStatsRow: { flexDirection: 'row', gap: 12 },
+  outputStat: { flex: 1, gap: 3 },
+  outputStatLabel: { fontFamily: fontFamily.mono, fontSize: 9.5, letterSpacing: 0.1 * 9.5, textTransform: 'uppercase' },
+  outputStatValue: { fontFamily: fontFamily.semibold, fontSize: 18 },
+  rateTrack: { height: 6, borderRadius: 99, overflow: 'hidden' },
+  rateFill: { height: '100%', borderRadius: 99 },
+  rateLabel: { fontFamily: fontFamily.mono, fontSize: 10.5 },
+  outputEmpty: { fontSize: 12.5, lineHeight: 12.5 * 1.5 },
   trackerCard: { padding: 18, gap: 16 },
   trackerRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 },
   gap5: { gap: 5 },

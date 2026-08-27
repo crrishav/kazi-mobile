@@ -6,9 +6,16 @@ import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
-import { useQueue, useRemoveFromQueue, useRestoreToQueue } from '@/data/quality-control/hooks';
+import {
+  useAddQcLog,
+  useQcLogs,
+  useQueue,
+  useRemoveFromQueue,
+  useRestoreQcLogs,
+  useRestoreToQueue,
+} from '@/data/quality-control/hooks';
 import { POINTS } from '@/data/quality-control/mock';
-import type { CheckVerdict, QcNote, QcPhoto, QcView, QueueItem } from '@/data/quality-control/types';
+import type { CheckVerdict, QcLog, QcNote, QcPhoto, QcView, QueueItem } from '@/data/quality-control/types';
 
 import { ChecklistPoint } from './checklist-point';
 import { Evidence } from './evidence';
@@ -27,8 +34,11 @@ export function QualityControl() {
   const toast = useToast();
 
   const { data: queue } = useQueue();
+  const { data: logs } = useQcLogs();
   const removeFromQueue = useRemoveFromQueue();
   const restoreToQueue = useRestoreToQueue();
+  const addQcLog = useAddQcLog();
+  const restoreQcLogs = useRestoreQcLogs();
 
   const [cleared, setCleared] = useState(6);
   const [view, setView] = useState<QcView>('queue');
@@ -39,7 +49,7 @@ export function QualityControl() {
   const [notes] = useState<QcNote[]>([{ time: '10:19', body: 'Sample pulled from carton 4 and carton 11 per AQL plan.' }]);
   const [noteDraft, setNoteDraft] = useState('');
 
-  if (!queue) {
+  if (!queue || !logs) {
     return (
       <View style={[styles.loading, { backgroundColor: theme.background }]}>
         <ActivityIndicator color={theme.accent} />
@@ -49,9 +59,45 @@ export function QualityControl() {
 
   const selected = queue.find((q) => q.id === selectedId) ?? null;
 
-  const clear = (item: QueueItem, kind: CheckVerdict) => {
+  // Pass-rate rollup from the persisted qc_logs (item 24).
+  const recent = logs.filter((l) => (Date.now() - new Date(l.date).getTime()) / 86400000 <= 7);
+  const rollupBase = recent.length ? recent : logs;
+  const meanPass = rollupBase.length
+    ? Math.round((rollupBase.reduce((n, l) => n + l.passRate, 0) / rollupBase.length) * 10) / 10
+    : 0;
+  const failedCount = rollupBase.filter((l) => l.verdict === 'fail').length;
+  const flaggedCount = rollupBase.filter((l) => l.verdict === 'flag').length;
+
+  interface QcDetail {
+    checkedCount: number;
+    passedCount: number;
+    defects: number;
+    passRate: number;
+    defectNotes: string;
+  }
+
+  const clear = (item: QueueItem, kind: CheckVerdict, detail?: QcDetail) => {
     const index = queue.findIndex((q) => q.id === item.id);
+    const beforeLogs = logs;
     removeFromQueue.mutate(item);
+
+    const synthRate = kind === 'pass' ? 100 : kind === 'flag' ? 90 : 70;
+    const log: QcLog = {
+      id: `qc${Date.now()}`,
+      batchId: item.batchId,
+      code: item.code,
+      product: item.product,
+      date: new Date().toISOString().slice(0, 10),
+      checkedCount: detail?.checkedCount ?? 0,
+      passedCount: detail?.passedCount ?? 0,
+      defects: detail?.defects ?? (kind === 'fail' ? 5 : kind === 'flag' ? 1 : 0),
+      passRate: detail?.passRate ?? synthRate,
+      verdict: kind,
+      defectNotes: detail?.defectNotes.trim() ?? '',
+      inspector: 'Pramila T.',
+    };
+    addQcLog.mutate(log);
+
     setCleared((c) => c + 1);
     setView('queue');
     setSelectedId(null);
@@ -62,6 +108,7 @@ export function QualityControl() {
         label: 'Undo',
         onPress: () => {
           restoreToQueue.mutate({ item, index });
+          restoreQcLogs.mutate(beforeLogs);
           setCleared((c) => Math.max(c - 1, 0));
         },
       },
@@ -114,7 +161,15 @@ export function QualityControl() {
           : `${POINTS.length - checkedCount} points left`;
 
     const submit = () => {
-      if (complete) clear(selected, fails.length ? 'fail' : flags.length ? 'flag' : 'pass');
+      if (!complete) return;
+      const passed = POINTS.filter((p) => checks[p.id] === 'pass').length;
+      clear(selected, fails.length ? 'fail' : flags.length ? 'flag' : 'pass', {
+        checkedCount,
+        passedCount: passed,
+        defects: totalDefects,
+        passRate: Math.round((passed / POINTS.length) * 100),
+        defectNotes: noteDraft,
+      });
     };
 
     return (
@@ -175,7 +230,12 @@ export function QualityControl() {
         rightSlot={<Avatar initials="PT" tint="dark" size="lg" />}
       />
       <ScrollView contentContainerStyle={styles.content}>
-        <QueueSummary />
+        <QueueSummary
+          passRate={`${meanPass}%`}
+          failed={failedCount}
+          flagged={flaggedCount}
+          windowLabel={recent.length ? '7 days' : 'all time'}
+        />
         {queue.length === 0 ? (
           <EmptyState icon="check-circle" title="Queue clear" message="Every batch waiting on QC has been reviewed. New ones arrive as lines finish." />
         ) : (

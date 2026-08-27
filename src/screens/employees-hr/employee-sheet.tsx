@@ -21,9 +21,25 @@ export interface EmployeeSheetProps {
   saveHint: string;
   saveCode: string;
   onViewSlip: () => void;
+  /** Edit mode only (item 28). */
+  onCreateLogin?: () => void;
+  onDelete?: () => void;
 }
 
-export function EmployeeSheet({ visible, mode, draft, onChange, onClose, onSave, sheetMeta, saveHint, saveCode, onViewSlip }: EmployeeSheetProps) {
+export function EmployeeSheet({
+  visible,
+  mode,
+  draft,
+  onChange,
+  onClose,
+  onSave,
+  sheetMeta,
+  saveHint,
+  saveCode,
+  onViewSlip,
+  onCreateLogin,
+  onDelete,
+}: EmployeeSheetProps) {
   const theme = useTheme();
   const digits = acctDigits(draft.acct);
   const ok = acctValid(draft.acct);
@@ -135,9 +151,21 @@ export function EmployeeSheet({ visible, mode, draft, onChange, onClose, onSave,
       </Pressable>
 
       {mode === 'edit' ? (
-        <Pressable onPress={onViewSlip} style={[styles.slipButton, { borderColor: theme.border }]}>
-          <Text style={[styles.slipLabel, { color: theme.textPrimary }]}>View latest salary slip</Text>
-        </Pressable>
+        <View style={styles.editActions}>
+          <Pressable onPress={onViewSlip} style={[styles.slipButton, { borderColor: theme.border }]}>
+            <Text style={[styles.slipLabel, { color: theme.textPrimary }]}>View latest salary slip</Text>
+          </Pressable>
+          {onCreateLogin ? (
+            <Pressable onPress={onCreateLogin} style={[styles.slipButton, { borderColor: theme.border }]}>
+              <Text style={[styles.slipLabel, { color: theme.textPrimary }]}>Create app login</Text>
+            </Pressable>
+          ) : null}
+          {onDelete ? (
+            <Pressable onPress={onDelete} style={[styles.slipButton, { borderColor: theme.danger }]}>
+              <Text style={[styles.slipLabel, { color: theme.dangerText }]}>Remove from directory</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
 
       <View style={styles.footer}>
@@ -181,6 +209,7 @@ const styles = StyleSheet.create({
   statusTitle: { fontSize: 14.5, fontWeight: '600' },
   statusHint: { fontFamily: fontFamily.mono, fontSize: 10.5, lineHeight: 10.5 * 1.4 },
 
+  editActions: { gap: 8 },
   slipButton: { height: 48, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   slipLabel: { fontSize: 14, fontWeight: '600' },
 

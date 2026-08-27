@@ -29,6 +29,13 @@ export interface Note {
   photo: string | null;
 }
 
+/** Inspected-output counts for a batch (item 23). QC pass-rate = passed / (passed + failed). */
+export interface BatchOutput {
+  checked: number;
+  passed: number;
+  failed: number;
+}
+
 export interface Batch {
   id: string;
   product: string;
@@ -42,6 +49,14 @@ export interface Batch {
   day: number;
   photos: Photo[];
   notes: Note[];
+  /** Set once floor staff log inspected output (item 23). */
+  output?: BatchOutput;
+}
+
+export interface BatchOutputDraft {
+  checked: string;
+  passed: string;
+  failed: string;
 }
 
 export interface BatchDraft {

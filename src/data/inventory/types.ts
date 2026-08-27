@@ -26,13 +26,37 @@ export interface LibraryItem {
   tags: string[];
 }
 
+/** Real per-item stock ledger (item 19). `in`/`out` add a signed delta; `adjust` sets an absolute count. */
+export type StockMoveKind = 'in' | 'out' | 'adjust';
+
 export interface StockMovement {
-  sign: '+' | '−';
-  title: string;
+  id: string;
+  itemId: string;
+  kind: StockMoveKind;
+  /** Signed change applied to `qty`. */
+  delta: number;
+  /** `qty` after this movement. */
+  balance: number;
+  reason: string;
   ref: string;
-  amount: string;
-  balance: string;
-  tone: 'in' | 'out';
+  /** AD ISO date. */
+  date: string;
+}
+
+export interface StockMovementDraft {
+  kind: StockMoveKind;
+  qty: string;
+  reason: string;
+  ref: string;
+}
+
+/** Editable free-text detail fields on a stock item (item 19). */
+export interface StockDetailsDraft {
+  threshold: string;
+  lead: string;
+  location: string;
+  cost: string;
+  supplier: string;
 }
 
 export interface NewStockDraft {

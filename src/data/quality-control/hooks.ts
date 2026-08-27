@@ -2,10 +2,36 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { qualityControlKeys } from './keys';
 import * as api from './mock-api';
-import type { QueueItem } from './types';
+import type { QcLog, QueueItem } from './types';
 
 export function useQueue() {
   return useQuery({ queryKey: qualityControlKeys.queue(), queryFn: api.fetchQueue });
+}
+
+export function useQcLogs() {
+  return useQuery({ queryKey: qualityControlKeys.logs(), queryFn: api.fetchQcLogs });
+}
+
+export function useAddQcLog() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (log: QcLog) => api.addQcLog(log),
+    onMutate: async (log) => {
+      await queryClient.cancelQueries({ queryKey: qualityControlKeys.logs() });
+      queryClient.setQueryData<QcLog[]>(qualityControlKeys.logs(), (old) => [log, ...(old ?? [])]);
+    },
+  });
+}
+
+export function useRestoreQcLogs() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (previous: QcLog[]) => api.restoreQcLogs(previous),
+    onMutate: async (previous) => {
+      await queryClient.cancelQueries({ queryKey: qualityControlKeys.logs() });
+      queryClient.setQueryData<QcLog[]>(qualityControlKeys.logs(), previous);
+    },
+  });
 }
 
 interface RemoveContext {

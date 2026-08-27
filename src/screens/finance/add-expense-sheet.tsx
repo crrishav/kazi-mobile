@@ -1,7 +1,10 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { DualDate } from '@/components/ui/dual-date';
 import { Icon } from '@/components/ui/icon';
+import { NepaliDatePicker } from '@/components/ui/nepali-date-picker';
 import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii, tabularNums } from '@/theme';
@@ -14,6 +17,9 @@ export interface ExpenseDraft {
   categoryId: ExpenseCategoryId;
   note: string;
   source: ExpenseSource;
+  /** AD ISO date the expense is posted against. */
+  date: string;
+  /** A VAT bill scan is attached (mock: a boolean flag). */
   hasReceipt: boolean;
 }
 
@@ -29,6 +35,7 @@ const SOURCES: ExpenseSource[] = ['Cash', 'Bank', 'Payable'];
 
 export function AddExpenseSheet({ visible, draft, onClose, onChange, onSave }: AddExpenseSheetProps) {
   const theme = useTheme();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const amountValue = parseInt(draft.amount.replace(/[^0-9]/g, ''), 10) || 0;
   const amountReady = amountValue > 0;
   const category = CATEGORIES.find((c) => c.id === draft.categoryId) ?? CATEGORIES[0];
@@ -36,6 +43,17 @@ export function AddExpenseSheet({ visible, draft, onClose, onChange, onSave }: A
   return (
     <BottomSheet visible={visible} onClose={onClose} title="Add expense">
       <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Posts to FY 2082/83 · Bhadra</Text>
+
+      <View style={styles.group}>
+        <Text style={[styles.label, { color: theme.textSecondary }]}>Date</Text>
+        <Pressable
+          onPress={() => setPickerOpen(true)}
+          style={[styles.dateRow, { backgroundColor: theme.surface, borderColor: theme.border }]}
+        >
+          <DualDate iso={draft.date} inline size={14} />
+          <Icon name="calendar" size={16} color={theme.textSecondary} />
+        </Pressable>
+      </View>
 
       <View style={styles.group}>
         <Text style={[styles.label, { color: theme.textSecondary }]}>Amount · NPR</Text>
@@ -99,9 +117,9 @@ export function AddExpenseSheet({ visible, draft, onClose, onChange, onSave }: A
           <Icon name="upload" size={18} color={theme.accentWashText} />
         </View>
         <View style={styles.receiptTextWrap}>
-          <Text style={[styles.receiptTitle, { color: theme.textPrimary }]}>{draft.hasReceipt ? 'receipt-0912.jpg attached' : 'Attach the receipt'}</Text>
+          <Text style={[styles.receiptTitle, { color: theme.textPrimary }]}>{draft.hasReceipt ? 'VAT bill attached' : 'Attach the VAT bill'}</Text>
           <Text style={[styles.receiptHint, { color: theme.textSecondary }]}>
-            {draft.hasReceipt ? '0.9 MB · tap to remove' : 'Tap to upload · needed for anything over रु 5,000'}
+            {draft.hasReceipt ? 'bill-scan.jpg · tap to remove' : 'Tap to attach · required to claim input VAT'}
           </Text>
         </View>
       </Pressable>
@@ -122,6 +140,14 @@ export function AddExpenseSheet({ visible, draft, onClose, onChange, onSave }: A
           </Text>
         </Pressable>
       </View>
+
+      <NepaliDatePicker
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        value={draft.date}
+        onChange={(iso) => onChange({ date: iso })}
+        title="Expense date"
+      />
     </BottomSheet>
   );
 }
@@ -131,6 +157,7 @@ const styles = StyleSheet.create({
   group: { gap: 8 },
   label: { fontFamily: fontFamily.mono, fontSize: 10, letterSpacing: 0.11 * 10, textTransform: 'uppercase' },
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 64, paddingHorizontal: 16, borderRadius: radii.lg - 2, borderWidth: 1 },
+  dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 52, paddingHorizontal: 16, borderRadius: radii.lg - 2, borderWidth: 1 },
   rupeeSign: { fontFamily: fontFamily.mono, fontSize: 15 },
   amountInput: { flex: 1, fontSize: 28, fontWeight: '600', letterSpacing: -0.02 * 28, padding: 0 },
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

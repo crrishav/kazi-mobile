@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
-import { fontFamily, type Theme } from '@/theme';
+import { fontFamily, tabularNums, type Theme } from '@/theme';
 import type { LedgerRowType } from '@/data/finance/types';
 
 export type LedgerFilter = 'all' | LedgerRowType;
@@ -22,21 +22,135 @@ export interface LedgerViewMonth {
   }[];
 }
 
+/** One per-type breakdown card in the FY drill (item 18). */
+export interface LedgerBreakdownRow {
+  type: LedgerRowType;
+  label: string;
+  count: number;
+  inSum: string;
+  outSum: string;
+}
+
 export interface LedgerViewProps {
   filters: { id: LedgerFilter; label: string; count: number }[];
   activeFilter: LedgerFilter;
   onFilterChange: (f: LedgerFilter) => void;
   months: LedgerViewMonth[];
   totalEntries: number;
+  /** Money-in / money-out / net strip for the current filter. */
+  moneyIn: string;
+  moneyOut: string;
+  net: string;
+  netPositive: boolean;
+  breakdown: LedgerBreakdownRow[];
+  /** Year nav. */
+  yearLabel: string;
+  onPrevYear: () => void;
+  onNextYear: () => void;
+  hasPrevYear: boolean;
+  hasNextYear: boolean;
 }
 
-const TYPE_ICON: Record<LedgerRowType, IconName> = { bank: 'credit-card', journal: 'book', expense: 'shopping-bag' };
+const TYPE_ICON: Record<LedgerRowType, IconName> = {
+  bank: 'credit-card',
+  journal: 'book',
+  expense: 'shopping-bag',
+  purchase: 'shopping-cart',
+  payroll: 'users',
+  sales: 'trending-up',
+};
 
-export function LedgerView({ filters, activeFilter, onFilterChange, months, totalEntries }: LedgerViewProps) {
+const TYPE_LABEL: Record<LedgerRowType, string> = {
+  bank: 'Bank',
+  journal: 'Journal',
+  expense: 'Expense',
+  purchase: 'Purchase',
+  payroll: 'Payroll',
+  sales: 'Sales',
+};
+
+export function LedgerView({
+  filters,
+  activeFilter,
+  onFilterChange,
+  months,
+  totalEntries,
+  moneyIn,
+  moneyOut,
+  net,
+  netPositive,
+  breakdown,
+  yearLabel,
+  onPrevYear,
+  onNextYear,
+  hasPrevYear,
+  hasNextYear,
+}: LedgerViewProps) {
   const theme = useTheme();
 
   return (
     <View style={styles.flex}>
+      {/* Year nav */}
+      <View style={styles.yearNav}>
+        <Pressable
+          onPress={onPrevYear}
+          disabled={!hasPrevYear}
+          style={[styles.navBtn, { borderColor: theme.border, opacity: hasPrevYear ? 1 : 0.35 }]}
+        >
+          <Icon name="chevron-left" size={16} color={theme.textPrimary} />
+        </Pressable>
+        <Text style={[styles.yearLabel, { color: theme.textPrimary }]}>{yearLabel}</Text>
+        <Pressable
+          onPress={onNextYear}
+          disabled={!hasNextYear}
+          style={[styles.navBtn, { borderColor: theme.border, opacity: hasNextYear ? 1 : 0.35 }]}
+        >
+          <Icon name="chevron-right" size={16} color={theme.textPrimary} />
+        </Pressable>
+      </View>
+
+      {/* Money in / out / net */}
+      <View style={[styles.strip, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={styles.stripCell}>
+          <Text style={[styles.stripLabel, { color: theme.textSecondary }]}>Money in</Text>
+          <Text style={[styles.stripValue, tabularNums, { color: theme.accentWashText }]}>{moneyIn}</Text>
+        </View>
+        <View style={[styles.stripDivider, { backgroundColor: theme.border }]} />
+        <View style={styles.stripCell}>
+          <Text style={[styles.stripLabel, { color: theme.textSecondary }]}>Money out</Text>
+          <Text style={[styles.stripValue, tabularNums, { color: theme.textPrimary }]}>{moneyOut}</Text>
+        </View>
+        <View style={[styles.stripDivider, { backgroundColor: theme.border }]} />
+        <View style={styles.stripCell}>
+          <Text style={[styles.stripLabel, { color: theme.textSecondary }]}>Net</Text>
+          <Text style={[styles.stripValue, tabularNums, { color: netPositive ? theme.accentWashText : theme.dangerWashText }]}>{net}</Text>
+        </View>
+      </View>
+
+      {/* Per-type breakdown */}
+      <View style={styles.breakdownGrid}>
+        {breakdown.map((b) => (
+          <Pressable
+            key={b.type}
+            onPress={() => onFilterChange(activeFilter === b.type ? 'all' : b.type)}
+            style={[
+              styles.breakdownCard,
+              { backgroundColor: theme.surface, borderColor: activeFilter === b.type ? theme.accent : theme.border },
+            ]}
+          >
+            <View style={styles.breakdownHead}>
+              <View style={[styles.breakdownIcon, { backgroundColor: rowIconBg(theme, b.type) }]}>
+                <Icon name={TYPE_ICON[b.type]} size={13} color={rowIconFg(theme, b.type)} />
+              </View>
+              <Text style={[styles.breakdownLabel, { color: theme.textPrimary }]}>{b.label}</Text>
+              <Text style={[styles.breakdownCount, tabularNums, { color: theme.textSecondary }]}>{b.count}</Text>
+            </View>
+            <Text style={[styles.breakdownFig, tabularNums, { color: theme.accentWashText }]}>+ {b.inSum}</Text>
+            <Text style={[styles.breakdownFig, tabularNums, { color: theme.textSecondary }]}>− {b.outSum}</Text>
+          </Pressable>
+        ))}
+      </View>
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
         {filters.map((f) => {
           const on = activeFilter === f.id;
@@ -76,7 +190,7 @@ export function LedgerView({ filters, activeFilter, onFilterChange, months, tota
                       {r.title}
                     </Text>
                     <Text style={[styles.rowMeta, { color: theme.textSecondary }]} numberOfLines={1}>
-                      {r.meta}
+                      {TYPE_LABEL[r.type]} · {r.meta}
                     </Text>
                   </View>
                   <Text style={[styles.rowAmount, { color: r.positive ? theme.accentWashText : theme.textPrimary }]}>{r.amount}</Text>
@@ -91,18 +205,33 @@ export function LedgerView({ filters, activeFilter, onFilterChange, months, tota
 }
 
 function rowIconBg(theme: Theme, type: LedgerRowType) {
-  if (type === 'bank') return theme.accentWash;
-  if (type === 'expense') return theme.warningWash;
+  if (type === 'bank' || type === 'sales') return theme.accentWash;
+  if (type === 'expense' || type === 'purchase') return theme.warningWash;
   return theme.draftWash;
 }
 function rowIconFg(theme: Theme, type: LedgerRowType) {
-  if (type === 'bank') return theme.accentWashText;
-  if (type === 'expense') return theme.warningWashText;
+  if (type === 'bank' || type === 'sales') return theme.accentWashText;
+  if (type === 'expense' || type === 'purchase') return theme.warningWashText;
   return theme.textSecondary;
 }
 
 const styles = StyleSheet.create({
   flex: { gap: 16 },
+  yearNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16 },
+  navBtn: { width: 34, height: 34, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  yearLabel: { fontFamily: fontFamily.semibold, fontSize: 15, minWidth: 118, textAlign: 'center' },
+  strip: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, borderWidth: 1, paddingVertical: 14 },
+  stripCell: { flex: 1, alignItems: 'center', gap: 4 },
+  stripDivider: { width: 1, alignSelf: 'stretch', marginVertical: 4 },
+  stripLabel: { fontFamily: fontFamily.mono, fontSize: 9.5, letterSpacing: 0.1 * 9.5, textTransform: 'uppercase' },
+  stripValue: { fontSize: 14.5, fontWeight: '700' },
+  breakdownGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  breakdownCard: { width: '31%', flexGrow: 1, borderRadius: 14, borderWidth: 1, padding: 10, gap: 4 },
+  breakdownHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  breakdownIcon: { width: 22, height: 22, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  breakdownLabel: { flex: 1, fontFamily: fontFamily.semibold, fontSize: 11.5 },
+  breakdownCount: { fontFamily: fontFamily.mono, fontSize: 10 },
+  breakdownFig: { fontFamily: fontFamily.mono, fontSize: 10.5 },
   chipsRow: { gap: 7 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 13, borderRadius: 999, borderWidth: 1 },
   chipLabel: { fontFamily: fontFamily.semibold, fontSize: 12.5 },

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { billingKeys } from './keys';
 import * as api from './mock-api';
-import type { Invoice, OpenChallan, Payment } from './types';
+import type { Challan, ChallanStatus, Invoice, OpenChallan, Payment, Quotation, QuotationStatus } from './types';
 
 export function useInvoices() {
   return useQuery({ queryKey: billingKeys.invoices(), queryFn: api.fetchInvoices });
@@ -15,6 +15,19 @@ export function useAddInvoice() {
     onMutate: async (invoice) => {
       await queryClient.cancelQueries({ queryKey: billingKeys.invoices() });
       queryClient.setQueryData<Invoice[]>(billingKeys.invoices(), (old) => [invoice, ...(old ?? [])]);
+    },
+  });
+}
+
+export function useUpdateInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<Invoice> }) => api.updateInvoice(id, updates),
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: billingKeys.invoices() });
+      queryClient.setQueryData<Invoice[]>(billingKeys.invoices(), (old) =>
+        (old ?? []).map((v) => (v.id === id ? { ...v, ...updates } : v)),
+      );
     },
   });
 }
@@ -64,6 +77,101 @@ export function useRemoveOpenChallan() {
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: billingKeys.openChallans() });
       queryClient.setQueryData<OpenChallan[]>(billingKeys.openChallans(), (old) => (old ?? []).filter((c) => c.id !== id));
+    },
+  });
+}
+
+// ---- Challans (first-class doc type, item 13) ----
+
+export function useChallans() {
+  return useQuery({ queryKey: billingKeys.challans(), queryFn: api.fetchChallans });
+}
+
+export function useAddChallan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (challan: Challan) => api.addChallan(challan),
+    onMutate: async (challan) => {
+      await queryClient.cancelQueries({ queryKey: billingKeys.challans() });
+      queryClient.setQueryData<Challan[]>(billingKeys.challans(), (old) => [challan, ...(old ?? [])]);
+    },
+  });
+}
+
+export function useUpdateChallanStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: ChallanStatus }) => api.updateChallanStatus(id, status),
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: billingKeys.challans() });
+      queryClient.setQueryData<Challan[]>(billingKeys.challans(), (old) =>
+        (old ?? []).map((c) => (c.id === id ? { ...c, status } : c)),
+      );
+    },
+  });
+}
+
+export function useRestoreChallans() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (previous: Challan[]) => api.restoreChallans(previous),
+    onMutate: async (previous) => {
+      await queryClient.cancelQueries({ queryKey: billingKeys.challans() });
+      queryClient.setQueryData<Challan[]>(billingKeys.challans(), previous);
+    },
+  });
+}
+
+// ---- Quotations (item 13) ----
+
+export function useQuotations() {
+  return useQuery({ queryKey: billingKeys.quotations(), queryFn: api.fetchQuotations });
+}
+
+export function useAddQuotation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (quotation: Quotation) => api.addQuotation(quotation),
+    onMutate: async (quotation) => {
+      await queryClient.cancelQueries({ queryKey: billingKeys.quotations() });
+      queryClient.setQueryData<Quotation[]>(billingKeys.quotations(), (old) => [quotation, ...(old ?? [])]);
+    },
+  });
+}
+
+export function useUpdateQuotationStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: QuotationStatus }) => api.updateQuotationStatus(id, status),
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: billingKeys.quotations() });
+      queryClient.setQueryData<Quotation[]>(billingKeys.quotations(), (old) =>
+        (old ?? []).map((q) => (q.id === id ? { ...q, status } : q)),
+      );
+    },
+  });
+}
+
+export function useUpdateQuotation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<Quotation> }) => api.updateQuotation(id, updates),
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: billingKeys.quotations() });
+      queryClient.setQueryData<Quotation[]>(billingKeys.quotations(), (old) =>
+        (old ?? []).map((q) => (q.id === id ? { ...q, ...updates } : q)),
+      );
+    },
+  });
+}
+
+export function useRestoreQuotations() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (previous: Quotation[]) => api.restoreQuotations(previous),
+    onMutate: async (previous) => {
+      await queryClient.cancelQueries({ queryKey: billingKeys.quotations() });
+      queryClient.setQueryData<Quotation[]>(billingKeys.quotations(), previous);
     },
   });
 }

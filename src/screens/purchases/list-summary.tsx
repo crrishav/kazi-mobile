@@ -1,42 +1,66 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '@/components/ui/card';
+import { Money } from '@/components/ui/money';
+import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import type { PurchaseFilter, PurchaseGroup } from '@/data/purchases/types';
 
 export interface ListSummaryProps {
-  monthTotal: string;
-  unpaidTotal: string;
+  /** NPR. */
+  monthTotal: number;
+  /** NPR. */
+  unpaidTotal: number;
   cashShare: string;
   group: PurchaseGroup;
   onGroupChange: (g: PurchaseGroup) => void;
   filters: { id: PurchaseFilter; label: string; count: number }[];
   activeFilter: PurchaseFilter;
   onFilterChange: (f: PurchaseFilter) => void;
+  search: string;
+  onSearchChange: (v: string) => void;
+  /** Hide the "spend this month" hero card (Finance's Purchases tab has its own KPIs). */
+  showSummary?: boolean;
 }
 
-export function ListSummary({ monthTotal, unpaidTotal, cashShare, group, onGroupChange, filters, activeFilter, onFilterChange }: ListSummaryProps) {
+export function ListSummary({
+  monthTotal,
+  unpaidTotal,
+  cashShare,
+  group,
+  onGroupChange,
+  filters,
+  activeFilter,
+  onFilterChange,
+  search,
+  onSearchChange,
+  showSummary = true,
+}: ListSummaryProps) {
   const theme = useTheme();
 
   return (
     <View style={styles.wrap}>
-      <Card elevation="inverted" style={styles.summaryCard}>
-        <View style={styles.gap5}>
-          <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Spend this month</Text>
-          <Text style={[styles.monthValue, tabularNums, { color: theme.onDark.text }]}>{monthTotal}</Text>
-        </View>
-        <View style={styles.statsRow}>
-          <View style={styles.statCell}>
-            <Text style={[styles.statValue, tabularNums, { color: theme.onDark.dangerWashText }]}>{unpaidTotal}</Text>
-            <Text style={[styles.statLabel, { color: theme.onDark.textMuted }]}>Unpaid</Text>
+      {showSummary ? (
+        <Card elevation="inverted" style={styles.summaryCard}>
+          <View style={styles.gap5}>
+            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Spend this month</Text>
+            <Money npr={monthTotal} compact onDark size={28} primaryStyle={styles.monthValue} />
           </View>
-          <View style={styles.statCell}>
-            <Text style={[styles.statValue, tabularNums, { color: theme.onDark.accent }]}>{cashShare}</Text>
-            <Text style={[styles.statLabel, { color: theme.onDark.textMuted }]}>Cash</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statCell}>
+              <Money npr={unpaidTotal} compact onDark size={16} align="right" primaryStyle={{ color: theme.onDark.dangerWashText }} />
+              <Text style={[styles.statLabel, { color: theme.onDark.textMuted }]}>Unpaid</Text>
+            </View>
+            <View style={styles.statCell}>
+              <Text style={[styles.statValue, tabularNums, { color: theme.onDark.accent }]}>{cashShare}</Text>
+              <Text style={[styles.statLabel, { color: theme.onDark.textMuted }]}>Cash</Text>
+            </View>
           </View>
-        </View>
-      </Card>
+        </Card>
+      ) : null}
+
+      <TextField value={search} onChangeText={onSearchChange} placeholder="Search party, category or EXP id" />
 
       <View style={[styles.segmented, { backgroundColor: theme.draftWash, borderColor: theme.border }]}>
         <Pressable

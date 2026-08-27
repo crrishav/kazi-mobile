@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Icon } from '@/components/ui/icon';
 import { TextField } from '@/components/ui/text-field';
+import { GBP_RATE, toGBP } from '@/lib/currency';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii, tabularNums } from '@/theme';
 import { CATEGORY } from '@/data/budget-requirements/mock';
@@ -33,6 +34,17 @@ export function AddSheet({ visible, draft, who, onClose, onChange, onSubmit }: A
   const amountValue = parseInt(draft.amount.replace(/[^0-9]/g, ''), 10) || 0;
   const amountReady = amountValue > 0;
 
+  // Dual NPR ↔ GBP cost entry (item 17) — type either side, the other converts at GBP_RATE.
+  const handleAmount = (side: 'npr' | 'gbp', raw: string) => {
+    if (side === 'npr') {
+      const npr = parseInt(raw.replace(/[^0-9]/g, ''), 10) || 0;
+      onChange({ amount: raw, amountGBP: npr > 0 ? String(Math.round(toGBP(npr))) : '', autoSide: npr > 0 ? 'gbp' : null });
+    } else {
+      const g = parseFloat(raw.replace(/[^0-9.]/g, '')) || 0;
+      onChange({ amountGBP: raw, amount: g > 0 ? String(Math.round(g * GBP_RATE)) : '', autoSide: g > 0 ? 'npr' : null });
+    }
+  };
+
   return (
     <BottomSheet visible={visible} onClose={onClose} title="New requirement">
       <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{who}</Text>
@@ -60,19 +72,35 @@ export function AddSheet({ visible, draft, who, onClose, onChange, onSubmit }: A
 
       <TextField label="What is needed" value={draft.item} onChangeText={(v) => onChange({ item: v })} placeholder="e.g. Bartack machine head" />
 
+      <TextField label="Quantity" value={draft.quantity} onChangeText={(v) => onChange({ quantity: v })} placeholder="e.g. 50 units" />
+
       <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Estimated amount · NPR</Text>
+        <Text style={[styles.label, { color: theme.textSecondary }]}>Estimated cost</Text>
         <View style={[styles.amountRow, { borderColor: amountReady ? theme.accent : theme.border, backgroundColor: theme.surface }]}>
           <Text style={[styles.rupeeSign, { color: theme.textSecondary }]}>रु</Text>
           <TextInput
             value={draft.amount}
-            onChangeText={(v) => onChange({ amount: v })}
+            onChangeText={(v) => handleAmount('npr', v)}
             placeholder="0"
             keyboardType="numeric"
             placeholderTextColor={theme.textSecondary}
             style={[styles.amountInput, { color: theme.textPrimary }]}
           />
+          {draft.autoSide === 'npr' ? <Text style={[styles.autoTag, { color: theme.textSecondary, borderColor: theme.border }]}>auto</Text> : null}
         </View>
+        <View style={[styles.gbpRow, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+          <Text style={[styles.rupeeSign, { color: theme.textSecondary }]}>£</Text>
+          <TextInput
+            value={draft.amountGBP}
+            onChangeText={(v) => handleAmount('gbp', v)}
+            placeholder="0"
+            keyboardType="numeric"
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.gbpInput, { color: theme.textPrimary }]}
+          />
+          {draft.autoSide === 'gbp' ? <Text style={[styles.autoTag, { color: theme.textSecondary, borderColor: theme.border }]}>auto</Text> : null}
+        </View>
+        <Text style={[styles.hint, { color: theme.textSecondary }]}>Enter either — the other converts at £1 = रु {GBP_RATE}.</Text>
       </View>
 
       <View style={styles.group}>
@@ -174,6 +202,9 @@ const styles = StyleSheet.create({
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 64, paddingHorizontal: 16, borderRadius: radii.lg - 2, borderWidth: 1 },
   rupeeSign: { fontFamily: fontFamily.mono, fontSize: 15 },
   amountInput: { flex: 1, fontSize: 28, fontWeight: '600', letterSpacing: -0.02 * 28, padding: 0 },
+  gbpRow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 46, paddingHorizontal: 16, borderRadius: radii.lg - 2, borderWidth: 1 },
+  gbpInput: { flex: 1, fontSize: 18, fontWeight: '600', letterSpacing: -0.02 * 18, padding: 0 },
+  autoTag: { fontFamily: fontFamily.mono, fontSize: 9, letterSpacing: 0.12 * 9, textTransform: 'uppercase', borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   priorityRow: { flexDirection: 'row', gap: 8 },
   priorityButton: { flex: 1, height: 58, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
   bars: { flexDirection: 'row', alignItems: 'flex-end', gap: 2 },

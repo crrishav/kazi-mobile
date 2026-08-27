@@ -11,7 +11,7 @@ import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import { useAddBatch, useBatches, useUpdateBatch } from '@/data/production/hooks';
 import { DUE_OPTIONS, STAGES, STATUS_LABEL, seedBatches } from '@/data/production/mock';
-import type { Batch, BatchDraft, BatchStatus, ProductionFilter, ProductionView } from '@/data/production/types';
+import type { Batch, BatchDraft, BatchOutputDraft, BatchStatus, ProductionFilter, ProductionView } from '@/data/production/types';
 import { stageIndexOf } from '@/data/production/utils';
 
 import { AddSheet } from './add-sheet';
@@ -20,6 +20,13 @@ import { BoardTabs } from './board-tabs';
 import { CalendarView } from './calendar-view';
 import { DetailView } from './detail-view';
 import { FilterChips } from './filter-chips';
+import { OutputSheet } from './output-sheet';
+
+const toNum = (s: string) => parseInt(s.replace(/[^0-9]/g, ''), 10) || 0;
+
+function emptyOutputDraft(): BatchOutputDraft {
+  return { checked: '', passed: '', failed: '' };
+}
 
 const PILL_KIND: Record<BatchStatus, StatusKind> = {
   active: 'on-track',
@@ -46,6 +53,8 @@ export function Production() {
   const [addOpen, setAddOpen] = useState(false);
   const [noteDraft, setNoteDraft] = useState('');
   const [draft, setDraft] = useState<BatchDraft>(emptyDraft());
+  const [outputOpen, setOutputOpen] = useState(false);
+  const [outputDraft, setOutputDraft] = useState<BatchOutputDraft>(emptyOutputDraft());
 
   if (!batches) {
     return (
@@ -121,6 +130,30 @@ export function Production() {
     flash('Batch cancelled', 'bad');
   };
 
+  const openOutput = () => {
+    if (!selected) return;
+    const o = selected.output;
+    setOutputDraft(o ? { checked: String(o.checked), passed: String(o.passed), failed: String(o.failed) } : emptyOutputDraft());
+    setOutputOpen(true);
+  };
+
+  const handleSaveOutput = () => {
+    if (!selected) return;
+    const checked = toNum(outputDraft.checked);
+    const passed = toNum(outputDraft.passed);
+    const failed = outputDraft.failed.trim() !== '' ? toNum(outputDraft.failed) : Math.max(0, checked - passed);
+    if (checked <= 0 || passed + failed > checked) {
+      flash('Check the counts — passed + failed can’t exceed checked', 'bad');
+      return;
+    }
+    patch(selected.id, {
+      output: { checked, passed, failed },
+      notes: [...selected.notes, { id: `n${Date.now()}`, who: 'system', body: `Output logged · ${passed}/${checked} passed (${failed} failed).`, time: 'just now', photo: null }],
+    });
+    setOutputOpen(false);
+    flash('Output logged');
+  };
+
   const openAdd = () => {
     setDraft(emptyDraft());
     setAddOpen(true);
@@ -165,10 +198,20 @@ export function Production() {
             onNoteDraft={setNoteDraft}
             onAddNote={handleAddNote}
             onAddPhoto={handleAddPhoto}
+            onLogOutput={openOutput}
             onAdvance={handleAdvance}
             onCancel={handleCancel}
           />
         </ScrollView>
+
+        <OutputSheet
+          visible={outputOpen}
+          batch={selected}
+          draft={outputDraft}
+          onClose={() => setOutputOpen(false)}
+          onChange={(p) => setOutputDraft((d) => ({ ...d, ...p }))}
+          onSubmit={handleSaveOutput}
+        />
       </View>
     );
   }

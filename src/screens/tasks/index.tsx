@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Icon } from '@/components/ui/icon';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import { STATUS_ORDER } from '@/data/tasks/mock';
+import { PEOPLE, STATUS_ORDER } from '@/data/tasks/mock';
 import { useDeleteTask, useSaveTask, useTasks, useUndoDeleteTask } from '@/data/tasks/hooks';
 import type { Task } from '@/data/tasks/types';
 
@@ -29,6 +30,7 @@ export function Tasks() {
   const undoDeleteTask = useUndoDeleteTask();
 
   const [filter, setFilter] = useState<TaskFilter>('all');
+  const [query, setQuery] = useState('');
   const [dueTodayOnly, setDueTodayOnly] = useState(false);
   const [sheetMode, setSheetMode] = useState<'new' | 'edit' | null>(null);
   const [draft, setDraft] = useState<Task | null>(null);
@@ -41,7 +43,11 @@ export function Tasks() {
     );
   }
 
-  const matchesFilters = (t: Task, f: TaskFilter) => (f === 'all' || t.status === f) && (!dueTodayOnly || t.due === 'today');
+  const q = query.trim().toLowerCase();
+  const nameFor = (id: string) => PEOPLE.find((p) => p.id === id)?.name ?? '';
+  const matchesQuery = (t: Task) => !q || `${t.title} ${t.ref} ${nameFor(t.personId)}`.toLowerCase().includes(q);
+  const matchesFilters = (t: Task, f: TaskFilter) =>
+    (f === 'all' || t.status === f) && (!dueTodayOnly || t.due === 'today') && matchesQuery(t);
   const countFor = (f: TaskFilter) => tasks.filter((t) => matchesFilters(t, f)).length;
   const visible = tasks.filter((t) => matchesFilters(t, filter));
   const openCount = tasks.filter((t) => t.status !== 'done').length;
@@ -88,6 +94,24 @@ export function Tasks() {
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <TasksHeader openCount={openCount} />
 
+      <View style={styles.searchWrap}>
+        <View style={[styles.searchRow, { backgroundColor: theme.surface, borderColor: theme.border, boxShadow: theme.shadows.card }]}>
+          <Icon name="search" size={17} color={theme.textSecondary} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search tasks, ref or assignee"
+            placeholderTextColor={theme.textSecondary}
+            style={[styles.searchInput, { color: theme.textPrimary }]}
+          />
+          {query.length > 0 ? (
+            <Pressable onPress={() => setQuery('')} hitSlop={8} style={[styles.clearButton, { backgroundColor: theme.draftWash }]}>
+              <Icon name="x" size={12} color={theme.textSecondary} />
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
       <View style={styles.chipsWrap}>
         <FilterChips active={filter} onChange={setFilter} countFor={countFor} />
       </View>
@@ -102,7 +126,11 @@ export function Tasks() {
 
       <ScrollView contentContainerStyle={styles.list}>
         {visible.length === 0 ? (
-          <EmptyState icon="check" title="Nothing here" message="No tasks match this filter. Clear it or add a new task." />
+          <EmptyState
+            icon="check"
+            title="Nothing here"
+            message={q ? `Nothing matches “${query.trim()}”. Clear the search or try another term.` : 'No tasks match this filter. Clear it or add a new task.'}
+          />
         ) : (
           STATUS_ORDER.map((status) => {
             const group = visible.filter((t) => t.status === status);
@@ -158,6 +186,31 @@ const styles = StyleSheet.create({
   },
   loading: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchWrap: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    height: 46,
+    paddingHorizontal: 14,
+    borderRadius: 15,
+    borderWidth: 1,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14.5,
+    padding: 0,
+  },
+  clearButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },

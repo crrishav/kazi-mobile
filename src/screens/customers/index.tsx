@@ -6,10 +6,13 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
+import { useInvoices } from '@/data/billing/hooks';
 import { useAddCustomer, useCustomers, useDeleteCustomer, useRestoreCustomers, useUpdateCustomer } from '@/data/customers/hooks';
+import { invoicesForCustomer, ordersForCustomer } from '@/data/customers/joins';
 import { blankDraft } from '@/data/customers/mock';
 import type { Customer, CustomerDraft, CustomersFilter, CustomersView } from '@/data/customers/types';
 import { owed } from '@/data/customers/utils';
+import { useOrders } from '@/data/sales/hooks';
 
 import { ConfirmDeleteSheet } from './confirm-delete-sheet';
 import { CustomerForm } from './customer-form';
@@ -23,6 +26,8 @@ export function Customers() {
   const toast = useToast();
 
   const { data: customers } = useCustomers();
+  const { data: salesOrders } = useOrders();
+  const { data: billingInvoices } = useInvoices();
   const addCustomer = useAddCustomer();
   const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
@@ -63,6 +68,21 @@ export function Customers() {
 
   const selected = customers.find((c) => c.id === selectedId) ?? null;
   const pending = customers.find((c) => c.id === pendingId) ?? null;
+
+  // Item 35 — join the detail view's history to the live Sales + Billing collections
+  // by customer name; fall back to the seed arrays when nothing matches.
+  let detailCustomer = selected;
+  if (selected) {
+    const liveOrders = salesOrders ? ordersForCustomer(salesOrders, selected.name) : [];
+    const liveInvoices = billingInvoices ? invoicesForCustomer(billingInvoices, selected.name) : [];
+    if (liveOrders.length || liveInvoices.length) {
+      detailCustomer = {
+        ...selected,
+        orders: liveOrders.length ? liveOrders : selected.orders,
+        invoices: liveInvoices.length ? liveInvoices : selected.invoices,
+      };
+    }
+  }
   const totalOwed = customers.reduce((n, c) => n + owed(c), 0);
   const nameOk = draft ? draft.name.trim().length > 1 : false;
 
@@ -190,7 +210,7 @@ export function Customers() {
     );
   }
 
-  if (view === 'detail' && selected) {
+  if (view === 'detail' && selected && detailCustomer) {
     return (
       <View style={[styles.flex, { backgroundColor: theme.background }]}>
         <ScreenHeader
@@ -204,7 +224,7 @@ export function Customers() {
           }
         />
         <ScrollView contentContainerStyle={styles.content}>
-          <DetailView customer={selected} onDelete={() => askDelete(selected.id)} />
+          <DetailView customer={detailCustomer} onDelete={() => askDelete(selected.id)} />
         </ScrollView>
         <ConfirmDeleteSheet visible={!!pending} name={pending?.name ?? ''} warning={pendingWarning} onCancel={cancelDelete} onConfirm={confirmDelete} />
       </View>

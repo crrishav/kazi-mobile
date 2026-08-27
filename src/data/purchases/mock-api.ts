@@ -19,6 +19,14 @@ export async function updateEntry(id: string, updates: Partial<PurchaseEntry>): 
   db = db.map((e) => (e.id === id ? { ...e, ...updates } : e));
 }
 
+export async function deleteEntry(id: string): Promise<void> {
+  await simulateLatency(250);
+  // Cascade in the reference deletes linked vat_bills / stock_movements /
+  // journal_entries; mock-era those either live elsewhere (VAT bills → Finance)
+  // or don't exist yet (journal → item 8, stock movements → item 19).
+  db = db.filter((e) => e.id !== id);
+}
+
 export async function restoreEntries(previous: PurchaseEntry[]): Promise<void> {
   await simulateLatency(150);
   db = [...previous];
