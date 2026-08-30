@@ -20,6 +20,7 @@
     "expo-sharing": "~57.0.16",
     "expo-splash-screen": "~57.0.8",
     "expo-status-bar": "~57.0.1",
+    "firebase": "^12.18.0",
     "nepali-date-converter": "^3.4.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -40,7 +41,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "inspect:firestore": "node scripts/inspect-firestore.mjs"
   },
   "private": true
 }
