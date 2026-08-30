@@ -1,0 +1,195 @@
+/**
+ * Real Firebase Auth + Firestore profile resolution (FRONTEND_GAP_PLAN §2.2).
+ *
+ * Mirrors the surface `auth-context.tsx` needs, but session delivery is a
+ * subscription (`subscribe`) rather than a one-shot read — `onAuthStateChanged`
+ * is the source of truth and also restores a persisted session on cold start.
+ *
+ * `resolveProfile` ports the reference `src/context/AuthContext.jsx` chain:
+ *   Firebase Auth user → `employees` (by email) → `TEAM_MEMBERS` → `users/{uid}`.
+ * Every Firestore call is wrapped: security rules may deny a read/write for some
+ * roles, and a denial must degrade to a usable profile, never block sign-in.
+ */
+
+import {
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signOut as fbSignOut,
+  type User,
+} from 'firebase/auth';
+import { collection, doc, getDoc, getDocs, query, setDoc, where } from 'firebase/firestore';
+
+import { getDb, getFirebaseAuth } from '@/lib/firebase';
+import { tsToISO } from '@/lib/firestore/normalise';
+
+import type { Session } from './mock-auth';
+import { DEFAULT_NEPAL_ADMIN_PERMISSIONS, type PermissionOverrides } from './permissions';
+import { ROLES, type Role } from './roles';
+import { findTeamMember } from './team-members';
+
+const ROLE_SET = new Set<string>(ROLES);
+function asRole(value: unknown): Role | null {
+  return typeof value === 'string' && ROLE_SET.has(value) ? (value as Role) : null;
+}
+
+function initialsFrom(name: string, email: string): string {
+  const src = name.trim() || email.split('@')[0] || 'User';
+  const parts = src.split(/[.\-_\s]+/).filter(Boolean);
+  const letters = parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('');
+  return letters || src.slice(0, 2).toUpperCase();
+}
+
+// ---- Auth actions ---------------------------------------------------------
+
+export async function signIn(email: string, password: string): Promise<void> {
+  // The Session is delivered by the `subscribe` listener once the profile resolves.
+  await signInWithEmailAndPassword(getFirebaseAuth(), email.trim(), password);
+}
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  await sendPasswordResetEmail(getFirebaseAuth(), email.trim());
+}
+
+export async function signOut(): Promise<void> {
+  await fbSignOut(getFirebaseAuth());
+}
+
+/** Real auth has no dev role switch — the switcher is hidden when Firebase is configured. */
+export async function setDevRole(_role?: Role): Promise<Session | null> {
+  return null;
+}
+
+export function subscribe(onSession: (session: Session | null) => void): () => void {
+  return onAuthStateChanged(getFirebaseAuth(), async (user) => {
+    if (!user) {
+      onSession(null);
+      return;
+    }
+    try {
+      onSession(await resolveProfile(user));
+    } catch (err) {
+      console.warn('[auth] profile resolve failed — using a minimal session', err);
+      onSession(minimalSession(user));
+    }
+  });
+}
+
+// ---- Profile resolution -------------------------------------------------------
+
+interface EmployeeDoc {
+  name?: unknown;
+  role?: unknown;
+  appRole?: unknown;
+  location?: unknown;
+  status?: unknown;
+}
+
+interface UserDoc {
+  name?: unknown;
+  role?: unknown;
+  jobRole?: unknown;
+  location?: unknown;
+  permissions?: PermissionOverrides;
+  createdAt?: unknown;
+}
+
+function minimalSession(user: User): Session {
+  const email = (user.email ?? '').toLowerCase();
+  const name = user.displayName || email || 'User';
+  return {
+    email,
+    name,
+    initials: initialsFrom(name, email),
+    role: '',
+    appRole: 'employee',
+    jobRole: '',
+    uid: user.uid,
+    location: 'nepal',
+    status: 'Active',
+  };
+}
+
+async function resolveProfile(user: User): Promise<Session> {
+  const db = getDb();
+  const email = (user.email ?? '').toLowerCase();
+  const uid = user.uid;
+
+  // 1. employees, matched by email — source of truth for `status`.
+  let employee: EmployeeDoc | null = null;
+  try {
+    const snap = await getDocs(query(collection(db, 'employees'), where('email', '==', email)));
+    if (!snap.empty) employee = snap.docs[0].data() as EmployeeDoc;
+  } catch (err) {
+    console.warn('[auth] employees lookup denied/failed', err);
+  }
+
+  // 2. hard-coded known-staff fallback.
+  const team = findTeamMember(email);
+
+  // 3. users/{uid} — carries permission overrides + createdAt.
+  let userDoc: UserDoc | null = null;
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if (snap.exists()) userDoc = snap.data() as UserDoc;
+  } catch (err) {
+    console.warn('[auth] users/{uid} read denied/failed', err);
+  }
+
+  const name =
+    (typeof employee?.name === 'string' && employee.name.trim()) ||
+    team?.name ||
+    (typeof userDoc?.name === 'string' && userDoc.name.trim()) ||
+    user.displayName ||
+    email ||
+    'User';
+
+  const status: 'Active' | 'Inactive' = employee?.status === 'Inactive' ? 'Inactive' : 'Active';
+
+  // admin@kazi.com is always super_admin (lock-out failsafe, ported from reference).
+  const appRole: Role =
+    email === 'admin@kazi.com'
+      ? 'super_admin'
+      : team?.appRole ?? asRole(employee?.appRole) ?? asRole(userDoc?.role) ?? 'employee';
+
+  const jobRole =
+    (typeof employee?.role === 'string' && employee.role) ||
+    team?.role ||
+    (typeof userDoc?.jobRole === 'string' && userDoc.jobRole) ||
+    '';
+
+  const location: 'nepal' | 'uk' =
+    employee?.location === 'uk' || team?.location === 'uk' || userDoc?.location === 'uk'
+      ? 'uk'
+      : 'nepal';
+
+  let permissions = userDoc?.permissions;
+  if (!permissions && appRole === 'nepal_admin') permissions = DEFAULT_NEPAL_ADMIN_PERMISSIONS;
+
+  const createdAt = tsToISO(userDoc?.createdAt) || undefined;
+
+  // 4. best-effort self-heal of the profile doc — a denied write must not block sign-in.
+  try {
+    await setDoc(
+      doc(db, 'users', uid),
+      { uid, name, email, role: appRole, jobRole, location },
+      { merge: true },
+    );
+  } catch (err) {
+    console.warn('[auth] users/{uid} self-heal write denied/failed', err);
+  }
+
+  return {
+    email,
+    name,
+    initials: initialsFrom(name, email),
+    role: jobRole,
+    appRole,
+    jobRole,
+    permissions,
+    uid,
+    location,
+    status,
+    createdAt,
+  };
+}

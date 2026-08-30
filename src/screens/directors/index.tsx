@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useToast } from '@/components/toast/toast-provider';
-import { Avatar } from '@/components/ui/avatar';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
@@ -43,7 +43,7 @@ export function Directors() {
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <ScreenHeader title="Directors" subtitle={`${directors.length} leaders · 2 offices`} rightSlot={<Avatar initials="KA" tint="dark" size="lg" />} />
+      <ScreenHeader title="Directors" subtitle={`${directors.length} leaders · 2 offices`} rightSlot={<HeaderAccount />} />
 
       <ScrollView contentContainerStyle={styles.content}>
         <CompanyCard />

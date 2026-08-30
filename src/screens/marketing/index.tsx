@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
-import { Avatar } from '@/components/ui/avatar';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -111,7 +111,7 @@ export function Marketing() {
                 <Text style={[styles.viewTabLabel, { color: view === 'list' ? theme.textPrimary : theme.textSecondary }]}>List</Text>
               </Pressable>
             </View>
-            <Avatar initials="PT" tint="dark" size="md" />
+            <HeaderAccount size="md" />
           </View>
         }
       />

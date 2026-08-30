@@ -1,8 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notify } from '@/data/notifications/notify';
+
 import { budgetRequirementsKeys } from './keys';
 import * as api from './mock-api';
 import type { BudgetRequest, Requirement } from './types';
+
+function decisionEvent(status?: string): 'budget_request.approved' | 'budget_request.rejected' | null {
+  const s = (status ?? '').toLowerCase();
+  if (s === 'approved') return 'budget_request.approved';
+  if (s === 'rejected' || s === 'declined') return 'budget_request.rejected';
+  return null;
+}
 
 export function useRequirements() {
   return useQuery({ queryKey: budgetRequirementsKeys.list(), queryFn: api.fetchRequirements });
@@ -15,6 +24,14 @@ export function useAddRequirement() {
     onMutate: async (entry) => {
       await queryClient.cancelQueries({ queryKey: budgetRequirementsKeys.list() });
       queryClient.setQueryData<Requirement[]>(budgetRequirementsKeys.list(), (old) => [entry, ...(old ?? [])]);
+    },
+    onSuccess: (_data, entry) => {
+      notify({
+        eventType: 'requirement.added',
+        section: 'budget-requirements',
+        targetRef: entry.ref,
+        payload: { requestedBy: entry.who, label: entry.item },
+      });
     },
   });
 }
@@ -35,6 +52,17 @@ export function useUpdateRequirement() {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(budgetRequirementsKeys.list(), context.previous);
+    },
+    onSuccess: (_data, { id, updates }, context) => {
+      const ev = decisionEvent(updates.status as string | undefined);
+      if (!ev) return;
+      const req = context?.previous?.find((r) => r.id === id);
+      notify({
+        eventType: ev,
+        section: 'budget-requirements',
+        targetRef: req?.ref,
+        payload: { requestedBy: req?.who, label: req?.item },
+      });
     },
   });
 }
@@ -65,6 +93,14 @@ export function useAddBudgetRequest() {
       await queryClient.cancelQueries({ queryKey: budgetRequirementsKeys.requests() });
       queryClient.setQueryData<BudgetRequest[]>(budgetRequirementsKeys.requests(), (old) => [entry, ...(old ?? [])]);
     },
+    onSuccess: (_data, entry) => {
+      notify({
+        eventType: 'budget_request.submitted',
+        section: 'budget-requirements',
+        targetRef: entry.ref,
+        payload: { requestedBy: entry.requestedBy, amountNPR: entry.amountNPR, label: entry.title },
+      });
+    },
   });
 }
 
@@ -82,6 +118,17 @@ export function useUpdateBudgetRequest() {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(budgetRequirementsKeys.requests(), context.previous);
+    },
+    onSuccess: (_data, { id, updates }, context) => {
+      const ev = decisionEvent(updates.status as string | undefined);
+      if (!ev) return;
+      const req = context?.previous?.find((r) => r.id === id);
+      notify({
+        eventType: ev,
+        section: 'budget-requirements',
+        targetRef: req?.ref,
+        payload: { requestedBy: req?.requestedBy, label: req?.title },
+      });
     },
   });
 }

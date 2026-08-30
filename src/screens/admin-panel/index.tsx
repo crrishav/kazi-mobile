@@ -3,13 +3,13 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
-import { Avatar } from '@/components/ui/avatar';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii } from '@/theme';
 import { useApplyRoleChanges, usePermissionMatrix } from '@/data/admin-panel/hooks';
-import { CURRENT_ADMIN, GROUPS, ROLES } from '@/data/admin-panel/mock';
+import { GROUPS, ROLES } from '@/data/admin-panel/mock';
 import type { AccessLevel, DiffRow, RoleKey, SectionDef, SectionId } from '@/data/admin-panel/types';
 
 import { DirtyBar } from './dirty-bar';
@@ -137,7 +137,7 @@ export function AdminPanel() {
       <ScreenHeader
         title="Admin panel"
         subtitle={`${ROLES.length} roles · 20 sections`}
-        rightSlot={<Avatar initials={CURRENT_ADMIN.initials} tint="dark" size="sm" />}
+        rightSlot={<HeaderAccount size="sm" />}
       />
       <RoleChipsBar roles={ROLES} activeRole={role} onPick={pickRole} />
 

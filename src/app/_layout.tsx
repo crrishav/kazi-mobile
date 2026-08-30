@@ -17,6 +17,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from '@/auth/auth-context';
 import { ToastProvider } from '@/components/toast/toast-provider';
+import { NotificationsProvider } from '@/data/notifications/context';
+import { AccountInactive } from '@/screens/account/account-inactive';
 import { queryClient } from '@/data/client';
 import { CurrencyProvider } from '@/lib/currency-context';
 import { ThemeProvider } from '@/theme/theme-provider';
@@ -24,8 +26,12 @@ import { ThemeProvider } from '@/theme/theme-provider';
 SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
-  const { session, isLoading } = useAuth();
+  const { session, profile, isLoading } = useAuth();
   if (isLoading) return null;
+
+  // A signed-in user whose employee record was deactivated gets a dead end,
+  // not the app (reference assigns them the `inactive` role).
+  if (session && profile?.status === 'Inactive') return <AccountInactive />;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -62,9 +68,11 @@ export default function RootLayout() {
           <QueryClientProvider client={queryClient}>
             <CurrencyProvider>
               <AuthProvider>
-                <ToastProvider>
-                  <RootNavigator />
-                </ToastProvider>
+                <NotificationsProvider>
+                  <ToastProvider>
+                    <RootNavigator />
+                  </ToastProvider>
+                </NotificationsProvider>
               </AuthProvider>
             </CurrencyProvider>
           </QueryClientProvider>

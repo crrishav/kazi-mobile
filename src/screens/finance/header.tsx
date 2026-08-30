@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar } from '@/components/ui/avatar';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -35,7 +35,7 @@ export function FinanceHeader({ title, subtitle, onBack, rightSlot }: FinanceHea
           {subtitle}
         </Text>
       </View>
-      {rightSlot ?? (!onBack ? <Avatar initials="AK" tint="dark" size="lg" /> : null)}
+      {rightSlot ?? (!onBack ? <HeaderAccount /> : null)}
     </View>
   );
 }

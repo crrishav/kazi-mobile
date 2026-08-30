@@ -1,8 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notify } from '@/data/notifications/notify';
+
 import { bugReportKeys } from './keys';
 import * as api from './mock-api';
 import type { BugReport, BugReportDraft, BugStatus } from './types';
+
+const STATUS_LABEL: Record<BugStatus, string> = {
+  open: 'Open',
+  'in-progress': 'In progress',
+  resolved: 'Resolved',
+  closed: 'Closed',
+};
 
 export function useBugReports() {
   return useQuery({ queryKey: bugReportKeys.list(), queryFn: api.fetchBugReports });
@@ -12,8 +21,13 @@ export function useAddBugReport() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ draft, reportedBy }: { draft: BugReportDraft; reportedBy: string }) => api.addBugReport(draft, reportedBy),
-    onSuccess: () => {
+    onSuccess: (_data, { draft, reportedBy }) => {
       queryClient.invalidateQueries({ queryKey: bugReportKeys.list() });
+      notify({
+        eventType: 'bug_report.submitted',
+        section: 'bug-report',
+        payload: { submittedBy: reportedBy, label: draft.title },
+      });
     },
   });
 }
@@ -34,6 +48,15 @@ export function useUpdateBugStatus() {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(bugReportKeys.list(), context.previous);
+    },
+    onSuccess: (_data, { id, status }, context) => {
+      const prev = context?.previous?.find((r) => r.id === id);
+      notify({
+        eventType: 'bug_report.status_changed',
+        section: 'bug-report',
+        targetRef: prev?.ref,
+        payload: { submittedBy: prev?.reportedBy, status: STATUS_LABEL[status] },
+      });
     },
   });
 }

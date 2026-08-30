@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notify } from '@/data/notifications/notify';
+
 import { marketingKeys } from './keys';
 import * as api from './mock-api';
 import type { CalendarEntry } from './types';
@@ -15,6 +17,14 @@ export function useAddEntry() {
     onMutate: async (entry) => {
       await queryClient.cancelQueries({ queryKey: marketingKeys.list() });
       queryClient.setQueryData<CalendarEntry[]>(marketingKeys.list(), (old) => [...(old ?? []), entry]);
+    },
+    onSuccess: (_data, entry) => {
+      notify({
+        eventType: 'marketing.entry_created',
+        section: 'marketing',
+        targetRef: entry.id,
+        payload: { createdBy: entry.person, label: entry.title },
+      });
     },
   });
 }
@@ -36,6 +46,15 @@ export function useUpdateEntry() {
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(marketingKeys.list(), context.previous);
     },
+    onSuccess: (_data, { id }, context) => {
+      const entry = context?.previous?.find((e) => e.id === id);
+      notify({
+        eventType: 'marketing.entry_updated',
+        section: 'marketing',
+        targetRef: id,
+        payload: { createdBy: entry?.person, label: entry?.title },
+      });
+    },
   });
 }
 
@@ -51,6 +70,15 @@ export function useRemoveEntry() {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(marketingKeys.list(), context.previous);
+    },
+    onSuccess: (_data, id, context) => {
+      const entry = context?.previous?.find((e) => e.id === id);
+      notify({
+        eventType: 'marketing.entry_deleted',
+        section: 'marketing',
+        targetRef: id,
+        payload: { createdBy: entry?.person, label: entry?.title },
+      });
     },
   });
 }

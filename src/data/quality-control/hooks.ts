@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notify } from '@/data/notifications/notify';
+
 import { qualityControlKeys } from './keys';
 import * as api from './mock-api';
 import type { QcLog, QueueItem } from './types';
@@ -19,6 +21,15 @@ export function useAddQcLog() {
     onMutate: async (log) => {
       await queryClient.cancelQueries({ queryKey: qualityControlKeys.logs() });
       queryClient.setQueryData<QcLog[]>(qualityControlKeys.logs(), (old) => [log, ...(old ?? [])]);
+    },
+    onSuccess: (_data, log) => {
+      const failed = log.verdict === 'fail' || log.defects > 0;
+      notify({
+        eventType: failed ? 'qc.failed' : 'qc.passed',
+        section: 'quality-control',
+        targetRef: log.code,
+        payload: { loggedBy: log.inspector, label: log.product },
+      });
     },
   });
 }

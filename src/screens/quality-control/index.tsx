@@ -3,7 +3,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
-import { Avatar } from '@/components/ui/avatar';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -233,7 +233,7 @@ export function QualityControl() {
       <ScreenHeader
         title="Quality control"
         subtitle={`${queue.length} awaiting · ${cleared} cleared today`}
-        rightSlot={<Avatar initials="PT" tint="dark" size="lg" />}
+        rightSlot={<HeaderAccount />}
       />
       <ScrollView contentContainerStyle={styles.content}>
         <PermissionNotice section="quality-control" />

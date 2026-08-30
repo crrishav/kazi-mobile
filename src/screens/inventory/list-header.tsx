@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar } from '@/components/ui/avatar';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -44,7 +44,7 @@ export function ListHeader({
             {headerMeta}
           </Text>
         </View>
-        <Avatar initials="PT" tint="dark" size="lg" />
+        <HeaderAccount />
       </View>
 
       <View style={[styles.segmented, { backgroundColor: theme.draftWash, borderColor: theme.border }]}>

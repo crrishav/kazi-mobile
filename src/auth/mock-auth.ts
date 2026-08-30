@@ -21,6 +21,14 @@ export interface Session {
   appRole: Role;
   jobRole?: string;
   permissions?: PermissionOverrides;
+  /** Firebase Auth UID — set on the real-auth path, absent under mock-auth. */
+  uid?: string;
+  /** `employees`/`users` location field — the Account screen shows Nepal / UK. */
+  location?: 'nepal' | 'uk';
+  /** `employees.status` — an `Inactive` account is blocked from `(app)`. */
+  status?: 'Active' | 'Inactive';
+  /** `users/{uid}.createdAt` as an AD ISO string — "member since" on Account. */
+  createdAt?: string;
 }
 
 function deriveName(email: string): { name: string; initials: string } {

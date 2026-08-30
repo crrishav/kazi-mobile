@@ -1,8 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Avatar } from '@/components/ui/avatar';
-import { Icon } from '@/components/ui/icon';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 
@@ -20,12 +19,7 @@ export function TasksHeader({ openCount }: TasksHeaderProps) {
         <Text style={[styles.title, { color: theme.textPrimary }]}>Tasks</Text>
         <Text style={[styles.meta, { color: theme.textSecondary }]}>{openCount} open · Line 3</Text>
       </View>
-      <View style={styles.actions}>
-        <Pressable style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Icon name="search" size={18} color={theme.textSecondary} />
-        </Pressable>
-        <Avatar initials="SR" tint="dark" size="lg" />
-      </View>
+      <HeaderAccount />
     </View>
   );
 }
@@ -51,18 +45,5 @@ const styles = StyleSheet.create({
     fontSize: 10,
     letterSpacing: 0.12 * 10,
     textTransform: 'uppercase',
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

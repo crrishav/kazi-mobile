@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
-import { Avatar } from '@/components/ui/avatar';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
@@ -224,7 +224,7 @@ export function Production() {
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <ScreenHeader title="Production" subtitle={`${activeCount} active batches`} rightSlot={<Avatar initials="SR" tint="dark" size="lg" />} />
+      <ScreenHeader title="Production" subtitle={`${activeCount} active batches`} rightSlot={<HeaderAccount />} />
       <BoardTabs view={view} onList={() => setView('list')} onCalendar={() => setView('calendar')} />
 
       <ScrollView contentContainerStyle={styles.content}>

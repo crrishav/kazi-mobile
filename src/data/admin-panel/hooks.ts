@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notify } from '@/data/notifications/notify';
+
 import { adminPanelKeys } from './keys';
 import * as api from './mock-api';
 import type { AccessLevel, PermissionMatrix, RoleKey, SectionId } from './types';
@@ -24,6 +26,13 @@ export function useApplyRoleChanges() {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(adminPanelKeys.matrix(), context.previous);
+    },
+    onSuccess: (_data, { role, changes }) => {
+      notify({
+        eventType: 'permissions.changed',
+        section: 'admin-panel',
+        payload: { label: role, count: Object.keys(changes).length },
+      });
     },
   });
 }

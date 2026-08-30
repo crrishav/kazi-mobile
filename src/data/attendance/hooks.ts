@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notify } from '@/data/notifications/notify';
+
 import { attendanceKeys } from './keys';
 import * as api from './mock-api';
 import type { ClockToggleInput } from './mock-api';
@@ -14,9 +16,17 @@ export function useToggleClock() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: ClockToggleInput) => api.toggleClock(input),
-    onSuccess: (data: ClockStatus) => {
+    onSuccess: (data: ClockStatus, input) => {
       queryClient.setQueryData(attendanceKeys.clock(), data);
       queryClient.invalidateQueries({ queryKey: attendanceKeys.punches() });
+      // A clock-IN that bypassed the geofence or had no GPS fix is worth flagging.
+      if (data.clockedIn && (input.bypassUsed || !input.coords)) {
+        notify({
+          eventType: 'attendance.clock_in_flagged',
+          section: 'attendance',
+          payload: { employee: input.staffName, label: input.bypassUsed ? 'geofence bypassed' : 'no GPS fix' },
+        });
+      }
     },
   });
 }
@@ -40,6 +50,15 @@ export function useSetMemberStatus() {
       queryClient.setQueryData<TeamMember[]>(attendanceKeys.team(), (old) =>
         (old ?? []).map((m) => (m.id === id ? { ...m, status } : m)),
       );
+    },
+    onSuccess: (_data, { id, status }) => {
+      if (status !== 'absent' && status !== 'late') return;
+      const member = queryClient.getQueryData<TeamMember[]>(attendanceKeys.team())?.find((m) => m.id === id);
+      notify({
+        eventType: 'attendance.absent_late',
+        section: 'attendance',
+        payload: { employee: member?.name, status: status === 'absent' ? 'Absent' : 'Late' },
+      });
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: attendanceKeys.team() }),
   });

@@ -71,9 +71,17 @@ export interface Profile {
   /** Free-text job title (reference `jobRole`), display-only. */
   jobRole?: string;
   permissions?: PermissionOverrides;
+  /** Firebase Auth UID — present on the real-auth path only. */
+  uid?: string;
+  /** Operating location (`nepal` / `uk`), display-only. */
+  location?: 'nepal' | 'uk';
+  /** `employees.status`; `Inactive` blocks access to the app. */
+  status?: 'Active' | 'Inactive';
+  /** AD ISO string — account creation date, shown on the Account screen. */
+  createdAt?: string;
 }
 
-const ALL_SECTIONS: SectionId[] = [
+export const ALL_SECTIONS: SectionId[] = [
   'dashboard', 'tasks', 'inventory', 'finance', 'sales', 'order-management', 'customers', 'billing',
   'purchases', 'production', 'quality-control', 'accounting', 'budget-requirements',
   'employees-hr', 'attendance', 'marketing', 'messenger', 'directors', 'admin-panel', 'changelog',

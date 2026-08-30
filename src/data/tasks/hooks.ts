@@ -1,8 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notify } from '@/data/notifications/notify';
+
 import { tasksKeys } from './keys';
+import { PEOPLE, STATUS_LABEL } from './mock';
 import * as api from './mock-api';
 import type { Task } from './types';
+
+const personName = (id: string): string | null => PEOPLE.find((p) => p.id === id)?.name ?? null;
 
 export function useTasks() {
   return useQuery({ queryKey: tasksKeys.list(), queryFn: api.fetchTasks });
@@ -24,6 +29,30 @@ export function useSaveTask() {
     },
     onError: (_err, _task, context) => {
       if (context?.previous) queryClient.setQueryData(tasksKeys.list(), context.previous);
+    },
+    onSuccess: (_data, task, context) => {
+      const prev = context?.previous?.find((t) => t.id === task.id);
+      const assignee = personName(task.personId);
+      if (!prev) {
+        notify({ eventType: 'task.assigned', section: 'tasks', targetRef: task.ref, payload: { assignee } });
+        return;
+      }
+      if (prev.personId !== task.personId) {
+        notify({
+          eventType: 'task.reassigned',
+          section: 'tasks',
+          targetRef: task.ref,
+          payload: { assignee, prevAssignee: personName(prev.personId) },
+        });
+      }
+      if (prev.status !== task.status) {
+        notify({
+          eventType: 'task.status_changed',
+          section: 'tasks',
+          targetRef: task.ref,
+          payload: { assignee, status: STATUS_LABEL[task.status] },
+        });
+      }
     },
   });
 }

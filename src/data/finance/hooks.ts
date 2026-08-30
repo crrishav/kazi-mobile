@@ -1,8 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notify } from '@/data/notifications/notify';
+
 import { financeKeys } from './keys';
 import * as api from './mock-api';
 import type { Account, BankTransaction, Expense, JournalEntry, OrderCosts, VatBill } from './types';
+
+const LARGE_AMOUNT_NPR = 100_000;
+
+function largeAmountNotify(amountNPR: number, label: string, ref?: string) {
+  if (amountNPR < LARGE_AMOUNT_NPR) return;
+  notify({ eventType: 'finance.large_amount', section: 'finance', targetRef: ref, payload: { amountNPR, label } });
+}
 
 // ---- Expenses ----
 
@@ -18,6 +27,15 @@ export function useAddExpense() {
       await queryClient.cancelQueries({ queryKey: financeKeys.expenses() });
       queryClient.setQueryData<Expense[]>(financeKeys.expenses(), (old) => [expense, ...(old ?? [])]);
     },
+    onSuccess: (_data, expense) => {
+      notify({
+        eventType: 'expense.logged',
+        section: 'finance',
+        targetRef: expense.id,
+        payload: { loggedBy: expense.loggedBy, amountNPR: expense.amountNPR, label: expense.name },
+      });
+      largeAmountNotify(expense.amountNPR, `Expense — ${expense.name}`, expense.id);
+    },
   });
 }
 
@@ -30,6 +48,16 @@ export function useUpdateExpense() {
       queryClient.setQueryData<Expense[]>(financeKeys.expenses(), (old) =>
         (old ?? []).map((e) => (e.id === id ? { ...e, ...updates } : e)),
       );
+    },
+    onSuccess: (_data, { id, updates }) => {
+      if (String(updates.status ?? '').toLowerCase() !== 'paid') return;
+      const exp = queryClient.getQueryData<Expense[]>(financeKeys.expenses())?.find((e) => e.id === id);
+      notify({
+        eventType: 'expense.marked_paid',
+        section: 'finance',
+        targetRef: id,
+        payload: { loggedBy: exp?.loggedBy, label: exp?.name },
+      });
     },
   });
 }
@@ -134,6 +162,15 @@ export function useAddJournalEntry() {
       await queryClient.cancelQueries({ queryKey: financeKeys.journal() });
       queryClient.setQueryData<JournalEntry[]>(financeKeys.journal(), (old) => [entry, ...(old ?? [])]);
     },
+    onSuccess: (_data, entry) => {
+      notify({
+        eventType: 'journal.posted',
+        section: 'accounting',
+        targetRef: entry.reference,
+        payload: { createdBy: entry.createdBy, amountNPR: entry.amountNPR, label: entry.description },
+      });
+      largeAmountNotify(entry.amountNPR, `Journal — ${entry.description}`, entry.reference);
+    },
   });
 }
 
@@ -185,6 +222,15 @@ export function useAddBankTransaction() {
     onMutate: async (tx) => {
       await queryClient.cancelQueries({ queryKey: financeKeys.bankTransactions() });
       queryClient.setQueryData<BankTransaction[]>(financeKeys.bankTransactions(), (old) => [tx, ...(old ?? [])]);
+    },
+    onSuccess: (_data, tx) => {
+      notify({
+        eventType: 'bank.tx_imported',
+        section: 'finance',
+        targetRef: tx.reference,
+        payload: { loggedBy: tx.loggedBy, amountNPR: tx.amountNPR, label: tx.description },
+      });
+      largeAmountNotify(tx.amountNPR, `Bank — ${tx.description}`, tx.reference);
     },
   });
 }

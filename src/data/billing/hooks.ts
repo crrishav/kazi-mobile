@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notify } from '@/data/notifications/notify';
+
 import { billingKeys } from './keys';
 import * as api from './mock-api';
 import type { Challan, ChallanStatus, Invoice, OpenChallan, Payment, Quotation, QuotationStatus } from './types';
@@ -16,6 +18,12 @@ export function useAddInvoice() {
       await queryClient.cancelQueries({ queryKey: billingKeys.invoices() });
       queryClient.setQueryData<Invoice[]>(billingKeys.invoices(), (old) => [invoice, ...(old ?? [])]);
     },
+    onSuccess: (_data, invoice) => {
+      notify({ eventType: 'invoice.created', section: 'billing', targetRef: invoice.ref });
+      if (invoice.explicitStatus === 'Sent') {
+        notify({ eventType: 'invoice.sent', section: 'billing', targetRef: invoice.ref });
+      }
+    },
   });
 }
 
@@ -28,6 +36,12 @@ export function useUpdateInvoice() {
       queryClient.setQueryData<Invoice[]>(billingKeys.invoices(), (old) =>
         (old ?? []).map((v) => (v.id === id ? { ...v, ...updates } : v)),
       );
+    },
+    onSuccess: (_data, { id, updates }) => {
+      const inv = queryClient.getQueryData<Invoice[]>(billingKeys.invoices())?.find((v) => v.id === id);
+      const ref = inv?.ref;
+      if (updates.explicitStatus === 'Sent') notify({ eventType: 'invoice.sent', section: 'billing', targetRef: ref });
+      if (updates.cancelled === true) notify({ eventType: 'invoice.cancelled', section: 'billing', targetRef: ref });
     },
   });
 }
@@ -50,6 +64,10 @@ export function useAddPayment() {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(billingKeys.invoices(), context.previous);
+    },
+    onSuccess: (_data, { invoiceId }, context) => {
+      const inv = context?.previous?.find((v) => v.id === invoiceId);
+      notify({ eventType: 'invoice.paid', section: 'billing', targetRef: inv?.ref });
     },
   });
 }

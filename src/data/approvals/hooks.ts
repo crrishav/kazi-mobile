@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notify } from '@/data/notifications/notify';
+
 import { approvalsKeys } from './keys';
 import * as api from './mock-api';
 import type { ApprovalItem } from './types';
@@ -26,6 +28,13 @@ export function useDecideApproval() {
     },
     onError: (_err, _item, context) => {
       if (context?.previous) queryClient.setQueryData(approvalsKeys.list(), context.previous);
+    },
+    onSuccess: (_data, item) => {
+      notify({
+        eventType: 'approval.decided',
+        section: 'dashboard',
+        payload: { label: item.title, status: 'decided' },
+      });
     },
   });
 }

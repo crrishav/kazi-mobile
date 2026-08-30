@@ -1,8 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notify } from '@/data/notifications/notify';
+
 import { salesKeys } from './keys';
 import * as api from './mock-api';
 import type { Order, OrderNote, OrderPriority, StageId } from './types';
+
+const ORDERS_SECTION = 'order-management' as const;
 
 export function useOrders() {
   return useQuery({ queryKey: salesKeys.list(), queryFn: api.fetchOrders });
@@ -24,6 +28,14 @@ export function useAddOrder() {
       await queryClient.cancelQueries({ queryKey: salesKeys.list() });
       patchList(queryClient, (orders) => [order, ...orders]);
     },
+    onSuccess: (_data, order) => {
+      notify({
+        eventType: 'order.created',
+        section: ORDERS_SECTION,
+        targetRef: order.ref,
+        payload: { assignee: order.assignedTo, label: order.product },
+      });
+    },
   });
 }
 
@@ -39,6 +51,19 @@ export function useUpdateOrder() {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(salesKeys.list(), context.previous);
+    },
+    onSuccess: (_data, { id, updates }, context) => {
+      const prev = context?.previous?.find((o) => o.id === id);
+      const ref = prev?.ref;
+      if (updates.assignedTo && updates.assignedTo !== prev?.assignedTo) {
+        notify({ eventType: 'order.assigned', section: ORDERS_SECTION, targetRef: ref, payload: { assignee: updates.assignedTo } });
+      }
+      if (updates.priority === 'high' && prev?.priority !== 'high') {
+        notify({ eventType: 'order.priority_raised', section: ORDERS_SECTION, targetRef: ref, payload: { assignee: prev?.assignedTo, priority: 'High' } });
+      }
+      if (updates.status === 'cancelled' && prev?.status !== 'cancelled') {
+        notify({ eventType: 'order.cancelled', section: ORDERS_SECTION, targetRef: ref, payload: { assignee: prev?.assignedTo } });
+      }
     },
   });
 }
@@ -62,6 +87,24 @@ export function useSetOrderStage() {
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(salesKeys.list(), context.previous);
     },
+    onSuccess: (_data, { id, stage }, context) => {
+      const prev = context?.previous?.find((o) => o.id === id);
+      if (!prev || prev.stage === stage) return;
+      notify({
+        eventType: 'order.stage_changed',
+        section: ORDERS_SECTION,
+        targetRef: prev.ref,
+        payload: { assignee: prev.assignedTo, status: stage },
+      });
+      if (stage === 'delivered') {
+        notify({
+          eventType: 'order.dispatched',
+          section: ORDERS_SECTION,
+          targetRef: prev.ref,
+          payload: { assignee: prev.assignedTo },
+        });
+      }
+    },
   });
 }
 
@@ -77,6 +120,17 @@ export function useSetOrderPriority() {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(salesKeys.list(), context.previous);
+    },
+    onSuccess: (_data, { id, priority }, context) => {
+      if (priority !== 'high') return;
+      const prev = context?.previous?.find((o) => o.id === id);
+      if (prev?.priority === 'high') return;
+      notify({
+        eventType: 'order.priority_raised',
+        section: ORDERS_SECTION,
+        targetRef: prev?.ref,
+        payload: { assignee: prev?.assignedTo, priority: 'High' },
+      });
     },
   });
 }
@@ -109,6 +163,17 @@ export function useSetOrderStatus() {
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(salesKeys.list(), context.previous);
+    },
+    onSuccess: (_data, { id, status }, context) => {
+      if (status !== 'cancelled') return;
+      const prev = context?.previous?.find((o) => o.id === id);
+      if (prev?.status === 'cancelled') return;
+      notify({
+        eventType: 'order.cancelled',
+        section: ORDERS_SECTION,
+        targetRef: prev?.ref,
+        payload: { assignee: prev?.assignedTo },
+      });
     },
   });
 }

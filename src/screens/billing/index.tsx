@@ -4,7 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
-import { Avatar } from '@/components/ui/avatar';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
@@ -558,7 +558,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
                 <Icon name="download" size={15} color={theme.textPrimary} />
               </Pressable>
             ) : null}
-            <Avatar initials="AK" tint="dark" size="lg" />
+            <HeaderAccount />
           </View>
         }
       />

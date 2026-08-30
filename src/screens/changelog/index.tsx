@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import { useAuth } from '@/auth/auth-context';
 import { useCommitFeed } from '@/data/changelog/hooks';
 import { buildFilters, groupByDay } from '@/data/changelog/parse';
 import type { Commit, FilterKey } from '@/data/changelog/types';
@@ -20,7 +19,6 @@ import { FilterChipsBar } from './filter-chips-bar';
 
 export function Changelog() {
   const theme = useTheme();
-  const { profile } = useAuth();
   const { data: feed, isLoading, isError, error, refetch, isRefetching } = useCommitFeed();
 
   const [filter, setFilter] = useState<FilterKey>('All');
@@ -57,7 +55,7 @@ export function Changelog() {
       <ScreenHeader
         title="Changelog"
         subtitle={`${commits.length} commits · ${days.length} days`}
-        rightSlot={<Avatar initials={profile?.initials ?? 'KM'} tint="dark" size="sm" />}
+        rightSlot={<HeaderAccount size="sm" />}
       />
       <FilterChipsBar filters={filters} active={filter} onPick={setFilter} />
 

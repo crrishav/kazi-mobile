@@ -4,7 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
-import { Avatar } from '@/components/ui/avatar';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { toCSV } from '@/lib/export/csv';
@@ -185,7 +185,7 @@ export function Attendance() {
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <ScreenHeader title="Attendance" subtitle="Tue 26 Aug · Shift A" rightSlot={<Avatar initials="SR" tint="dark" size="lg" />} />
+      <ScreenHeader title="Attendance" subtitle="Tue 26 Aug · Shift A" rightSlot={<HeaderAccount />} />
       <TabsHeader view={view} onChange={setView} />
 
       <ScrollView contentContainerStyle={styles.content}>

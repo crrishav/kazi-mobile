@@ -4,7 +4,8 @@ import * as Clipboard from 'expo-clipboard';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
-import { Avatar, tintFromSeed } from '@/components/ui/avatar';
+import { tintFromSeed } from '@/components/ui/avatar';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
@@ -294,7 +295,7 @@ export function EmployeesHR() {
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <ScreenHeader title="Employees" subtitle={`${employees.length} on roll · Balaju plant`} rightSlot={<Avatar initials="KA" tint="dark" size="lg" />} />
+      <ScreenHeader title="Employees" subtitle={`${employees.length} on roll · Balaju plant`} rightSlot={<HeaderAccount />} />
       <TabsHeader view={view} onChange={setView} />
 
       <ScrollView contentContainerStyle={styles.content}>

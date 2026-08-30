@@ -1,5 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { setActor } from '@/data/notifications/actor';
+import { isFirebaseConfigured } from '@/lib/firebase';
+
+import * as firebaseAuth from './firebase-auth';
 import * as mockAuth from './mock-auth';
 import type { Session } from './mock-auth';
 import {
@@ -33,6 +37,9 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** Real Firebase Auth when configured (§2.2); the in-memory mock otherwise. */
+const impl = isFirebaseConfigured ? firebaseAuth : mockAuth;
+
 function toProfile(session: Session | null): Profile | null {
   if (!session) return null;
   return {
@@ -42,6 +49,10 @@ function toProfile(session: Session | null): Profile | null {
     role: session.appRole,
     jobRole: session.jobRole ?? session.role,
     permissions: session.permissions,
+    uid: session.uid,
+    location: session.location,
+    status: session.status,
+    createdAt: session.createdAt,
   };
 }
 
@@ -50,6 +61,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (isFirebaseConfigured) {
+      // onAuthStateChanged fires once on cold start (restoring a persisted
+      // session) and on every sign-in / sign-out thereafter.
+      return firebaseAuth.subscribe((s) => {
+        setSession(s);
+        setIsLoading(false);
+      });
+    }
     mockAuth.getSession().then((s) => {
       setSession(s);
       setIsLoading(false);
@@ -57,22 +76,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    setSession(await mockAuth.signIn(email, password));
+    // Mock returns the Session directly; Firebase delivers it via the subscription.
+    const next = await impl.signIn(email, password);
+    if (next) setSession(next);
   }, []);
 
   const requestPasswordReset = useCallback(async (email: string) => {
-    await mockAuth.requestPasswordReset(email);
+    await impl.requestPasswordReset(email);
   }, []);
 
   const signOut = useCallback(async () => {
-    await mockAuth.signOut();
+    await impl.signOut();
     setSession(null);
   }, []);
 
   const setDevRole = useCallback(async (role: Role) => {
-    const next = await mockAuth.setDevRole(role);
+    const next = await impl.setDevRole(role);
     if (next) setSession(next);
   }, []);
+
+  // Keep the notifications module's "who am I" in sync so mutation hooks can
+  // attribute events without prop-drilling the current user.
+  useEffect(() => {
+    setActor(session ? { name: session.name, email: session.email, role: session.appRole } : null);
+  }, [session]);
 
   const profile = useMemo(() => toProfile(session), [session]);
 

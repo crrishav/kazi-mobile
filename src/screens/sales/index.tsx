@@ -1,6 +1,6 @@
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
-import { Avatar } from '@/components/ui/avatar';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
@@ -33,7 +33,7 @@ export function Sales() {
       <ScreenHeader
         title="Sales"
         subtitle={`Pipeline overview · ${active} active`}
-        rightSlot={<Avatar initials="PT" tint="dark" size="lg" />}
+        rightSlot={<HeaderAccount />}
       />
 
       <ScrollView contentContainerStyle={styles.content}>

@@ -1,8 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { notify } from '@/data/notifications/notify';
+
 import { inventoryKeys } from './keys';
 import * as api from './mock-api';
 import type { StockItem, StockMoveKind, StockMovement } from './types';
+
+function lowStockNotify(item: StockItem | undefined, projectedQty: number) {
+  if (!item || projectedQty > item.threshold) return;
+  notify({
+    eventType: 'inventory.low_stock',
+    section: 'inventory',
+    targetRef: item.sku,
+    payload: { label: item.name, count: projectedQty },
+  });
+}
 
 export function useStock() {
   return useQuery({ queryKey: inventoryKeys.stock(), queryFn: api.fetchStock });
@@ -23,6 +35,9 @@ export function useAddStockItem() {
     onMutate: async (item) => {
       await queryClient.cancelQueries({ queryKey: inventoryKeys.stock() });
       queryClient.setQueryData<StockItem[]>(inventoryKeys.stock(), (old) => [item, ...(old ?? [])]);
+    },
+    onSuccess: (_data, item) => {
+      notify({ eventType: 'inventory.item_added', section: 'inventory', targetRef: item.sku, payload: { label: item.name } });
     },
   });
 }
@@ -47,6 +62,17 @@ export function usePostStockMovement() {
   return useMutation({
     mutationFn: (input: { itemId: string; kind: StockMoveKind; qty: number; reason: string; ref: string }) =>
       api.postStockMovement(input),
+    onSuccess: (_data, { itemId, kind, qty }) => {
+      const item = queryClient.getQueryData<StockItem[]>(inventoryKeys.stock())?.find((s) => s.id === itemId);
+      notify({
+        eventType: 'inventory.adjusted',
+        section: 'inventory',
+        targetRef: item?.sku,
+        payload: { label: item?.name, count: qty },
+      });
+      const delta = kind === 'out' ? -qty : kind === 'in' ? qty : 0;
+      if (item && delta !== 0) lowStockNotify(item, Math.max(0, item.qty + delta));
+    },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: inventoryKeys.stock() });
       queryClient.invalidateQueries({ queryKey: inventoryKeys.movements() });
@@ -78,6 +104,11 @@ export function useAdjustStock() {
       queryClient.setQueryData<StockItem[]>(inventoryKeys.stock(), (old) =>
         (old ?? []).map((s) => (s.name.toLowerCase() === key ? { ...s, qty: Math.max(0, s.qty + delta) } : s)),
       );
+    },
+    onSuccess: (_data, { name, delta }) => {
+      const key = name.trim().toLowerCase();
+      const item = queryClient.getQueryData<StockItem[]>(inventoryKeys.stock())?.find((s) => s.name.toLowerCase() === key);
+      if (item) lowStockNotify(item, item.qty); // cache already reflects the new qty here
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: inventoryKeys.stock() });

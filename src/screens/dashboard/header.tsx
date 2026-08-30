@@ -12,9 +12,17 @@ export interface DashboardHeaderProps {
   initials: string;
   unreadCount: number;
   onPressNotifications?: () => void;
+  onPressAccount?: () => void;
 }
 
-export function DashboardHeader({ name, roleLine, initials, unreadCount, onPressNotifications }: DashboardHeaderProps) {
+export function DashboardHeader({
+  name,
+  roleLine,
+  initials,
+  unreadCount,
+  onPressNotifications,
+  onPressAccount,
+}: DashboardHeaderProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -41,7 +49,14 @@ export function DashboardHeader({ name, roleLine, initials, unreadCount, onPress
             </View>
           ) : null}
         </Pressable>
-        <Avatar initials={initials} tint="dark" size="lg" />
+        <Pressable
+          onPress={onPressAccount}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Account"
+        >
+          <Avatar initials={initials} tint="dark" size="lg" />
+        </Pressable>
       </View>
     </View>
   );

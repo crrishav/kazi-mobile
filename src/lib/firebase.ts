@@ -18,7 +18,7 @@ import {
   persistentLocalCache,
   type Firestore,
 } from 'firebase/firestore';
-import { getAuth, type Auth } from 'firebase/auth';
+import { getAuth, initializeAuth, type Auth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -72,8 +72,32 @@ export function getDb(): Firestore {
   return dbRef;
 }
 
+/**
+ * Auth with a session that survives an app restart.
+ *
+ * The `firebase/auth` umbrella entry (v12) has no `react-native` export
+ * condition, so it does NOT wire persistence for us. We pull
+ * `getReactNativePersistence` from the underlying `@firebase/auth` package (its
+ * `react-native` build does export it) and back it with AsyncStorage. Done via
+ * `require` so TypeScript resolves against the umbrella types only; every step
+ * is guarded and falls back to a plain `getAuth` (in-memory session) so a
+ * resolution quirk can never hard-crash sign-in. `getAuth` is also the
+ * fast-refresh path once `initializeAuth` has run for this app instance.
+ */
 export function getFirebaseAuth(): Auth {
   assertConfigured();
-  if (!authRef) authRef = getAuth(getFirebaseApp());
+  if (authRef) return authRef;
+  const app = getFirebaseApp();
+  try {
+    const rnAuth = require('@firebase/auth') as {
+      getReactNativePersistence?: (storage: unknown) => unknown;
+    };
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    authRef = rnAuth.getReactNativePersistence
+      ? initializeAuth(app, { persistence: rnAuth.getReactNativePersistence(AsyncStorage) as never })
+      : initializeAuth(app);
+  } catch {
+    authRef = getAuth(app);
+  }
   return authRef;
 }

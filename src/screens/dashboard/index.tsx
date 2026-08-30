@@ -1,5 +1,9 @@
+import { router } from 'expo-router';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useAuth } from '@/auth/auth-context';
+import { ROLE_LABEL } from '@/auth/roles';
+import { useUnreadCount } from '@/data/notifications/context';
 import { useToast } from '@/components/toast/toast-provider';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -16,6 +20,8 @@ import { OrdersByStageCard } from './orders-by-stage-card';
 export function Dashboard() {
   const theme = useTheme();
   const toast = useToast();
+  const { profile } = useAuth();
+  const unreadCount = useUnreadCount();
 
   const { data: summary, isRefetching, refetch } = useDashboardSummary();
   const invalidateSummary = useRefreshDashboard();
@@ -54,10 +60,12 @@ export function Dashboard() {
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <DashboardHeader
-        name={summary.userName}
-        roleLine={summary.roleLine}
-        initials="SR"
-        unreadCount={summary.unreadNotifications}
+        name={profile ? profile.name.split(' ')[0] : summary.userName}
+        roleLine={profile ? profile.jobRole?.trim() || ROLE_LABEL[profile.role] : summary.roleLine}
+        initials={profile?.initials ?? 'SR'}
+        unreadCount={unreadCount}
+        onPressNotifications={() => router.push('/notifications')}
+        onPressAccount={() => router.push('/account')}
       />
       <ScrollView
         contentContainerStyle={styles.content}
