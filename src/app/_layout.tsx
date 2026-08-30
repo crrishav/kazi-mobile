@@ -20,10 +20,18 @@ import { ToastProvider } from '@/components/toast/toast-provider';
 import { NotificationsProvider } from '@/data/notifications/context';
 import { AccountInactive } from '@/screens/account/account-inactive';
 import { queryClient } from '@/data/client';
+import { isFirebaseConfigured } from '@/lib/firebase';
 import { CurrencyProvider } from '@/lib/currency-context';
 import { ThemeProvider } from '@/theme/theme-provider';
 
 SplashScreen.preventAutoHideAsync();
+
+if (__DEV__) {
+  // Boot diagnostic: if this logs `false`, the `.env` was not picked up —
+  // restart Metro with `npx expo start --clear`. When `true`, watch for
+  // `[firestore] <module>: live read OK` / `... failed → mock` lines.
+  console.log('[firestore] isFirebaseConfigured =', isFirebaseConfigured);
+}
 
 function RootNavigator() {
   const { session, profile, isLoading } = useAuth();

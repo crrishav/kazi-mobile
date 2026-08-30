@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notify } from '@/data/notifications/notify';
 
 import { budgetRequirementsKeys } from './keys';
-import * as api from './mock-api';
+import * as api from './api';
 import type { BudgetRequest, Requirement } from './types';
 
 function decisionEvent(status?: string): 'budget_request.approved' | 'budget_request.rejected' | null {

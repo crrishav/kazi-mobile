@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notify } from '@/data/notifications/notify';
 
 import { employeesKeys } from './keys';
-import * as api from './mock-api';
+import * as api from './api';
 import type { Employee, MonthKey } from './types';
 
 export function useEmployees() {

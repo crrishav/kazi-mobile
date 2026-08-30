@@ -18,6 +18,8 @@ export interface NotifActor {
   name: string;
   email: string;
   role: Role;
+  /** Firebase Auth UID — used by the Firestore write layer (e.g. `clock_ins.staffId`). */
+  uid?: string;
 }
 
 /**

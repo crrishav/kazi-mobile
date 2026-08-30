@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notify } from '@/data/notifications/notify';
 
 import { attendanceKeys } from './keys';
-import * as api from './mock-api';
-import type { ClockToggleInput } from './mock-api';
+import * as api from './api';
+import type { ClockToggleInput } from './api';
 import type { AttendanceStatus, ClockStatus, TeamMember } from './types';
 
 export function useClockStatus() {
@@ -19,6 +19,8 @@ export function useToggleClock() {
     onSuccess: (data: ClockStatus, input) => {
       queryClient.setQueryData(attendanceKeys.clock(), data);
       queryClient.invalidateQueries({ queryKey: attendanceKeys.punches() });
+      // Re-derive the session from Firestore (`fetchClockStatus` reads today's clock_ins).
+      queryClient.invalidateQueries({ queryKey: attendanceKeys.clock() });
       // A clock-IN that bypassed the geofence or had no GPS fix is worth flagging.
       if (data.clockedIn && (input.bypassUsed || !input.coords)) {
         notify({
@@ -44,7 +46,8 @@ export function useTeamRoster() {
 export function useSetMemberStatus() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: number; status: AttendanceStatus }) => api.setMemberStatus(id, status),
+    mutationFn: ({ id, status, name }: { id: number; status: AttendanceStatus; name?: string }) =>
+      api.setMemberStatus(id, status, name),
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({ queryKey: attendanceKeys.team() });
       queryClient.setQueryData<TeamMember[]>(attendanceKeys.team(), (old) =>

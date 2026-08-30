@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notify } from '@/data/notifications/notify';
 
 import { financeKeys } from './keys';
-import * as api from './mock-api';
+import * as api from './api';
 import type { Account, BankTransaction, Expense, JournalEntry, OrderCosts, VatBill } from './types';
 
 const LARGE_AMOUNT_NPR = 100_000;

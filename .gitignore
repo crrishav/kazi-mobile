@@ -34,6 +34,7 @@ yarn-error.*
 .env
 .env*.local
 websdk.json
+webconfig.json
 
 # typescript
 *.tsbuildinfo
@@ -51,3 +52,6 @@ websdk.json
 
 # Firebase service-account key — never commit
 key.json
+
+# scratch context files (may contain secrets / service-account keys)
+mentions/

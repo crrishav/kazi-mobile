@@ -4,7 +4,7 @@ import { notify } from '@/data/notifications/notify';
 
 import { tasksKeys } from './keys';
 import { PEOPLE, STATUS_LABEL } from './mock';
-import * as api from './mock-api';
+import * as api from './api';
 import type { Task } from './types';
 
 const personName = (id: string): string | null => PEOPLE.find((p) => p.id === id)?.name ?? null;

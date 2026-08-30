@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Keep the notifications module's "who am I" in sync so mutation hooks can
   // attribute events without prop-drilling the current user.
   useEffect(() => {
-    setActor(session ? { name: session.name, email: session.email, role: session.appRole } : null);
+    setActor(session ? { name: session.name, email: session.email, role: session.appRole, uid: session.uid } : null);
   }, [session]);
 
   const profile = useMemo(() => toProfile(session), [session]);

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notify } from '@/data/notifications/notify';
 
 import { salesKeys } from './keys';
-import * as api from './mock-api';
+import * as api from './api';
 import type { Order, OrderNote, OrderPriority, StageId } from './types';
 
 const ORDERS_SECTION = 'order-management' as const;

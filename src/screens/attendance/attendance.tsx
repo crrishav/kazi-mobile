@@ -11,7 +11,6 @@ import { toCSV } from '@/lib/export/csv';
 import { useTheme } from '@/theme/theme-provider';
 import {
   useClockStatus,
-  useRestoreTeam,
   useSetMemberStatus,
   useTeamRoster,
   useToggleClock,
@@ -37,7 +36,6 @@ export function Attendance() {
   const geoClock = useGeoClockIn();
   const { data: team } = useTeamRoster();
   const setMemberStatus = useSetMemberStatus();
-  const restoreTeam = useRestoreTeam();
 
   const [view, setView] = useState<AttendanceView>('mine');
   const [filter, setFilter] = useState<TeamFilter>('all');
@@ -119,8 +117,8 @@ export function Attendance() {
     if (!canEdit) return;
     const target = team?.find((m) => m.id === id);
     if (!target || target.status === status) return;
-    const before = team ?? [];
-    setMemberStatus.mutate({ id, status });
+    const prevStatus = target.status;
+    setMemberStatus.mutate({ id, name: target.name, status });
     setRollEdits((n) => n + 1);
     toast.show({
       message: `${target.name} · ${STATUS_LABELS[status]}`,
@@ -128,7 +126,8 @@ export function Attendance() {
       action: {
         label: 'Undo',
         onPress: () => {
-          restoreTeam.mutate(before);
+          // Re-apply the prior status — works against Firestore and the mock alike.
+          setMemberStatus.mutate({ id, name: target.name, status: prevStatus });
           setRollEdits((n) => Math.max(0, n - 1));
         },
       },
@@ -201,6 +200,7 @@ export function Attendance() {
             geo={geoClock.geo}
             lastPunch={clockStatus.lastPunch}
             onBypassClockIn={handleBypassClockIn}
+            onOpenSettings={geoClock.openSettings}
           />
         ) : (
           <>

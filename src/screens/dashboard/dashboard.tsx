@@ -1,18 +1,18 @@
 import { router } from 'expo-router';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
-import { ROLE_LABEL } from '@/auth/roles';
+import { isAtLeast, ROLE_LABEL } from '@/auth/roles';
 import { useUnreadCount } from '@/data/notifications/context';
 import { useToast } from '@/components/toast/toast-provider';
 import { useTheme } from '@/theme/theme-provider';
-import { fontFamily } from '@/theme';
 import { useDecideApproval, useApprovals, useUndoApproval } from '@/data/approvals/hooks';
 import type { ApprovalItem } from '@/data/approvals/types';
 import { useDashboardSummary, useRefreshDashboard } from '@/data/dashboard/hooks';
 
 import { ApprovalsList } from './approvals-list';
 import { AttendanceCard } from './attendance-card';
+import { DashboardClockInCard } from './clock-in-card';
 import { DashboardHeader } from './header';
 import { KpiGrid } from './kpi-grid';
 import { OrdersByStageCard } from './orders-by-stage-card';
@@ -20,8 +20,11 @@ import { OrdersByStageCard } from './orders-by-stage-card';
 export function Dashboard() {
   const theme = useTheme();
   const toast = useToast();
-  const { profile } = useAuth();
+  const { profile, role } = useAuth();
   const unreadCount = useUnreadCount();
+
+  // Everyone below Nepal admin (Nepal staff, employees) punches a clock; admins don't.
+  const canClock = role != null && !isAtLeast(role, 'nepal_admin');
 
   const { data: summary, isRefetching, refetch } = useDashboardSummary();
   const invalidateSummary = useRefreshDashboard();
@@ -71,13 +74,7 @@ export function Dashboard() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={theme.accent} />}
       >
-        <View style={styles.updatedRow}>
-          <Text style={[styles.updatedText, { color: theme.textSecondary }]}>Updated {summary.updatedAgo}</Text>
-          <View style={styles.liveRow}>
-            <View style={[styles.liveDot, { backgroundColor: theme.accent }]} />
-            <Text style={[styles.updatedText, { color: theme.textSecondary }]}>Live</Text>
-          </View>
-        </View>
+        {canClock ? <DashboardClockInCard /> : null}
 
         <KpiGrid kpis={summary.kpis} approvalsCount={approvals?.length ?? 0} />
 
@@ -108,26 +105,5 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
     gap: 16,
-  },
-  updatedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  updatedText: {
-    fontFamily: fontFamily.mono,
-    fontSize: 10,
-    letterSpacing: 0.12 * 10,
-    textTransform: 'uppercase',
-  },
-  liveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 99,
   },
 });

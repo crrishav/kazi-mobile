@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notify } from '@/data/notifications/notify';
 
 import { qualityControlKeys } from './keys';
-import * as api from './mock-api';
+import * as api from './api';
 import type { QcLog, QueueItem } from './types';
 
 export function useQueue() {

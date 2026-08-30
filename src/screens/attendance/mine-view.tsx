@@ -22,6 +22,7 @@ export interface MineViewProps {
   geo: GeofenceEval | null;
   lastPunch?: PunchSummary;
   onBypassClockIn: () => void;
+  onOpenSettings?: () => void;
 }
 
 export function MineView({
@@ -35,6 +36,7 @@ export function MineView({
   geo,
   lastPunch,
   onBypassClockIn,
+  onOpenSettings,
 }: MineViewProps) {
   return (
     <RiseIn viewKey="mine">
@@ -49,6 +51,7 @@ export function MineView({
           geo={geo}
           lastPunch={lastPunch}
           onBypass={onBypassClockIn}
+          onOpenSettings={onOpenSettings}
         />
         <MonthCalendar />
         <WeeklyHours weeks={WEEKLY_HOURS} />

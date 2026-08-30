@@ -1,4 +1,4 @@
-import { More } from '@/screens/more';
+import { More } from '@/screens/more/more';
 
 export default function MoreRoute() {
   return <More />;

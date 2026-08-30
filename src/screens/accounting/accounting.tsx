@@ -1,4 +1,4 @@
-import { Finance } from '@/screens/finance';
+import { Finance } from '@/screens/finance/finance';
 
 /**
  * The reference `Accounting.jsx` is `Finance.jsx` minus 5 tabs — same

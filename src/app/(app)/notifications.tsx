@@ -1,4 +1,4 @@
-import { Notifications } from '@/screens/notifications';
+import { Notifications } from '@/screens/notifications/notifications';
 
 export default function NotificationsRoute() {
   return <Notifications />;

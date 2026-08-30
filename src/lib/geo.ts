@@ -6,15 +6,22 @@
 
 const EARTH_RADIUS_M = 6_371_000;
 
-/** The workshop coordinates a clock-in is measured against (reference `WORK_SITE`). */
+/**
+ * The workshop coordinates a clock-in is measured against (reference `WORK_SITE`
+ * = the Kazi office in Kathmandu). Override without a code change by setting
+ * `EXPO_PUBLIC_WORK_SITE_LAT` / `EXPO_PUBLIC_WORK_SITE_LNG` (e.g. to relocate the
+ * site, or to test the happy path from another location).
+ */
+const envLat = Number(process.env.EXPO_PUBLIC_WORK_SITE_LAT);
+const envLng = Number(process.env.EXPO_PUBLIC_WORK_SITE_LNG);
 export const WORK_SITE = {
-  lat: 27.681622874006003,
-  lng: 85.33697354663745,
-  name: 'Kazi Office, Nepal',
+  lat: Number.isFinite(envLat) ? envLat : 27.681622874006003,
+  lng: Number.isFinite(envLng) ? envLng : 85.33697354663745,
+  name: process.env.EXPO_PUBLIC_WORK_SITE_NAME || 'Kazi Office, Nepal',
 } as const;
 
-/** Clock-in is blocked further than this from `WORK_SITE`. */
-export const GEOFENCE_RADIUS_M = 100;
+/** Clock-in is blocked further than this from `WORK_SITE`. Override: `EXPO_PUBLIC_GEOFENCE_RADIUS_M`. */
+export const GEOFENCE_RADIUS_M = Number(process.env.EXPO_PUBLIC_GEOFENCE_RADIUS_M) || 100;
 
 /** A fix worse (larger) than this is treated as untrustworthy — prompt before accepting. */
 export const GPS_ACCURACY_THRESHOLD_M = 500;

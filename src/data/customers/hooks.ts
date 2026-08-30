@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { customersKeys } from './keys';
-import * as api from './mock-api';
+import * as api from './api';
 import type { Customer } from './types';
 
 export function useCustomers() {

@@ -1,9 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
+import { Linking } from 'react-native';
 import * as Location from 'expo-location';
 
 import { evaluateGeofence, type GeofenceEval } from '@/lib/geo';
 
-export type GeoState = 'idle' | 'locating' | 'ready' | 'denied' | 'error';
+export type GeoState = 'idle' | 'locating' | 'ready' | 'denied' | 'blocked' | 'error';
 
 export interface GeoCoords {
   lat: number;
@@ -19,11 +20,28 @@ export interface LocateResult {
   reason: GeoState;
 }
 
+/** How long to wait for a fresh fix before falling back to the last known one. */
+const FIX_TIMEOUT_MS = 9_000;
+/** Accept a cached fix up to this old when the fresh one times out. */
+const LAST_KNOWN_MAX_AGE_MS = 5 * 60_000;
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('location timeout')), ms)),
+  ]);
+}
+
 /**
  * GPS acquisition + geofence check for the clock-in card (plan §2.6, item 26).
- * Wraps `expo-location`: request permission, take one fix, evaluate it against
- * `WORK_SITE`. Callers proceed automatically on `ok`, or offer a manual
- * "clock in anyway" bypass otherwise (mirrors the reference `ClockInCard`).
+ *
+ * Permission: checks the current grant first, only prompts when it can, and
+ * distinguishes a soft `denied` (can ask again) from a `blocked` one (the user
+ * must re-enable it in Settings — use `openSettings()`).
+ *
+ * Fix: asks for a high-accuracy position, and if that times out falls back to
+ * the last known location so a slow GPS doesn't strand the clock-in. Callers
+ * proceed automatically on `ok`, or offer the manual "clock in anyway" bypass.
  */
 export function useGeoClockIn() {
   const [state, setState] = useState<GeoState>('idle');
@@ -36,17 +54,39 @@ export function useGeoClockIn() {
     coordsRef.current = null;
   }, []);
 
+  const openSettings = useCallback(() => {
+    void Linking.openSettings();
+  }, []);
+
   const locate = useCallback(async (): Promise<LocateResult> => {
     setState('locating');
     setGeo(null);
     coordsRef.current = null;
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setState('denied');
-        return { ok: false, coords: null, geo: null, reason: 'denied' };
+      let perm = await Location.getForegroundPermissionsAsync();
+      if (!perm.granted && perm.canAskAgain) {
+        perm = await Location.requestForegroundPermissionsAsync();
       }
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      if (!perm.granted) {
+        const reason: GeoState = perm.canAskAgain ? 'denied' : 'blocked';
+        setState(reason);
+        return { ok: false, coords: null, geo: null, reason };
+      }
+
+      let pos: Location.LocationObject | null = null;
+      try {
+        pos = await withTimeout(
+          Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+          FIX_TIMEOUT_MS,
+        );
+      } catch {
+        pos = await Location.getLastKnownPositionAsync({ maxAge: LAST_KNOWN_MAX_AGE_MS });
+      }
+      if (!pos) {
+        setState('error');
+        return { ok: false, coords: null, geo: null, reason: 'error' };
+      }
+
       const coords: GeoCoords = {
         lat: pos.coords.latitude,
         lng: pos.coords.longitude,
@@ -63,5 +103,5 @@ export function useGeoClockIn() {
     }
   }, []);
 
-  return { state, geo, coordsRef, locate, reset };
+  return { state, geo, coordsRef, locate, reset, openSettings };
 }
