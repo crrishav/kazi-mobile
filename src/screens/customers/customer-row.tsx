@@ -20,7 +20,8 @@ export interface CustomerRowProps {
   onSwipeOpen: () => void;
   onSwipeClose: () => void;
   onPress: () => void;
-  onDelete: () => void;
+  /** Omitted for view-only users — swipe-to-delete is then disabled. */
+  onDelete?: () => void;
 }
 
 export function CustomerRow({ customer, index, isOpen, onSwipeOpen, onSwipeClose, onPress, onDelete }: CustomerRowProps) {
@@ -33,6 +34,7 @@ export function CustomerRow({ customer, index, isOpen, onSwipeOpen, onSwipeClose
   }, [isOpen, translateX]);
 
   const pan = Gesture.Pan()
+    .enabled(!!onDelete)
     .activeOffsetX([-10, 10])
     .onStart(() => {
       startX.value = translateX.value;
@@ -53,11 +55,13 @@ export function CustomerRow({ customer, index, isOpen, onSwipeOpen, onSwipeClose
   const tint = AVATAR_TINTS[index % AVATAR_TINTS.length];
 
   return (
-    <Animated.View entering={FadeInUp.delay(Math.min(index, 6) * 30).duration(220)} style={[styles.wrap, { backgroundColor: theme.danger }]}>
-      <Pressable onPress={onDelete} style={styles.deleteZone}>
-        <Icon name="trash-2" size={19} color={theme.dangerText} />
-        <Text style={[styles.deleteLabel, { color: theme.dangerText }]}>Delete</Text>
-      </Pressable>
+    <Animated.View entering={FadeInUp.delay(Math.min(index, 6) * 30).duration(220)} style={[styles.wrap, { backgroundColor: onDelete ? theme.danger : theme.surface }]}>
+      {onDelete ? (
+        <Pressable onPress={onDelete} style={styles.deleteZone}>
+          <Icon name="trash-2" size={19} color={theme.dangerText} />
+          <Text style={[styles.deleteLabel, { color: theme.dangerText }]}>Delete</Text>
+        </Pressable>
+      ) : null}
 
       <GestureDetector gesture={pan}>
         <Animated.View style={cardStyle}>

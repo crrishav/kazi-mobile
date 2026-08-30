@@ -5,6 +5,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { Avatar } from '@/components/ui/avatar';
+import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { toCSV } from '@/lib/export/csv';
 import { useTheme } from '@/theme/theme-provider';
@@ -27,8 +28,9 @@ import { useGeoClockIn } from './use-geo-clock-in';
 export function Attendance() {
   const theme = useTheme();
   const toast = useToast();
-  const { profile } = useAuth();
+  const { profile, can } = useAuth();
   const staffName = profile?.name ?? MY_NAME;
+  const canEdit = can('attendance');
 
   const { data: clockStatus } = useClockStatus();
   const toggleClock = useToggleClock();
@@ -114,6 +116,7 @@ export function Attendance() {
 
   // Admin roll-call editor (item 27) — set a staffer's status for the day, with undo.
   const handleSetStatus = (id: number, status: AttendanceStatus) => {
+    if (!canEdit) return;
     const target = team?.find((m) => m.id === id);
     if (!target || target.status === status) return;
     const before = team ?? [];
@@ -133,6 +136,7 @@ export function Attendance() {
   };
 
   const handleToggleEdit = () => {
+    if (!canEdit) return;
     if (rollEdit) {
       if (rollEdits > 0) toast.show({ message: `Roll call saved · ${rollEdits} ${rollEdits === 1 ? 'change' : 'changes'} · ${TODAY_LABEL}`, tone: 'ok' });
       setRollEdits(0);
@@ -199,18 +203,21 @@ export function Attendance() {
             onBypassClockIn={handleBypassClockIn}
           />
         ) : (
-          <TeamView
-            filter={filter}
-            onFilterChange={setFilter}
-            counts={counts}
-            members={filteredMembers}
-            editMode={rollEdit}
-            edits={rollEdits}
-            onToggleEdit={handleToggleEdit}
-            onSetStatus={handleSetStatus}
-            onOpenReport={setReportMember}
-            onExportPayroll={handleExportRollCall}
-          />
+          <>
+            <PermissionNotice section="attendance" message="View only — you can’t edit the roll call." />
+            <TeamView
+              filter={filter}
+              onFilterChange={setFilter}
+              counts={counts}
+              members={filteredMembers}
+              editMode={rollEdit}
+              edits={rollEdits}
+              onToggleEdit={handleToggleEdit}
+              onSetStatus={handleSetStatus}
+              onOpenReport={setReportMember}
+              onExportPayroll={handleExportRollCall}
+            />
+          </>
         )}
       </ScrollView>
 

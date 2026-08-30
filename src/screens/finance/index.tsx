@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/auth/auth-context';
@@ -46,6 +47,7 @@ import { BANK_ACCOUNTS, CASH_ACCOUNT, LAST_MONTH_UNITS_PASSED, LEDGER, YEARS } f
 import { autoLabourRate, buildOrderPnl, summariseOrderPnl, type OrderPnlRow } from '@/data/finance/order-pnl';
 import { buildBalanceSheet, buildProfitAndLoss } from '@/data/finance/pnl';
 import { fmt, lakh } from '@/data/finance/utils';
+import { toCSV } from '@/lib/export/csv';
 import type { Expense, ExpenseCategoryId, JournalEntry, LedgerRowType, OrderCosts, VatBill } from '@/data/finance/types';
 
 import { PurchasesPane } from '@/screens/purchases/purchases-pane';
@@ -318,6 +320,23 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   const moneyInSum = filteredRows.filter((r) => r.dir === 'in').reduce((n, r) => n + r.amount, 0);
   const moneyOutSum = filteredRows.filter((r) => r.dir === 'out').reduce((n, r) => n + r.amount, 0);
   const netSum = moneyInSum - moneyOutSum;
+
+  const exportLedgerCsv = async () => {
+    const rows = yearLedger.flatMap((m) =>
+      (typeFilter === 'all' ? m.rows : m.rows.filter((r) => r.type === typeFilter)).map((r) => ({ month: m.month, gregorian: m.gregorian, ...r })),
+    );
+    const csv = toCSV(rows, [
+      { header: 'Month', value: (r) => r.month },
+      { header: 'Period', value: (r) => r.gregorian },
+      { header: 'Type', value: (r) => r.type },
+      { header: 'Description', value: (r) => r.title },
+      { header: 'Reference', value: (r) => r.meta },
+      { header: 'Direction', value: (r) => (r.dir === 'in' ? 'Money in' : 'Money out') },
+      { header: 'Amount NPR', value: (r) => Math.round(r.amount) },
+    ]);
+    await Clipboard.setStringAsync(csv);
+    toast.show({ message: `${rows.length} ${rows.length === 1 ? 'row' : 'rows'} copied as CSV`, tone: 'ok' });
+  };
 
   const yearIndex = YEARS.findIndex((y) => y.id === yearId);
   const goYear = (delta: number) => {
@@ -628,6 +647,15 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
           title={year?.label ?? ''}
           subtitle={year ? `${year.entries.toLocaleString()} entries · ${year.turnover}` : ''}
           onBack={() => setDrill('years')}
+          rightSlot={
+            <Pressable
+              onPress={exportLedgerCsv}
+              hitSlop={8}
+              style={[styles.headerAction, { backgroundColor: theme.surface, borderColor: theme.border }]}
+            >
+              <Icon name="download" size={16} color={theme.textPrimary} />
+            </Pressable>
+          }
         />
         <ScrollView contentContainerStyle={styles.content}>
           <LedgerView
@@ -822,6 +850,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   kpiWrap: { paddingBottom: 8 },
+  headerAction: { width: 36, height: 36, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, paddingTop: 4, paddingBottom: 110, gap: 12 },
   fab: {
     position: 'absolute',

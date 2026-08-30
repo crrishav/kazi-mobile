@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
+import { PermissionNotice } from '@/components/ui/permission-notice';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -23,6 +25,8 @@ function emptyDraft(): Task {
 export function Tasks() {
   const theme = useTheme();
   const toast = useToast();
+  const { can } = useAuth();
+  const canEdit = can('tasks');
 
   const { data: tasks } = useTasks();
   const saveTask = useSaveTask();
@@ -58,6 +62,7 @@ export function Tasks() {
     setSheetMode('new');
   };
   const openEdit = (task: Task) => {
+    if (!canEdit) return;
     setDraft({ ...task });
     setSheetMode('edit');
   };
@@ -125,6 +130,7 @@ export function Tasks() {
       </View>
 
       <ScrollView contentContainerStyle={styles.list}>
+        <PermissionNotice section="tasks" />
         {visible.length === 0 ? (
           <EmptyState
             icon="check"
@@ -152,12 +158,14 @@ export function Tasks() {
         )}
       </ScrollView>
 
-      <Pressable
-        onPress={openNew}
-        style={[styles.fab, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined }]}
-      >
-        <Text style={[styles.fabPlus, { color: theme.accentText }]}>+</Text>
-      </Pressable>
+      {canEdit ? (
+        <Pressable
+          onPress={openNew}
+          style={[styles.fab, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined }]}
+        >
+          <Text style={[styles.fabPlus, { color: theme.accentText }]}>+</Text>
+        </Pressable>
+      ) : null}
 
       <TaskEditSheet
         visible={sheetMode !== null}

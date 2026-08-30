@@ -3,6 +3,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'r
 import { useToast } from '@/components/toast/toast-provider';
 import { Avatar } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
+import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -20,10 +21,12 @@ export interface ThreadListViewProps {
   onRefresh: () => void;
   onOpen: (id: ThreadId) => void;
   onCompose: () => void;
+  /** Hidden compose FAB + a read-only banner when the profile can't post here. */
+  canCompose?: boolean;
 }
 
 /** Native `RefreshControl` stands in for the design's own tap-to-refresh dashed slot — same deliberate simplification already used for Dashboard's pull-to-refresh. */
-export function ThreadListView({ threads, messages, readStatus, pulledAt, refreshing, onRefresh, onOpen, onCompose }: ThreadListViewProps) {
+export function ThreadListView({ threads, messages, readStatus, pulledAt, refreshing, onRefresh, onOpen, onCompose, canCompose = true }: ThreadListViewProps) {
   const theme = useTheme();
   const toast = useToast();
 
@@ -52,6 +55,7 @@ export function ThreadListView({ threads, messages, readStatus, pulledAt, refres
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}
       >
+        <PermissionNotice section="messenger" message="View only — you can’t post in these threads." />
         {threads.map((t, i) => {
           const person = PEOPLE[t.id];
           const list = messages[t.id] ?? [];
@@ -74,12 +78,14 @@ export function ThreadListView({ threads, messages, readStatus, pulledAt, refres
         <Text style={[styles.syncNote, { color: theme.textSecondary }]}>Synced {pulledAt}</Text>
       </ScrollView>
 
-      <Pressable
-        onPress={onCompose}
-        style={[styles.fab, { backgroundColor: theme.accent, boxShadow: theme.shadows.floating }]}
-      >
-        <Icon name="message-circle" size={22} color={theme.accentText} />
-      </Pressable>
+      {canCompose ? (
+        <Pressable
+          onPress={onCompose}
+          style={[styles.fab, { backgroundColor: theme.accent, boxShadow: theme.shadows.floating }]}
+        >
+          <Icon name="message-circle" size={22} color={theme.accentText} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }

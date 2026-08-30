@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,26 +7,24 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii, type Theme } from '@/theme';
-import { typePalette } from '@/data/changelog/utils';
-import type { FlatEntry } from '@/data/changelog/types';
+import { typePalette } from '@/data/changelog/parse';
+import type { Commit } from '@/data/changelog/types';
 
-export interface EntryDetailSheetProps {
-  entry: FlatEntry | null;
+export interface CommitDetailSheetProps {
+  commit: Commit | null;
   onClose: () => void;
-  onOpenScreen: (screen: string) => void;
 }
 
 const OFF_SCREEN = 640;
 
-/** Same richer-than-`BottomSheet` shape as `ReviewSheet`/`DirectorSheet` — a header with more than a plain title plus a pinned two-button footer below the scroll area. */
-export function EntryDetailSheet({ entry, onClose, onOpenScreen }: EntryDetailSheetProps) {
+export function CommitDetailSheet({ commit, onClose }: CommitDetailSheetProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const [mounted, setMounted] = useState(!!entry);
+  const [mounted, setMounted] = useState(!!commit);
   const progress = useSharedValue(0);
 
   useEffect(() => {
-    if (entry) {
+    if (commit) {
       setMounted(true);
       progress.value = withTiming(1, { duration: 280, easing: Easing.out(Easing.cubic) });
     } else if (mounted) {
@@ -35,14 +33,17 @@ export function EntryDetailSheet({ entry, onClose, onOpenScreen }: EntryDetailSh
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entry]);
+  }, [commit]);
 
   const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: (1 - progress.value) * OFF_SCREEN }] }));
 
-  if (!mounted || !entry) return null;
+  if (!mounted || !commit) return null;
 
-  const palette = typePalette(theme, entry.type);
+  const palette = typePalette(theme, commit.type);
+  const dateLabel = new Date(commit.date).toLocaleString('en-GB', {
+    weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
@@ -56,11 +57,12 @@ export function EntryDetailSheet({ entry, onClose, onOpenScreen }: EntryDetailSh
             <View style={styles.headerText}>
               <View style={styles.headerTop}>
                 <View style={[styles.tag, { backgroundColor: palette.bg }]}>
-                  <Text style={[styles.tagLabel, { color: palette.fg }]}>{entry.type}</Text>
+                  <Text style={[styles.tagLabel, { color: palette.fg }]}>{commit.type}</Text>
                 </View>
-                <Text style={[styles.headerDate, { color: theme.textSecondary }]}>{entry.date} 2026</Text>
+                {commit.scope ? <Text style={[styles.headerScope, { color: theme.textSecondary }]}>{commit.scope}</Text> : null}
+                <Text style={[styles.headerSha, { color: theme.textSecondary }]}>{commit.shortSha}</Text>
               </View>
-              <Text style={[styles.title, { color: theme.textPrimary }]}>{entry.title}</Text>
+              <Text style={[styles.title, { color: theme.textPrimary }]}>{commit.subject}</Text>
             </View>
             <Pressable onPress={onClose} style={[styles.closeButton, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <Icon name="x" size={16} color={theme.textPrimary} />
@@ -68,27 +70,23 @@ export function EntryDetailSheet({ entry, onClose, onOpenScreen }: EntryDetailSh
           </View>
 
           <ScrollView contentContainerStyle={styles.content}>
-            <View style={[styles.bodyCard, { backgroundColor: theme.surface }]}>
-              <Text style={[styles.bodyText, { color: theme.textPrimary }]}>{entry.body}</Text>
-              {entry.impact ? (
-                <View style={[styles.impactCard, { backgroundColor: theme.surfaceRaised }]}>
-                  <View style={[styles.impactDot, { backgroundColor: palette.fg }]} />
-                  <Text style={[styles.impactText, { color: theme.textPrimary }]}>{entry.impact}</Text>
-                </View>
-              ) : null}
-            </View>
+            {commit.body ? (
+              <View style={[styles.bodyCard, { backgroundColor: theme.surface }]}>
+                <Text style={[styles.bodyText, { color: theme.textPrimary }]}>{commit.body}</Text>
+              </View>
+            ) : null}
 
             <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <InfoRow label="Release" value={entry.release.version} theme={theme} />
-              <InfoRow label="Area" value={entry.area} theme={theme} />
-              <InfoRow label="Build" value={entry.build} theme={theme} mono />
-              <InfoRow label="Shipped by" value={entry.who} theme={theme} />
+              <InfoRow label="Author" value={commit.authorName} theme={theme} />
+              {commit.authorLogin ? <InfoRow label="GitHub" value={`@${commit.authorLogin}`} theme={theme} /> : null}
+              <InfoRow label="Date" value={dateLabel} theme={theme} />
+              <InfoRow label="SHA" value={commit.shortSha} theme={theme} mono />
             </View>
           </ScrollView>
 
           <View style={[styles.footer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
             <Button label="Close" variant="secondary" onPress={onClose} style={styles.closeFooterButton} />
-            <Button label={`Open ${entry.screen}`} variant="primary" onPress={() => onOpenScreen(entry.screen)} style={styles.openButton} />
+            <Button label="View on GitHub" variant="primary" onPress={() => Linking.openURL(commit.url)} style={styles.openButton} />
           </View>
         </Animated.View>
       </View>
@@ -116,15 +114,13 @@ const styles = StyleSheet.create({
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tag: { height: 22, paddingHorizontal: 9, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
   tagLabel: { fontFamily: fontFamily.mono, fontSize: 9.5, letterSpacing: 0.11 * 9.5, textTransform: 'uppercase' },
-  headerDate: { fontFamily: fontFamily.mono, fontSize: 10.5 },
+  headerScope: { fontFamily: fontFamily.mono, fontSize: 10.5 },
+  headerSha: { fontFamily: fontFamily.mono, fontSize: 10.5 },
   title: { fontFamily: fontFamily.semibold, fontSize: 18, letterSpacing: -0.02 * 18, lineHeight: 18 * 1.25 },
   closeButton: { width: 38, height: 38, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, gap: 12 },
-  bodyCard: { borderRadius: radii.lg, padding: 16, gap: 9, boxShadow: '0 1px 2px rgba(15,36,29,0.04)' },
-  bodyText: { fontSize: 13.5, lineHeight: 13.5 * 1.55 },
-  impactCard: { flexDirection: 'row', gap: 9, alignItems: 'flex-start', borderRadius: 12, padding: 11 },
-  impactDot: { width: 6, height: 6, borderRadius: 99, marginTop: 6, flexShrink: 0 },
-  impactText: { flex: 1, fontSize: 12.5, lineHeight: 12.5 * 1.5 },
+  bodyCard: { borderRadius: radii.lg, padding: 16, boxShadow: '0 1px 2px rgba(15,36,29,0.04)' },
+  bodyText: { fontFamily: fontFamily.mono, fontSize: 12.5, lineHeight: 12.5 * 1.6 },
   infoCard: { borderRadius: radii.lg, borderWidth: 1, padding: 14, gap: 9 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   infoLabel: { flex: 1, fontSize: 13 },

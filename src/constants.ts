@@ -16,7 +16,8 @@ export interface ModuleEntry {
 // icons (see components/ui/icon/nav-icons.tsx) — this registry is the other 15
 // modules, reached via the More hub and pushed onto the (app) stack.
 export const MORE_MODULES: ModuleEntry[] = [
-  { id: 'sales', label: 'Sales', route: '/sales', icon: 'trending-up', blurb: 'Orders, quotations, pipeline' },
+  { id: 'sales', label: 'Sales', route: '/sales', icon: 'trending-up', blurb: 'Pipeline overview' },
+  { id: 'order-management', label: 'Order Management', route: '/order-management', icon: 'grid', blurb: 'Order board, stages, priority' },
   { id: 'customers', label: 'Customers', route: '/customers', icon: 'users', blurb: 'Accounts and contacts' },
   { id: 'billing', label: 'Billing', route: '/billing', icon: 'file-text', blurb: 'Invoices, challans, payments' },
   { id: 'purchases', label: 'Purchases', route: '/purchases', icon: 'shopping-cart', blurb: 'Purchase orders, suppliers' },
@@ -31,6 +32,7 @@ export const MORE_MODULES: ModuleEntry[] = [
   { id: 'directors', label: 'Directors', route: '/directors', icon: 'award', blurb: 'Executive summary' },
   { id: 'admin-panel', label: 'Admin Panel', route: '/admin-panel', icon: 'shield', blurb: 'Access and roles' },
   { id: 'changelog', label: 'Changelog', route: '/changelog', icon: 'list', blurb: "What's new" },
+  { id: 'bug-report', label: 'Bug Report', route: '/bug-report', icon: 'alert-triangle', blurb: 'Log an issue you hit' },
 ];
 
 export const MODULES_BY_ID: Record<string, ModuleEntry> = Object.fromEntries(

@@ -11,7 +11,8 @@ import { gbp, hasOverdue, lifetime, owed } from '@/data/customers/utils';
 
 export interface DetailViewProps {
   customer: Customer;
-  onDelete: () => void;
+  /** Omitted for view-only users — the Delete button then hides. */
+  onDelete?: () => void;
 }
 
 export function DetailView({ customer, onDelete }: DetailViewProps) {
@@ -121,7 +122,7 @@ export function DetailView({ customer, onDelete }: DetailViewProps) {
         })}
       </Card>
 
-      <Button label="Delete customer" variant="dangerOutline" onPress={onDelete} fullWidth />
+      {onDelete ? <Button label="Delete customer" variant="dangerOutline" onPress={onDelete} fullWidth /> : null}
     </Animated.View>
   );
 }

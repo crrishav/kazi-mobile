@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
+import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
+import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import {
@@ -32,6 +34,8 @@ const VERDICT_WORD: Record<CheckVerdict, string> = {
 export function QualityControl() {
   const theme = useTheme();
   const toast = useToast();
+  const { can } = useAuth();
+  const canEdit = can('quality-control');
 
   const { data: queue } = useQueue();
   const { data: logs } = useQcLogs();
@@ -77,6 +81,7 @@ export function QualityControl() {
   }
 
   const clear = (item: QueueItem, kind: CheckVerdict, detail?: QcDetail) => {
+    if (!canEdit) return;
     const index = queue.findIndex((q) => q.id === item.id);
     const beforeLogs = logs;
     removeFromQueue.mutate(item);
@@ -183,6 +188,7 @@ export function QualityControl() {
           }}
         />
         <ScrollView contentContainerStyle={styles.content}>
+          <PermissionNotice section="quality-control" />
           <View style={styles.progressRow}>
             {POINTS.map((p) => {
               const v = checks[p.id];
@@ -230,6 +236,7 @@ export function QualityControl() {
         rightSlot={<Avatar initials="PT" tint="dark" size="lg" />}
       />
       <ScrollView contentContainerStyle={styles.content}>
+        <PermissionNotice section="quality-control" />
         <QueueSummary
           passRate={`${meanPass}%`}
           failed={failedCount}

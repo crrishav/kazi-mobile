@@ -2,41 +2,43 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import type { Release } from '@/data/changelog/types';
-import { latestTally } from '@/data/changelog/utils';
+import { relativeTime, tally } from '@/data/changelog/parse';
+import type { CommitFeed } from '@/data/changelog/types';
 
-export interface ReleaseSummaryCardProps {
-  release: Release;
+export interface CommitSummaryCardProps {
+  feed: CommitFeed;
 }
 
-/** The one inverted "highlight" card per screen — the latest release's rollout state plus its feature/fix/other split. */
-export function ReleaseSummaryCard({ release }: ReleaseSummaryCardProps) {
+/** The one inverted "highlight" card per screen — commit count, freshness, and a feature/fix/other split. */
+export function CommitSummaryCard({ feed }: CommitSummaryCardProps) {
   const theme = useTheme();
-  const tally = latestTally(release);
+  const t = tally(feed.commits);
 
   return (
     <View style={[styles.card, { backgroundColor: theme.surfaceInverted }]}>
       <View style={styles.headRow}>
         <View style={styles.headText}>
           <Text style={[styles.title, { color: theme.onDark.text }]} numberOfLines={1}>
-            {release.version} · latest
+            {feed.commits.length} commits
           </Text>
           <Text style={[styles.meta, { color: theme.onDark.textMuted }]} numberOfLines={1}>
-            Released {release.date} · {release.note}
+            Updated {relativeTime(feed.fetchedAt)}
           </Text>
         </View>
-        <View style={[styles.stateChip, { backgroundColor: theme.onDark.accentWash }]}>
-          <View style={[styles.stateDot, { backgroundColor: theme.onDark.accentWashText }]} />
-          <Text style={[styles.stateLabel, { color: theme.onDark.accentWashText }]}>{release.state}</Text>
+        <View style={[styles.stateChip, { backgroundColor: feed.stale ? theme.onDark.warningWash : theme.onDark.accentWash }]}>
+          <View style={[styles.stateDot, { backgroundColor: feed.stale ? theme.onDark.warningWashText : theme.onDark.accentWashText }]} />
+          <Text style={[styles.stateLabel, { color: feed.stale ? theme.onDark.warningWashText : theme.onDark.accentWashText }]}>
+            {feed.stale ? 'Offline' : 'Live'}
+          </Text>
         </View>
       </View>
 
       <View style={[styles.divider, { backgroundColor: theme.onDark.textMuted }]} />
 
       <View style={styles.countsRow}>
-        <CountCell label="Features" value={tally.Feature} theme={theme} />
-        <CountCell label="Fixes" value={tally.Fix} theme={theme} />
-        <CountCell label="Other" value={tally.other} theme={theme} />
+        <CountCell label="Features" value={t.Feature} theme={theme} />
+        <CountCell label="Fixes" value={t.Fix} theme={theme} />
+        <CountCell label="Other" value={t.other} theme={theme} />
       </View>
     </View>
   );

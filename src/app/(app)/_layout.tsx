@@ -8,6 +8,7 @@ export default function AppLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="sales" />
+      <Stack.Screen name="order-management" />
       <Stack.Screen name="customers" />
       <Stack.Screen name="billing" />
       <Stack.Screen name="purchases" />
@@ -22,6 +23,7 @@ export default function AppLayout() {
       <Stack.Screen name="directors" />
       <Stack.Screen name="admin-panel" />
       <Stack.Screen name="changelog" />
+      <Stack.Screen name="bug-report" />
     </Stack>
   );
 }

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { salesKeys } from './keys';
 import * as api from './mock-api';
-import type { Order } from './types';
+import type { Order, OrderNote, OrderPriority, StageId } from './types';
 
 export function useOrders() {
   return useQuery({ queryKey: salesKeys.list(), queryFn: api.fetchOrders });
@@ -12,6 +12,21 @@ interface UpdateContext {
   previous?: Order[];
 }
 
+function patchList(queryClient: ReturnType<typeof useQueryClient>, fn: (orders: Order[]) => Order[]) {
+  queryClient.setQueryData<Order[]>(salesKeys.list(), (old) => fn(old ?? []));
+}
+
+export function useAddOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (order: Order) => api.addOrder(order),
+    onMutate: async (order) => {
+      await queryClient.cancelQueries({ queryKey: salesKeys.list() });
+      patchList(queryClient, (orders) => [order, ...orders]);
+    },
+  });
+}
+
 export function useUpdateOrder() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, { id: string; updates: Partial<Order> }, UpdateContext>({
@@ -19,7 +34,7 @@ export function useUpdateOrder() {
     onMutate: async ({ id, updates }) => {
       await queryClient.cancelQueries({ queryKey: salesKeys.list() });
       const previous = queryClient.getQueryData<Order[]>(salesKeys.list());
-      queryClient.setQueryData<Order[]>(salesKeys.list(), (old) => (old ?? []).map((o) => (o.id === id ? { ...o, ...updates } : o)));
+      patchList(queryClient, (orders) => orders.map((o) => (o.id === id ? { ...o, ...updates } : o)));
       return { previous };
     },
     onError: (_err, _vars, context) => {
@@ -28,7 +43,77 @@ export function useUpdateOrder() {
   });
 }
 
-/** Undo restores the pre-mutation snapshot the screen captured — mirrors the prototype's own snapshot-based undo. */
+export function useSetOrderStage() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { id: string; stage: StageId }, UpdateContext>({
+    mutationFn: ({ id, stage }) => api.setOrderStage(id, stage),
+    onMutate: async ({ id, stage }) => {
+      await queryClient.cancelQueries({ queryKey: salesKeys.list() });
+      const previous = queryClient.getQueryData<Order[]>(salesKeys.list());
+      patchList(queryClient, (orders) =>
+        orders.map((o) =>
+          o.id === id && o.stage !== stage
+            ? { ...o, stage, status: 'active', stageHistory: [...o.stageHistory, { stage, at: new Date().toISOString() }] }
+            : o,
+        ),
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(salesKeys.list(), context.previous);
+    },
+  });
+}
+
+export function useSetOrderPriority() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { id: string; priority: OrderPriority }, UpdateContext>({
+    mutationFn: ({ id, priority }) => api.setOrderPriority(id, priority),
+    onMutate: async ({ id, priority }) => {
+      await queryClient.cancelQueries({ queryKey: salesKeys.list() });
+      const previous = queryClient.getQueryData<Order[]>(salesKeys.list());
+      patchList(queryClient, (orders) => orders.map((o) => (o.id === id ? { ...o, priority } : o)));
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(salesKeys.list(), context.previous);
+    },
+  });
+}
+
+export function useAddOrderNote() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { id: string; note: OrderNote }, UpdateContext>({
+    mutationFn: ({ id, note }) => api.addOrderNote(id, note),
+    onMutate: async ({ id, note }) => {
+      await queryClient.cancelQueries({ queryKey: salesKeys.list() });
+      const previous = queryClient.getQueryData<Order[]>(salesKeys.list());
+      patchList(queryClient, (orders) => orders.map((o) => (o.id === id ? { ...o, notes: [...o.notes, note] } : o)));
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(salesKeys.list(), context.previous);
+    },
+  });
+}
+
+export function useSetOrderStatus() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { id: string; status: Order['status'] }, UpdateContext>({
+    mutationFn: ({ id, status }) => api.setOrderStatus(id, status),
+    onMutate: async ({ id, status }) => {
+      await queryClient.cancelQueries({ queryKey: salesKeys.list() });
+      const previous = queryClient.getQueryData<Order[]>(salesKeys.list());
+      patchList(queryClient, (orders) => orders.map((o) => (o.id === id ? { ...o, status } : o)));
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) queryClient.setQueryData(salesKeys.list(), context.previous);
+    },
+  });
+}
+
+/** Undo restores the pre-mutation snapshot the screen captured. */
 export function useRestoreOrders() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -15,8 +15,9 @@ export interface DetailViewProps {
   movements: StockMovement[];
   onBack: () => void;
   onRaisePO: () => void;
-  onAdjust: () => void;
-  onEditDetails: () => void;
+  /** Omitted for view-only users — the Adjust / Edit affordances then hide. */
+  onAdjust?: () => void;
+  onEditDetails?: () => void;
 }
 
 export function DetailView({ item, movements, onBack, onRaisePO, onAdjust, onEditDetails }: DetailViewProps) {
@@ -80,17 +81,19 @@ export function DetailView({ item, movements, onBack, onRaisePO, onAdjust, onEdi
           />
           <Text style={[styles.statusLine, { color: theme.onDark.avatarText }]}>{statusLine}</Text>
           <View style={styles.statusRow}>
-            <Button label="Adjust stock" size="small" onPress={onAdjust} />
+            {onAdjust ? <Button label="Adjust stock" size="small" onPress={onAdjust} /> : null}
             <Button label="Raise PO" size="small" variant="secondary" onPress={onRaisePO} />
           </View>
         </Card>
 
         <View style={styles.detailsHeader}>
           <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Details</Text>
-          <Pressable onPress={onEditDetails} hitSlop={8} style={styles.editLink}>
-            <Icon name="edit-2" size={13} color={theme.link} />
-            <Text style={[styles.editLinkText, { color: theme.link }]}>Edit</Text>
-          </Pressable>
+          {onEditDetails ? (
+            <Pressable onPress={onEditDetails} hitSlop={8} style={styles.editLink}>
+              <Icon name="edit-2" size={13} color={theme.link} />
+              <Text style={[styles.editLinkText, { color: theme.link }]}>Edit</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={styles.factsGrid}>

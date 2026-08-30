@@ -1,34 +1,42 @@
-export type ChangeType = 'Feature' | 'Fix' | 'Performance' | 'Update' | 'Revert' | 'Refactor' | 'Chore' | 'Docs' | 'Style' | 'Test' | 'Build';
+export type ChangeType =
+  | 'Feature'
+  | 'Fix'
+  | 'Performance'
+  | 'Refactor'
+  | 'Docs'
+  | 'Chore'
+  | 'Style'
+  | 'Test'
+  | 'Build'
+  | 'Revert'
+  | 'Other';
 
-export type ReleaseState = 'Rolling out' | 'Live';
-
-export interface ChangeEntry {
+export interface Commit {
+  sha: string;
+  shortSha: string;
+  /** Derived from the conventional-commit prefix (`feat:` → Feature); `Other` when there's no recognised prefix. */
   type: ChangeType;
-  date: string;
-  title: string;
-  detail: string;
-  area: string;
-  build: string;
-  who: string;
+  /** `feat(billing):` → "billing"; '' when absent. */
+  scope: string;
+  /** First line of the message, prefix stripped. */
+  subject: string;
+  /** Everything after the first line, trimmed. */
   body: string;
-  /** '' when a release note has no impact callout. */
-  impact: string;
-  /** The screen a "Open <screen>" jump would land on. */
-  screen: string;
-}
-
-export interface Release {
-  version: string;
+  authorName: string;
+  /** GitHub login when the API resolved one, else ''. */
+  authorLogin: string;
+  /** Commit (author) date, AD ISO. */
   date: string;
-  state: ReleaseState;
-  note: string;
-  entries: ChangeEntry[];
+  /** github.com commit page. */
+  url: string;
 }
 
-/** A flattened entry carrying a stable key and its parent release, for filtering and the detail sheet. */
-export interface FlatEntry extends ChangeEntry {
+export interface CommitDay {
+  /** yyyy-mm-dd, used as the group key. */
   key: string;
-  release: Release;
+  /** "Fri 29 Aug 2026". */
+  title: string;
+  commits: Commit[];
 }
 
 export type FilterKey = 'All' | ChangeType;
@@ -39,8 +47,10 @@ export interface FilterChipData {
   count: number;
 }
 
-export interface ReleaseGroup {
-  title: string;
-  meta: string;
-  entries: FlatEntry[];
+export interface CommitFeed {
+  commits: Commit[];
+  /** When this feed was fetched (ISO). */
+  fetchedAt: string;
+  /** true when the network call failed and this came from the AsyncStorage cache. */
+  stale: boolean;
 }

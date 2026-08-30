@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { useTheme } from '@/theme/theme-provider';
 import { useMarkRead, useMessages, useReadStatus, useSendMessage } from '@/data/messenger/hooks';
@@ -13,6 +14,8 @@ import { ThreadView } from './thread-view';
 export function Messenger() {
   const theme = useTheme();
   const toast = useToast();
+  const { can } = useAuth();
+  const canPost = can('messenger');
 
   const { data: messages, refetch: refetchMessages } = useMessages();
   const { data: readStatus, refetch: refetchReadStatus } = useReadStatus();
@@ -47,12 +50,13 @@ export function Messenger() {
   }
 
   function handleCompose() {
+    if (!canPost) return;
     toast.show({ message: 'Pick someone on shift to message', tone: 'ok' });
   }
 
   function handleSend() {
     const text = draft.trim();
-    if (!text || !activeId) return;
+    if (!text || !activeId || !canPost) return;
     sendMessage.mutate({ threadId: activeId, text });
     setDraft('');
   }
@@ -97,6 +101,7 @@ export function Messenger() {
         onRefresh={handleRefresh}
         onOpen={handleOpen}
         onCompose={handleCompose}
+        canCompose={canPost}
       />
     </View>
   );

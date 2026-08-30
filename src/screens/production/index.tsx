@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { Avatar } from '@/components/ui/avatar';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
+import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { StatusPill, type StatusKind } from '@/components/ui/status-pill';
 import { useTheme } from '@/theme/theme-provider';
@@ -42,6 +44,8 @@ function emptyDraft(): BatchDraft {
 export function Production() {
   const theme = useTheme();
   const toast = useToast();
+  const { can } = useAuth();
+  const canEdit = can('production');
 
   const { data: batches } = useBatches();
   const addBatch = useAddBatch();
@@ -98,13 +102,13 @@ export function Production() {
   };
 
   const handleAddPhoto = () => {
-    if (!selected) return;
+    if (!selected || !canEdit) return;
     patch(selected.id, { photos: [{ label: 'Floor capture', time: 'just now' }, ...selected.photos] });
     flash('Photo attached to batch');
   };
 
   const handleAddNote = () => {
-    if (!selected) return;
+    if (!selected || !canEdit) return;
     const body = noteDraft.trim();
     if (!body) return;
     patch(selected.id, { notes: [...selected.notes, { id: `n${Date.now()}`, who: 'sr', body, time: 'just now', photo: null }] });
@@ -112,7 +116,7 @@ export function Production() {
   };
 
   const handleAdvance = () => {
-    if (!selected) return;
+    if (!selected || !canEdit) return;
     const i = stageIndexOf(selected);
     if (i >= STAGES.length - 1) return;
     const next = STAGES[i + 1];
@@ -125,13 +129,13 @@ export function Production() {
   };
 
   const handleCancel = () => {
-    if (!selected) return;
+    if (!selected || !canEdit) return;
     patch(selected.id, { status: 'cancelled' });
     flash('Batch cancelled', 'bad');
   };
 
   const openOutput = () => {
-    if (!selected) return;
+    if (!selected || !canEdit) return;
     const o = selected.output;
     setOutputDraft(o ? { checked: String(o.checked), passed: String(o.passed), failed: String(o.failed) } : emptyOutputDraft());
     setOutputOpen(true);
@@ -155,6 +159,7 @@ export function Production() {
   };
 
   const openAdd = () => {
+    if (!canEdit) return;
     setDraft(emptyDraft());
     setAddOpen(true);
   };
@@ -192,6 +197,7 @@ export function Production() {
           rightSlot={<StatusPill status={PILL_KIND[selected.status]} label={STATUS_LABEL[selected.status]} />}
         />
         <ScrollView contentContainerStyle={styles.content}>
+          <PermissionNotice section="production" />
           <DetailView
             batch={selected}
             noteDraft={noteDraft}
@@ -222,6 +228,7 @@ export function Production() {
       <BoardTabs view={view} onList={() => setView('list')} onCalendar={() => setView('calendar')} />
 
       <ScrollView contentContainerStyle={styles.content}>
+        <PermissionNotice section="production" />
         {view === 'list' ? (
           <>
             <FilterChips filters={filters} active={filter} onChange={setFilter} />
@@ -236,7 +243,7 @@ export function Production() {
         )}
       </ScrollView>
 
-      {view === 'list' ? (
+      {view === 'list' && canEdit ? (
         <Pressable
           onPress={openAdd}
           style={[styles.fab, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined }]}

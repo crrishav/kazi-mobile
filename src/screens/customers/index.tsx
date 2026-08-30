@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
+import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { useInvoices } from '@/data/billing/hooks';
@@ -24,6 +26,8 @@ import { ListSummary } from './list-summary';
 export function Customers() {
   const theme = useTheme();
   const toast = useToast();
+  const { can } = useAuth();
+  const canEdit = can('customers');
 
   const { data: customers } = useCustomers();
   const { data: salesOrders } = useOrders();
@@ -101,6 +105,7 @@ export function Customers() {
   };
 
   const startAdd = () => {
+    if (!canEdit) return;
     setSwipeOpenId(null);
     setDraft({ ...blankDraft });
     setEditingId(null);
@@ -108,7 +113,7 @@ export function Customers() {
     setView('form');
   };
   const startEdit = () => {
-    if (!selected) return;
+    if (!selected || !canEdit) return;
     setDraft({
       type: selected.type,
       name: selected.name,
@@ -168,7 +173,10 @@ export function Customers() {
     }
   };
 
-  const askDelete = (id: string) => setPendingId(id);
+  const askDelete = (id: string) => {
+    if (!canEdit) return;
+    setPendingId(id);
+  };
   const cancelDelete = () => {
     setSwipeOpenId(null);
     setPendingId(null);
@@ -218,13 +226,16 @@ export function Customers() {
           subtitle={selected.type === 'company' ? `${selected.city} · ${selected.terms}` : `Individual · ${selected.city}`}
           onBack={backToList}
           rightSlot={
-            <Pressable onPress={startEdit} style={[styles.editButton, { borderColor: theme.scheme === 'light' ? '#CFD8D2' : theme.border, backgroundColor: theme.surface }]}>
-              <Icon name="edit-2" size={13} color={theme.textPrimary} />
-            </Pressable>
+            canEdit ? (
+              <Pressable onPress={startEdit} style={[styles.editButton, { borderColor: theme.scheme === 'light' ? '#CFD8D2' : theme.border, backgroundColor: theme.surface }]}>
+                <Icon name="edit-2" size={13} color={theme.textPrimary} />
+              </Pressable>
+            ) : undefined
           }
         />
         <ScrollView contentContainerStyle={styles.content}>
-          <DetailView customer={detailCustomer} onDelete={() => askDelete(selected.id)} />
+          <PermissionNotice section="customers" />
+          <DetailView customer={detailCustomer} onDelete={canEdit ? () => askDelete(selected.id) : undefined} />
         </ScrollView>
         <ConfirmDeleteSheet visible={!!pending} name={pending?.name ?? ''} warning={pendingWarning} onCancel={cancelDelete} onConfirm={confirmDelete} />
       </View>
@@ -237,12 +248,15 @@ export function Customers() {
         title="Customers"
         subtitle={`${customers.length} accounts · KTM + LDN book`}
         rightSlot={
-          <Pressable onPress={startAdd} style={[styles.addButton, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 6px 16px -10px rgba(20,122,87,0.9)' : undefined }]}>
-            <Icon name="plus" size={18} color={theme.accentText} />
-          </Pressable>
+          canEdit ? (
+            <Pressable onPress={startAdd} style={[styles.addButton, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 6px 16px -10px rgba(20,122,87,0.9)' : undefined }]}>
+              <Icon name="plus" size={18} color={theme.accentText} />
+            </Pressable>
+          ) : undefined
         }
       />
       <ScrollView contentContainerStyle={styles.content}>
+        <PermissionNotice section="customers" />
         <ListSummary
           query={query}
           onQueryChange={setQuery}
@@ -274,7 +288,7 @@ export function Customers() {
               onSwipeOpen={() => setSwipeOpenId(c.id)}
               onSwipeClose={() => setSwipeOpenId(null)}
               onPress={() => openDetail(c.id)}
-              onDelete={() => askDelete(c.id)}
+              onDelete={canEdit ? () => askDelete(c.id) : undefined}
             />
           ))
         )}

@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 
+import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { Avatar, tintFromSeed } from '@/components/ui/avatar';
+import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import {
@@ -16,6 +19,7 @@ import {
 } from '@/data/employees-hr/hooks';
 import { useTeamRoster } from '@/data/attendance/hooks';
 import { shareSalarySlipPdf } from '@/lib/pdf/salarySlip';
+import { toCSV } from '@/lib/export/csv';
 import { attendancePrefill } from '@/data/employees-hr/attendance-sync';
 import { BANKS, DEPTS, MONTHS } from '@/data/employees-hr/mock';
 import { inWords, maskAccount, npr, num, pay } from '@/data/employees-hr/utils';
@@ -41,6 +45,8 @@ function draftFrom(p: Employee): EmployeeDraft {
 export function EmployeesHR() {
   const theme = useTheme();
   const toast = useToast();
+  const { can } = useAuth();
+  const canEdit = can('employees-hr');
 
   const { data: employees } = useEmployees();
   const addEmployee = useAddEmployee();
@@ -100,10 +106,12 @@ export function EmployeesHR() {
   const slipPay = slipPerson ? pay(slipPerson, month) : null;
 
   const openAdd = () => {
+    if (!canEdit) return;
     setDraft(blankDraft());
     setSheet('add');
   };
   const openEdit = (id: number) => {
+    if (!canEdit) return;
     const p = employees.find((e) => e.id === id);
     if (!p) return;
     setDraft(draftFrom(p));
@@ -112,7 +120,7 @@ export function EmployeesHR() {
   const closeSheet = () => setSheet(null);
 
   const handleSave = () => {
-    if (!draft.name.trim()) return;
+    if (!draft.name.trim() || !canEdit) return;
     const basic = parseInt(draft.basic.replace(/[^0-9]/g, ''), 10) || 18600;
 
     if (draft.id) {
@@ -154,15 +162,28 @@ export function EmployeesHR() {
   };
 
   const approveRun = () => {
+    if (!canEdit) return;
     const slipsCount = runRows.length;
     approveMonth.mutate(month.key);
     toast.show({ message: `${month.label.split(' ')[0]} run approved · ${slipsCount} slips generated`, tone: 'ok' });
   };
-  const exportBankFile = () => toast.show({ message: `Transfer file exported · 4 banks, ${runRows.length} credits`, tone: 'ok' });
+  const exportBankFile = async () => {
+    const csv = toCSV(runRows, [
+      { header: 'Employee', value: ({ p }) => p.name },
+      { header: 'Code', value: ({ p }) => p.code },
+      { header: 'Bank', value: ({ p }) => p.bank },
+      { header: 'Branch', value: ({ p }) => p.branch },
+      { header: 'Account', value: ({ p }) => p.acct },
+      { header: 'Net NPR', value: ({ r }) => Math.round(r.net) },
+    ]);
+    await Clipboard.setStringAsync(csv);
+    toast.show({ message: `Transfer file copied as CSV · ${runRows.length} credits`, tone: 'ok' });
+  };
 
   // Attendance-driven payroll auto-calc (item 28) — pull absent / late / OT from
   // the month's roll-call into each matched payroll record, so `pay()` recomputes.
   const syncFromAttendance = () => {
+    if (!canEdit) return;
     if (!attendanceTeam) {
       toast.show({ message: 'Attendance data still loading', tone: 'bad' });
       return;
@@ -212,7 +233,7 @@ export function EmployeesHR() {
   };
 
   const handleDeleteEmployee = () => {
-    if (!draft.id) return;
+    if (!draft.id || !canEdit) return;
     const p = employees.find((e) => e.id === draft.id);
     const before = employees;
     deleteEmployee.mutate(draft.id);
@@ -277,6 +298,7 @@ export function EmployeesHR() {
       <TabsHeader view={view} onChange={setView} />
 
       <ScrollView contentContainerStyle={styles.content}>
+        <PermissionNotice section="employees-hr" />
         {view === 'orgchart' ? (
           <OrgChartView employees={employees} onOpenPerson={openEdit} />
         ) : view === 'directory' ? (

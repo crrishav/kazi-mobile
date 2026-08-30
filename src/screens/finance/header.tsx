@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,10 +11,12 @@ export interface FinanceHeaderProps {
   title: string;
   subtitle: string;
   onBack?: () => void;
+  /** Optional trailing control on a back-button header (e.g. a CSV export button). */
+  rightSlot?: ReactNode;
 }
 
 /** Shared top chrome for all three Finance views — overview shows an avatar, years/ledger show a back button. */
-export function FinanceHeader({ title, subtitle, onBack }: FinanceHeaderProps) {
+export function FinanceHeader({ title, subtitle, onBack, rightSlot }: FinanceHeaderProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -32,7 +35,7 @@ export function FinanceHeader({ title, subtitle, onBack }: FinanceHeaderProps) {
           {subtitle}
         </Text>
       </View>
-      {!onBack ? <Avatar initials="AK" tint="dark" size="lg" /> : null}
+      {rightSlot ?? (!onBack ? <Avatar initials="AK" tint="dark" size="lg" /> : null)}
     </View>
   );
 }

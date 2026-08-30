@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { Avatar } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
+import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -19,6 +21,8 @@ import { MonthGrid } from './month-grid';
 export function Marketing() {
   const theme = useTheme();
   const toast = useToast();
+  const { can } = useAuth();
+  const canEdit = can('marketing');
 
   const { data: entries } = useEntries();
   const addEntry = useAddEntry();
@@ -52,11 +56,13 @@ export function Marketing() {
   };
 
   const openEntry = (e: CalendarEntry) => {
+    if (!canEdit) return;
     setSheetMode('edit');
     setDraft({ ...e });
   };
 
   const newEntry = () => {
+    if (!canEdit) return;
     setSheetMode('new');
     setDraft({ id: `e${Date.now()}`, y: selected.y, m: selected.m, d: selected.d, kind: 'post', title: '', notes: '', person: 'pt' });
   };
@@ -111,6 +117,7 @@ export function Marketing() {
       />
 
       <ScrollView contentContainerStyle={styles.content}>
+        <PermissionNotice section="marketing" />
         {view === 'calendar' ? (
           <>
             <MonthGrid
@@ -128,12 +135,14 @@ export function Marketing() {
         )}
       </ScrollView>
 
-      <Pressable
-        onPress={newEntry}
-        style={[styles.fab, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined }]}
-      >
-        <Icon name="plus" size={24} color={theme.accentText} />
-      </Pressable>
+      {canEdit ? (
+        <Pressable
+          onPress={newEntry}
+          style={[styles.fab, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined }]}
+        >
+          <Icon name="plus" size={24} color={theme.accentText} />
+        </Pressable>
+      ) : null}
 
       <EntrySheet visible={!!sheetMode} mode={sheetMode} draft={draft} onClose={closeSheet} onChange={patchDraft} onSave={handleSave} onDelete={handleDelete} />
     </View>

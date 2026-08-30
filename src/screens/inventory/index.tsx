@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
+import { PermissionNotice } from '@/components/ui/permission-notice';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import {
@@ -37,6 +39,8 @@ function emptyMovementDraft(): StockMovementDraft {
 export function Inventory() {
   const theme = useTheme();
   const toast = useToast();
+  const { can } = useAuth();
+  const canEdit = can('inventory');
 
   const { data: stock } = useStock();
   const { data: library } = useLibrary();
@@ -101,6 +105,7 @@ export function Inventory() {
   const flash = (message: string) => toast.show({ message, tone: 'ok' });
 
   const openAdd = () => {
+    if (!canEdit) return;
     setDraft(emptyDraft());
     setUploads([]);
     setStep(1);
@@ -146,6 +151,7 @@ export function Inventory() {
   };
 
   const openAdjust = () => {
+    if (!canEdit) return;
     setMoveDraft(emptyMovementDraft());
     setAdjustOpen(true);
   };
@@ -176,7 +182,7 @@ export function Inventory() {
   };
 
   const openEdit = () => {
-    if (!selectedItem) return;
+    if (!selectedItem || !canEdit) return;
     setDetailsDraft({
       threshold: String(selectedItem.threshold),
       lead: selectedItem.lead,
@@ -212,8 +218,8 @@ export function Inventory() {
           movements={movements.filter((m) => m.itemId === selectedItem.id)}
           onBack={() => setSelectedId(null)}
           onRaisePO={() => flash(`PO draft started for ${selectedItem.sku}`)}
-          onAdjust={openAdjust}
-          onEditDetails={openEdit}
+          onAdjust={canEdit ? openAdjust : undefined}
+          onEditDetails={canEdit ? openEdit : undefined}
         />
         <AdjustSheet
           visible={adjustOpen}
@@ -253,6 +259,7 @@ export function Inventory() {
       />
 
       <ScrollView contentContainerStyle={styles.content}>
+        <PermissionNotice section="inventory" />
         {isFabric ? (
           <>
             {lowItems.length > 0 && filter !== 'low' ? (
@@ -278,10 +285,12 @@ export function Inventory() {
         )}
       </ScrollView>
 
-      <Pressable onPress={openAdd} style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}>
-        <Icon name="plus" size={18} color={theme.onDark.accent} />
-        <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>{isFabric ? 'Add fabric' : 'Add item'}</Text>
-      </Pressable>
+      {canEdit ? (
+        <Pressable onPress={openAdd} style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}>
+          <Icon name="plus" size={18} color={theme.onDark.accent} />
+          <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>{isFabric ? 'Add fabric' : 'Add item'}</Text>
+        </Pressable>
+      ) : null}
 
       <AddSheet
         visible={addOpen}

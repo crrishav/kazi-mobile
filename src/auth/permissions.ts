@@ -23,6 +23,7 @@ export type SectionId =
   | 'inventory'
   | 'finance'
   | 'sales'
+  | 'order-management'
   | 'customers'
   | 'billing'
   | 'purchases'
@@ -36,7 +37,8 @@ export type SectionId =
   | 'messenger'
   | 'directors'
   | 'admin-panel'
-  | 'changelog';
+  | 'changelog'
+  | 'bug-report';
 
 /** The 10 Finance sub-tabs, each gated individually (reference `financeTabAllowed`). */
 export type FinanceTabId =
@@ -72,9 +74,10 @@ export interface Profile {
 }
 
 const ALL_SECTIONS: SectionId[] = [
-  'dashboard', 'tasks', 'inventory', 'finance', 'sales', 'customers', 'billing',
+  'dashboard', 'tasks', 'inventory', 'finance', 'sales', 'order-management', 'customers', 'billing',
   'purchases', 'production', 'quality-control', 'accounting', 'budget-requirements',
   'employees-hr', 'attendance', 'marketing', 'messenger', 'directors', 'admin-panel', 'changelog',
+  'bug-report',
 ];
 
 /** Default nav per role (reference `NAV_BY_ROLE`). Overrides can still add/remove entries. */
@@ -82,16 +85,16 @@ export const NAV_BY_ROLE: Record<Role, SectionId[]> = {
   super_admin: ALL_SECTIONS,
   uk_admin: ALL_SECTIONS.filter((s) => s !== 'admin-panel'),
   nepal_admin: [
-    'dashboard', 'tasks', 'inventory', 'finance', 'sales', 'customers', 'billing',
+    'dashboard', 'tasks', 'inventory', 'finance', 'sales', 'order-management', 'customers', 'billing',
     'purchases', 'production', 'quality-control', 'accounting', 'budget-requirements',
-    'employees-hr', 'attendance', 'marketing', 'messenger', 'changelog',
+    'employees-hr', 'attendance', 'marketing', 'messenger', 'changelog', 'bug-report',
   ],
   nepal_staff: [
     'dashboard', 'tasks', 'inventory', 'production', 'quality-control',
     'budget-requirements', 'attendance', 'marketing', 'messenger',
-    'customers', 'sales', 'changelog',
+    'customers', 'sales', 'order-management', 'changelog', 'bug-report',
   ],
-  employee: ['dashboard', 'tasks', 'attendance', 'messenger', 'budget-requirements', 'changelog'],
+  employee: ['dashboard', 'tasks', 'attendance', 'messenger', 'budget-requirements', 'changelog', 'bug-report'],
 };
 
 /** Sections each role may edit (not just view). `'*'` = everything it can see. */
@@ -99,8 +102,8 @@ const EDIT_BY_ROLE: Record<Role, SectionId[] | '*'> = {
   super_admin: '*',
   uk_admin: '*',
   nepal_admin: '*',
-  nepal_staff: ['tasks', 'attendance', 'messenger', 'production', 'quality-control', 'inventory', 'budget-requirements', 'marketing'],
-  employee: ['tasks', 'attendance', 'messenger', 'budget-requirements'],
+  nepal_staff: ['tasks', 'attendance', 'messenger', 'production', 'quality-control', 'inventory', 'budget-requirements', 'marketing', 'order-management', 'bug-report'],
+  employee: ['tasks', 'attendance', 'messenger', 'budget-requirements', 'bug-report'],
 };
 
 /**

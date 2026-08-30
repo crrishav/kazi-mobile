@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { Avatar } from '@/components/ui/avatar';
+import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii } from '@/theme';
@@ -19,6 +21,8 @@ import { SummaryCard } from './summary-card';
 export function AdminPanel() {
   const theme = useTheme();
   const toast = useToast();
+  const { can } = useAuth();
+  const canEdit = can('admin-panel');
   const { data: matrix } = usePermissionMatrix();
   const applyMutation = useApplyRoleChanges();
 
@@ -50,6 +54,7 @@ export function AdminPanel() {
   }
 
   function setLevel(id: SectionId, v: AccessLevel) {
+    if (!canEdit) return;
     setPending((p) => {
       const next = { ...p };
       if (base[id] === v) delete next[id];
@@ -103,6 +108,7 @@ export function AdminPanel() {
   }
 
   function handleApply() {
+    if (!canEdit) return;
     applyMutation.mutate(
       { role, changes: pending },
       {
@@ -136,6 +142,7 @@ export function AdminPanel() {
       <RoleChipsBar roles={ROLES} activeRole={role} onPick={pickRole} />
 
       <ScrollView contentContainerStyle={styles.content}>
+        <PermissionNotice section="admin-panel" />
         <SummaryCard role={roleObj} dirty={dirty} pendingCount={Object.keys(pending).length} counts={counts} />
 
         {GROUPS.map((group, i) => (

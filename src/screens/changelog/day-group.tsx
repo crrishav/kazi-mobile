@@ -3,37 +3,37 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii } from '@/theme';
-import { typePalette } from '@/data/changelog/utils';
-import type { FlatEntry, ReleaseGroup as ReleaseGroupData } from '@/data/changelog/types';
+import { typePalette } from '@/data/changelog/parse';
+import type { Commit, CommitDay } from '@/data/changelog/types';
 
-export interface ReleaseGroupProps {
-  group: ReleaseGroupData;
+export interface DayGroupProps {
+  day: CommitDay;
   index: number;
-  onOpen: (entry: FlatEntry) => void;
+  onOpen: (commit: Commit) => void;
 }
 
-export function ReleaseGroup({ group, index, onOpen }: ReleaseGroupProps) {
+export function DayGroup({ day, index, onOpen }: DayGroupProps) {
   const theme = useTheme();
 
   return (
-    <Animated.View entering={FadeInUp.delay(index * 40).duration(220)} style={styles.group}>
+    <Animated.View entering={FadeInUp.delay(Math.min(index, 6) * 40).duration(220)} style={styles.group}>
       <View style={styles.groupHead}>
-        <Text style={[styles.groupTitle, { color: theme.textPrimary }]}>{group.title}</Text>
-        <Text style={[styles.groupMeta, { color: theme.textSecondary }]} numberOfLines={1}>
-          {group.meta}
+        <Text style={[styles.groupTitle, { color: theme.textPrimary }]}>{day.title}</Text>
+        <Text style={[styles.groupMeta, { color: theme.textSecondary }]}>
+          {day.commits.length} {day.commits.length === 1 ? 'commit' : 'commits'}
         </Text>
         <View style={[styles.headLine, { backgroundColor: theme.border }]} />
       </View>
 
       <View style={[styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }]}>
-        {group.entries.map((entry, i) => {
-          const palette = typePalette(theme, entry.type);
-          const last = i === group.entries.length - 1;
+        {day.commits.map((commit, i) => {
+          const palette = typePalette(theme, commit.type);
+          const last = i === day.commits.length - 1;
 
           return (
             <Pressable
-              key={entry.key}
-              onPress={() => onOpen(entry)}
+              key={commit.sha}
+              onPress={() => onOpen(commit)}
               style={[styles.row, i > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border } : null]}
             >
               <View style={styles.rail}>
@@ -44,14 +44,19 @@ export function ReleaseGroup({ group, index, onOpen }: ReleaseGroupProps) {
               <View style={styles.rowText}>
                 <View style={styles.rowTop}>
                   <View style={[styles.tag, { backgroundColor: palette.bg }]}>
-                    <Text style={[styles.tagLabel, { color: palette.fg }]}>{entry.type}</Text>
+                    <Text style={[styles.tagLabel, { color: palette.fg }]}>{commit.type}</Text>
                   </View>
-                  <Text style={[styles.date, { color: theme.textSecondary }]}>{entry.date}</Text>
+                  {commit.scope ? (
+                    <Text style={[styles.scope, { color: theme.textSecondary }]} numberOfLines={1}>
+                      {commit.scope}
+                    </Text>
+                  ) : null}
+                  <Text style={[styles.sha, { color: theme.textSecondary }]}>{commit.shortSha}</Text>
                 </View>
-                <Text style={[styles.title, { color: theme.textPrimary }]}>{entry.title}</Text>
-                <Text style={[styles.detail, { color: theme.textSecondary }]}>{entry.detail}</Text>
-                <Text style={[styles.area, { color: theme.textSecondary }]}>
-                  {entry.area} · {entry.who}
+                <Text style={[styles.title, { color: theme.textPrimary }]}>{commit.subject}</Text>
+                <Text style={[styles.author, { color: theme.textSecondary }]} numberOfLines={1}>
+                  {commit.authorName}
+                  {commit.authorLogin ? ` · @${commit.authorLogin}` : ''}
                 </Text>
               </View>
             </Pressable>
@@ -66,7 +71,7 @@ const styles = StyleSheet.create({
   group: { gap: 9 },
   groupHead: { flexDirection: 'row', alignItems: 'baseline', gap: 9, paddingHorizontal: 2 },
   groupTitle: { fontFamily: fontFamily.semibold, fontSize: 15, letterSpacing: -0.01 * 15 },
-  groupMeta: { fontFamily: fontFamily.mono, fontSize: 10.5, flexShrink: 1 },
+  groupMeta: { fontFamily: fontFamily.mono, fontSize: 10.5, flexShrink: 0 },
   headLine: { flex: 1, height: 1 },
   card: { borderRadius: radii.lg, overflow: 'hidden' },
   row: { flexDirection: 'row', gap: 11, paddingVertical: 13, paddingRight: 15, paddingLeft: 13 },
@@ -77,8 +82,8 @@ const styles = StyleSheet.create({
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tag: { height: 21, paddingHorizontal: 8, borderRadius: 7, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   tagLabel: { fontFamily: fontFamily.mono, fontSize: 9.5, letterSpacing: 0.11 * 9.5, textTransform: 'uppercase' },
-  date: { flex: 1, fontFamily: fontFamily.mono, fontSize: 10.5, textAlign: 'right' },
+  scope: { flex: 1, fontFamily: fontFamily.mono, fontSize: 10.5 },
+  sha: { fontFamily: fontFamily.mono, fontSize: 10.5, flexShrink: 0 },
   title: { fontFamily: fontFamily.semibold, fontSize: 14.5, lineHeight: 14.5 * 1.3 },
-  detail: { fontSize: 12.5, lineHeight: 12.5 * 1.45 },
-  area: { fontFamily: fontFamily.mono, fontSize: 10 },
+  author: { fontFamily: fontFamily.mono, fontSize: 10 },
 });
