@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { useClockStatus, useToggleClock } from '@/data/attendance/hooks';
-import { DEFAULT_CLOCK_STATUS, MY_NAME } from '@/data/attendance/mock';
+import { MY_NAME } from '@/data/attendance/mock';
 
 import { ClockCard } from '@/screens/attendance/clock-card';
 import { useGeoClockIn } from '@/screens/attendance/use-geo-clock-in';
@@ -23,15 +23,13 @@ export function DashboardClockInCard() {
   const toggleClock = useToggleClock();
   const geoClock = useGeoClockIn();
 
-  const [elapsed, setElapsed] = useState(DEFAULT_CLOCK_STATUS.elapsedSeconds);
-  const [hasSynced, setHasSynced] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    if (clockStatus && !hasSynced) {
-      setElapsed(clockStatus.elapsedSeconds);
-      setHasSynced(true);
-    }
-  }, [clockStatus, hasSynced]);
+    // Re-seed from the server on first load and on any session change (a
+    // clock-out made on another device / the web, or a fresh clock-in).
+    if (clockStatus) setElapsed(clockStatus.elapsedSeconds);
+  }, [clockStatus?.clockedIn, clockStatus?.inTime, clockStatus?.outTime]);
 
   useEffect(() => {
     if (!clockStatus?.clockedIn) return;

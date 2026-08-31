@@ -34,7 +34,9 @@ export function TabsHeader({ view, onChange }: TabsHeaderProps) {
 }
 
 const styles = StyleSheet.create({
-  outer: { paddingHorizontal: 20, paddingBottom: 12 },
+  // paddingTop separates the segmented control from ScreenHeader's bottom rule —
+  // without it the tabs sit flush against the header.
+  outer: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 12 },
   segmented: { flexDirection: 'row', padding: 4, borderRadius: 14, gap: 4 },
   segmentButton: { flex: 1, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   teamButton: { flexDirection: 'row', gap: 7 },

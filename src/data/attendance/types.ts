@@ -41,8 +41,53 @@ export interface ClockPunch extends PunchSummary {
 
 export interface DayCell {
   day: number | null;
+  /** `YYYY-MM-DD`, or null for the leading blanks that pad the first week. */
+  dateISO: string | null;
   status: AttendanceStatus | 'off' | 'future' | null;
   isToday: boolean;
+}
+
+/**
+ * One day of one person's attendance, as the reference app's month report shows
+ * it: the `attendance` row's status and the `clock_ins` row's real punch times.
+ */
+export interface DayDetail {
+  /** `YYYY-MM-DD`. */
+  date: string;
+  /** e.g. "Sun 31 Aug". */
+  label: string;
+  /** Null when there's no `attendance` row for the day. */
+  status: AttendanceStatus | null;
+  /** `HH:MM` in Asia/Kathmandu, null when the person never punched in. */
+  clockIn: string | null;
+  /** `HH:MM`, null while still on the clock or when never punched. */
+  clockOut: string | null;
+  /** Real clocked duration in hours, null when there's no closed punch. */
+  workedHours: number | null;
+  /** The shift length rostered for that weekday, 0 on a weekly off. */
+  scheduledHours: number;
+  /** Shift window for the day, e.g. "09:00–17:00"; null on a weekly off. */
+  shiftLabel: string | null;
+  lateMinutes: number;
+  /** 15+ minutes late → 25% of that day's salary forfeited (reference rule). */
+  lateCutApplied: boolean;
+  note: string;
+  /** Metres from the workshop when the punch carried a GPS fix. */
+  distanceToSiteM: number | null;
+  /** True when the weekday isn't in the person's working days. */
+  isWeeklyOff: boolean;
+}
+
+/** A staffer's rostered week, as stored on their `employees` doc. */
+export interface WorkSchedule {
+  /** `HH:MM`. */
+  start: string;
+  /** `HH:MM`. */
+  end: string;
+  /** Short weekday names, e.g. `['Sun','Mon','Tue','Wed','Thu','Fri']`. */
+  workingDays: string[];
+  /** Per-weekday exceptions, e.g. `{ Tue: { start: '09:30', end: '15:30' } }`. */
+  dayOverrides: Record<string, { start?: string; end?: string }>;
 }
 
 /** Month-to-date tallies for one staffer (item 27 employee report). */
@@ -58,6 +103,12 @@ export interface MemberMonth {
 
 export interface TeamMember {
   id: number;
+  /** Primary `staffId` — the one a status edit is written under. */
+  staffId: string;
+  /** Every `staffId` this person's rows are filed under (the live data has duplicates). */
+  staffIds: string[];
+  /** `employees` doc id, when the staffer has a directory entry (schedule edits need it). */
+  employeeDocId: string | null;
   name: string;
   role: string;
   initials: string;
@@ -76,7 +127,10 @@ export interface MySummary {
   absentDays: number;
   leaveTaken: number;
   leaveAllowed: number;
+  /** NPR forfeited to late cuts. 0 when there are no cuts *or* no salary on file. */
   deduction: number;
+  /** Days marked Late with the 25% cut applied — the card shows whenever this is > 0. */
+  deductionDays: number;
   deductionNote: string;
 }
 
@@ -93,4 +147,54 @@ export interface TeamMonthStats {
   lineLabel: string;
   teamHours: string;
   attendanceCuts: number;
+}
+
+/** One calendar week's logged hours vs its target — the "Mine" weekly bar chart. */
+export interface WeekHours {
+  label: string;
+  hours: number;
+  target: number;
+}
+
+/**
+ * Everything the "Mine" view's month blocks render: the calendar grid, the
+ * weekly bars and the monthly summary, all derived from the signed-in user's
+ * own `attendance` / `clock_ins` / `finance_payroll` rows.
+ */
+export interface MyMonth {
+  /** e.g. "August 2026". */
+  monthLabel: string;
+  /** AD ISO span of the displayed month — feeds the calendar's BS sub-label. */
+  monthISOStart: string;
+  monthISOEnd: string;
+  /** Scheduled working days in the month (weekly offs excluded). */
+  workingDays: number;
+  /** The signed-in user's shift window, e.g. "09:00–17:00". */
+  shiftLabel: string;
+  /** Day-of-month for today, or 0 when the displayed month isn't the current one. */
+  todayDay: number;
+  /** 6-row grid: leading blanks + one cell per day. */
+  days: DayCell[];
+  /** Per-date punch/status detail, keyed by `YYYY-MM-DD` — what a tapped day shows. */
+  details: Record<string, DayDetail>;
+  weeks: WeekHours[];
+  summary: MySummary;
+}
+
+/** One staffer's month as the admin sheet shows it — days plus their roster. */
+export interface MemberMonthReport {
+  staffId: string;
+  name: string;
+  /** `YYYY-MM` of the displayed month. */
+  monthISO: string;
+  /** e.g. "August 2026". */
+  monthLabel: string;
+  schedule: WorkSchedule;
+  /** Every day of the month, oldest first. */
+  days: DayDetail[];
+  tally: Record<AttendanceStatus, number>;
+  /** Days marked Late with the 25% cut applied. */
+  cuts: number;
+  /** Real clocked hours across the month. */
+  hoursWorked: number;
 }

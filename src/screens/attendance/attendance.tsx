@@ -1,24 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { HeaderAccount } from '@/components/ui/header-account';
-import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { toCSV } from '@/lib/export/csv';
 import { useTheme } from '@/theme/theme-provider';
 import {
   useClockStatus,
+  useMyMonth,
   useSetMemberStatus,
   useTeamRoster,
   useToggleClock,
 } from '@/data/attendance/hooks';
-import { DEFAULT_CLOCK_STATUS, MONTH_LABEL, MY_NAME, STATUS_LABELS, TODAY_LABEL } from '@/data/attendance/mock';
+import { MY_NAME, STATUS_LABELS } from '@/data/attendance/mock';
+import { todayLabel } from '@/data/attendance/utils';
 import type { AttendanceStatus, AttendanceView, TeamFilter, TeamMember } from '@/data/attendance/types';
 
-import { EmployeeReportSheet } from './employee-report-sheet';
+import { MemberSheet } from './member-sheet';
 import { MineView } from './mine-view';
 import { TabsHeader } from './tabs-header';
 import { TeamView } from './team-view';
@@ -26,6 +28,7 @@ import { useGeoClockIn } from './use-geo-clock-in';
 
 export function Attendance() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const toast = useToast();
   const { profile, can } = useAuth();
   const staffName = profile?.name ?? MY_NAME;
@@ -35,22 +38,23 @@ export function Attendance() {
   const toggleClock = useToggleClock();
   const geoClock = useGeoClockIn();
   const { data: team } = useTeamRoster();
+  const { data: month } = useMyMonth();
   const setMemberStatus = useSetMemberStatus();
+  // Stable for the session — the label only turns over at midnight in Kathmandu.
+  const today = useMemo(todayLabel, []);
 
   const [view, setView] = useState<AttendanceView>('mine');
   const [filter, setFilter] = useState<TeamFilter>('all');
-  const [elapsed, setElapsed] = useState(DEFAULT_CLOCK_STATUS.elapsedSeconds);
-  const [hasSynced, setHasSynced] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [rollEdit, setRollEdit] = useState(false);
   const [rollEdits, setRollEdits] = useState(0);
   const [reportMember, setReportMember] = useState<TeamMember | null>(null);
 
   useEffect(() => {
-    if (clockStatus && !hasSynced) {
-      setElapsed(clockStatus.elapsedSeconds);
-      setHasSynced(true);
-    }
-  }, [clockStatus, hasSynced]);
+    // Re-seed from the server on first load and whenever the session changes —
+    // a new clock-in, or a clock-out made on another device / the web.
+    if (clockStatus) setElapsed(clockStatus.elapsedSeconds);
+  }, [clockStatus?.clockedIn, clockStatus?.inTime, clockStatus?.outTime]);
 
   useEffect(() => {
     if (!clockStatus?.clockedIn) return;
@@ -128,7 +132,7 @@ export function Attendance() {
   const handleToggleEdit = () => {
     if (!canEdit) return;
     if (rollEdit) {
-      if (rollEdits > 0) toast.show({ message: `Roll call saved · ${rollEdits} ${rollEdits === 1 ? 'change' : 'changes'} · ${TODAY_LABEL}`, tone: 'ok' });
+      if (rollEdits > 0) toast.show({ message: `Roll call saved · ${rollEdits} ${rollEdits === 1 ? 'change' : 'changes'} · ${today}`, tone: 'ok' });
       setRollEdits(0);
     }
     setRollEdit((v) => !v);
@@ -149,37 +153,21 @@ export function Attendance() {
       { header: 'Times', value: (m) => m.times },
       { header: 'Hours', value: (m) => m.hours },
     ]);
-    void exportCsv(csv, `Roll call · ${TODAY_LABEL}`);
+    void exportCsv(csv, `Roll call · ${today}`);
   };
 
-  const handleExportReport = () => {
-    if (!reportMember) return;
-    const m = reportMember;
-    const csv = toCSV(
-      [
-        { k: 'Present', v: m.month.present },
-        { k: 'Late', v: m.month.late },
-        { k: 'Absent', v: m.month.absent },
-        { k: 'Half-day', v: m.month.half },
-        { k: 'Leave', v: m.month.leave },
-        { k: 'OT hours', v: m.month.otHours },
-        { k: 'Hours MTD', v: m.month.hoursMTD },
-      ],
-      [
-        { header: 'Metric', value: (r) => r.k },
-        { header: `${m.name} · ${MONTH_LABEL}`, value: (r) => r.v },
-      ],
-    );
-    void exportCsv(csv, `${m.name} · ${MONTH_LABEL}`);
-  };
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <ScreenHeader title="Attendance" subtitle="Tue 26 Aug · Shift A" rightSlot={<HeaderAccount />} />
-      <TabsHeader view={view} onChange={setView} />
+      <ScreenHeader
+        title="Attendance"
+        subtitle={month ? `${today} · ${month.shiftLabel}` : today}
+        rightSlot={<HeaderAccount />}
+      />
+      {canEdit ? <TabsHeader view={view} onChange={setView} /> : null}
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {view === 'mine' ? (
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}>
+        {view === 'mine' || !canEdit ? (
           <MineView
             clockedIn={clockStatus.clockedIn}
             inTime={clockStatus.inTime}
@@ -191,31 +179,30 @@ export function Attendance() {
             geo={geoClock.geo}
             lastPunch={clockStatus.lastPunch}
             onOpenSettings={geoClock.openSettings}
+            month={month}
           />
         ) : (
-          <>
-            <PermissionNotice section="attendance" message="View only — you can’t edit the roll call." />
-            <TeamView
-              filter={filter}
-              onFilterChange={setFilter}
-              counts={counts}
-              members={filteredMembers}
-              editMode={rollEdit}
-              edits={rollEdits}
-              onToggleEdit={handleToggleEdit}
-              onSetStatus={handleSetStatus}
-              onOpenReport={setReportMember}
-              onExportPayroll={handleExportRollCall}
-            />
-          </>
+          <TeamView
+            filter={filter}
+            onFilterChange={setFilter}
+            counts={counts}
+            members={filteredMembers}
+            editMode={rollEdit}
+            edits={rollEdits}
+            onToggleEdit={handleToggleEdit}
+            onSetStatus={handleSetStatus}
+            onOpenReport={setReportMember}
+            onExportPayroll={handleExportRollCall}
+          />
         )}
       </ScrollView>
 
-      <EmployeeReportSheet
+      <MemberSheet
         visible={reportMember !== null}
         member={reportMember}
+        canEdit={canEdit}
         onClose={() => setReportMember(null)}
-        onExport={handleExportReport}
+        onExport={(csv, label) => void exportCsv(csv, label)}
       />
     </View>
   );
@@ -224,5 +211,7 @@ export function Attendance() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 20, paddingTop: 4, paddingBottom: 110, gap: 16 },
+  // Attendance pushes as a sibling of (tabs) — the tab bar is hidden, so the
+  // bottom pad is just the safe-area inset (applied inline), not room for a bar.
+  content: { padding: 20, paddingTop: 4, gap: 16 },
 });

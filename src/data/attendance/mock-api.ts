@@ -1,8 +1,22 @@
 import { simulateLatency } from '../mock/delay';
 import { evaluateGeofence } from '@/lib/geo';
-import { CLOCK_PUNCHES, DEFAULT_CLOCK_STATUS, STATUS_LABELS, TEAM } from './mock';
-import { calculateAttendanceStatus } from './schedule';
-import type { AttendanceStatus, ClockPunch, ClockStatus, PunchSummary, TeamMember } from './types';
+import {
+  CLOCK_PUNCHES,
+  DEFAULT_CLOCK_STATUS,
+  MONTH_ISO_END,
+  MONTH_ISO_START,
+  MONTH_LABEL,
+  MY_NAME,
+  MY_SUMMARY,
+  STATUS_LABELS,
+  TEAM,
+  TODAY_DAY,
+  WEEKLY_HOURS,
+  WORKING_DAYS,
+} from './mock';
+import { calculateAttendanceStatus, shiftFor } from './schedule';
+import { buildMonthDays } from './utils';
+import type { AttendanceStatus, ClockPunch, ClockStatus, MyMonth, PunchSummary, TeamMember } from './types';
 
 let clock: ClockStatus = { ...DEFAULT_CLOCK_STATUS };
 let teamDb: TeamMember[] = TEAM.map((m) => ({ ...m }));
@@ -117,3 +131,24 @@ export async function restoreTeam(previous: TeamMember[]): Promise<void> {
 
 /** Human-readable status label — re-exported for CSV builders. */
 export const statusLabel = (s: AttendanceStatus) => STATUS_LABELS[s];
+
+/**
+ * Mock "my month" — the seeded August 2026 persona. Only used when Firebase is
+ * unconfigured; the live path never falls back here (see `api.ts`).
+ */
+export async function fetchMyMonth(): Promise<MyMonth> {
+  await simulateLatency();
+  return {
+    monthLabel: MONTH_LABEL,
+    monthISOStart: MONTH_ISO_START,
+    monthISOEnd: MONTH_ISO_END,
+    workingDays: WORKING_DAYS,
+    shiftLabel: `${shiftFor(MY_NAME).start}–${shiftFor(MY_NAME).end}`,
+    todayDay: TODAY_DAY,
+    days: buildMonthDays(),
+    // The mock has no punch history to detail — tapping a day shows nothing.
+    details: {},
+    weeks: WEEKLY_HOURS.map((w) => ({ ...w })),
+    summary: { ...MY_SUMMARY },
+  };
+}

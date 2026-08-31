@@ -22,6 +22,8 @@ import type { AvatarTint } from '@/components/ui/avatar';
 import { num, str, tsToISO } from '@/lib/firestore/normalise';
 import { getDb } from '@/lib/firebase';
 
+import { findEmployee, readEmployees } from './live-shared';
+
 import type { AttendanceStatus, ClockPunch, TeamMember } from './types';
 
 const TINTS: AvatarTint[] = ['mint', 'clay', 'draft', 'amber', 'dark'];
@@ -58,7 +60,9 @@ interface DailyRow {
 }
 
 export async function fetchTeam(): Promise<TeamMember[]> {
-  const snap = await getDocs(collection(getDb(), 'attendance'));
+  // The directory is read alongside so each row carries the `employees` doc id
+  // the admin sheet needs to edit that person's work schedule.
+  const [snap, employees] = await Promise.all([getDocs(collection(getDb(), 'attendance')), readEmployees()]);
   const rows: DailyRow[] = snap.docs
     .map((d) => {
       const x = d.data() as Record<string, unknown>;
@@ -73,16 +77,20 @@ export async function fetchTeam(): Promise<TeamMember[]> {
     })
     .filter((r) => r.staffId && r.staffName);
 
-  const byStaff = new Map<string, DailyRow[]>();
+  // Grouped by NAME, not by `staffId`: the live data files several people under
+  // two ids (an Auth UID plus an older email-derived one), which used to list
+  // them twice — once with a stale record and once with the real one.
+  const byName = new Map<string, DailyRow[]>();
   for (const r of rows) {
-    const list = byStaff.get(r.staffId) ?? [];
+    const key = r.staffName.trim().toLowerCase();
+    const list = byName.get(key) ?? [];
     list.push(r);
-    byStaff.set(r.staffId, list);
+    byName.set(key, list);
   }
 
-  const staffIds = [...byStaff.keys()].sort();
-  return staffIds.map((sid, i) => {
-    const recs = [...(byStaff.get(sid) ?? [])].sort((a, b) => a.dateISO.localeCompare(b.dateISO));
+  const names = [...byName.keys()].sort();
+  return names.map((key, i) => {
+    const recs = [...(byName.get(key) ?? [])].sort((a, b) => a.dateISO.localeCompare(b.dateISO));
     const latest = recs[recs.length - 1];
     const tally = { present: 0, late: 0, absent: 0, half: 0, leave: 0 };
     let hoursSum = 0;
@@ -90,8 +98,15 @@ export async function fetchTeam(): Promise<TeamMember[]> {
       tally[r.status] += 1;
       hoursSum += r.hours;
     }
+    // Every id this person's rows live under; the newest is the one an edit is
+    // written to, so a correction lands where the app and the web both look.
+    const staffIds = [...new Set([...recs].reverse().map((r) => r.staffId))];
+    const employee = findEmployee(employees, { uid: latest.staffId, name: latest.staffName });
     return {
       id: i + 1,
+      staffId: latest.staffId,
+      staffIds,
+      employeeDocId: employee?.docId ?? null,
       name: latest.staffName,
       role: latest.role || 'Staff',
       initials: initialsOf(latest.staffName),

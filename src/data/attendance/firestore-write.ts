@@ -12,23 +12,30 @@
  *   clock OUT → merge `clock_ins/{id}` { clockedOutAt: serverTimestamp(), workedHours }
  *            → merge `attendance/{date}_{uid}` { note: "GPS clock-in & out", hours }
  *
- * `fetchClockStatus` mirrors the web read: `clock_ins` where staffId == uid and
- * date == today, then open (no clockedOutAt) vs closed.
+ * One `clock_ins` doc per person per day (like the web): a second clock-in the
+ * same day *reopens* the existing row rather than adding another, so a stale
+ * "open" duplicate can't linger after a clock-out made elsewhere.
+ *
+ * `fetchClockStatus` reads the newest `clock_ins` row for today AND the
+ * companion `attendance/{date}_{uid}` doc, and reports the punch summary
+ * (status / late minutes / GPS distance) straight from those stored values —
+ * the same figures the web shows — instead of recomputing. It only falls back
+ * to a local late-calc when no `attendance` row exists yet. "Today" is
+ * Asia/Kathmandu (fixed UTC+5:45), not the device timezone.
  *
  * Security rules: `clock_ins.create` needs `staffId == request.auth.uid`;
  * `attendance` self-writes need the `{date}_{uid}` id + matching `staffId`.
  * Roll-call editing is admin-gated in the UI (permission path in the rules).
  */
 
-import { collection, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
 
 import { evaluateGeofence } from '@/lib/geo';
 import { getDb } from '@/lib/firebase';
-import { str, tsToISO } from '@/lib/firestore/normalise';
+import { num, str, tsToISO } from '@/lib/firestore/normalise';
 import { createDocument, patchDocument, setDocument } from '@/lib/firestore/write';
 import { getActor } from '@/data/notifications/actor';
 
-import { DEFAULT_CLOCK_STATUS } from './mock';
 import { calculateAttendanceStatus } from './schedule';
 import type { AttendanceStatus, ClockStatus, PunchSummary } from './types';
 import type { ClockToggleInput } from './mock-api';
@@ -36,14 +43,23 @@ import type { ClockToggleInput } from './mock-api';
 const CLOCK_INS = 'clock_ins';
 const ATTENDANCE = 'attendance';
 
-function isoDate(d = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/** Safe "no active session" state — used when there's no punch today, no UID, or a read fails. */
+const NOT_CLOCKED_IN: ClockStatus = { clockedIn: false, inTime: '--:--', outTime: null, elapsedSeconds: 0 };
+
+/** Nepal is a fixed UTC+5:45 with no DST — safe to offset by a constant. */
+const NEPAL_OFFSET_MS = (5 * 60 + 45) * 60_000;
+
+/** `YYYY-MM-DD` for an instant, in Asia/Kathmandu — matches the date the web writes. */
+function isoDate(at: number | Date = Date.now()): string {
+  const ms = at instanceof Date ? at.getTime() : at;
+  return new Date(ms + NEPAL_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+/** `HH:MM` of an ISO instant, in Asia/Kathmandu. */
 function hhmm(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const ms = new Date(iso).getTime();
+  if (Number.isNaN(ms)) return '';
+  return new Date(ms + NEPAL_OFFSET_MS).toISOString().slice(11, 16);
 }
 
 function actorName(fallback = ''): string {
@@ -60,6 +76,9 @@ interface PunchRow {
   id: string;
   clockedInAt: string;
   clockedOutAt: string | null;
+  distanceToSiteM: number | null;
+  accuracyM: number | null;
+  bypassUsed: boolean;
 }
 
 /** Today's `clock_ins` rows for the signed-in user (staffId == uid, date == today), newest first. */
@@ -74,55 +93,97 @@ async function todaysPunches(uid: string): Promise<PunchRow[]> {
         id: d.id,
         clockedInAt: tsToISO(data.clockedInAt ?? data.createdAt),
         clockedOutAt: data.clockedOutAt ? tsToISO(data.clockedOutAt) : null,
+        distanceToSiteM: data.distanceToSiteM == null ? null : num(data.distanceToSiteM),
+        accuracyM: data.accuracyM == null ? null : num(data.accuracyM),
+        bypassUsed: data.bypassUsed === true || /^true$/i.test(str(data.bypassUsed)),
       };
     })
     .sort((a, b) => b.clockedInAt.localeCompare(a.clockedInAt));
 }
 
-function summaryFrom(late: { status: 'Present' | 'Late'; lateMinutes: number; lateCutApplied: boolean }): PunchSummary {
+interface StoredLate {
+  status: 'Present' | 'Late';
+  lateMinutes: number;
+  lateCutApplied: boolean;
+}
+
+/**
+ * The companion `attendance/{date}_{uid}` doc's stored late/status figures — the
+ * ones the web shows. Returns null (→ local fallback calc) if the row is absent
+ * or the read is denied; never throws.
+ */
+async function todaysAttendance(uid: string): Promise<StoredLate | null> {
+  try {
+    const snap = await getDoc(doc(getDb(), ATTENDANCE, `${isoDate()}_${uid}`));
+    if (!snap.exists()) return null;
+    const d = snap.data() as Record<string, unknown>;
+    if (d.status == null && d.lateMinutes == null) return null;
+    return {
+      status: /late/i.test(str(d.status)) ? 'Late' : 'Present',
+      lateMinutes: num(d.lateMinutes),
+      lateCutApplied: d.lateCutApplied === true || /^true$/i.test(str(d.lateCutApplied)),
+    };
+  } catch (err) {
+    console.warn('[attendance] attendance row read failed — using local late calc', err);
+    return null;
+  }
+}
+
+/** Punch summary from stored values: late/status from the `attendance` row, GPS from the `clock_ins` row. */
+function buildSummary(stored: StoredLate | null, punch: PunchRow, fallbackName: string): PunchSummary {
+  const late = stored ?? calculateAttendanceStatus(fallbackName, new Date(punch.clockedInAt));
   return {
-    distanceToSiteM: null,
-    accuracyM: null,
-    bypassUsed: false,
+    distanceToSiteM: punch.distanceToSiteM,
+    accuracyM: punch.accuracyM,
+    bypassUsed: punch.bypassUsed,
     status: late.status,
     lateMinutes: late.lateMinutes,
     lateCutApplied: late.lateCutApplied,
   };
 }
 
-/** Derive the current clock session from today's `clock_ins` rows. */
+/**
+ * Current clock session: the newest `clock_ins` row for today decides
+ * open/closed (an older orphan doesn't override a newer clock-out), and the
+ * punch summary comes from the stored `attendance` + `clock_ins` values.
+ */
 export async function fetchClockStatus(): Promise<ClockStatus> {
   const uid = actorUid();
-  if (!uid) return { ...DEFAULT_CLOCK_STATUS };
+  if (!uid) return { ...NOT_CLOCKED_IN };
 
-  const punches = await todaysPunches(uid);
-  if (punches.length === 0) {
-    return { clockedIn: false, inTime: '--:--', outTime: null, elapsedSeconds: 0 };
+  try {
+    const punches = await todaysPunches(uid);
+    if (punches.length === 0) return { ...NOT_CLOCKED_IN };
+
+    const latest = punches[0];
+    const summary = buildSummary(await todaysAttendance(uid), latest, actorName());
+
+    if (!latest.clockedOutAt) {
+      const startMs = new Date(latest.clockedInAt).getTime();
+      const elapsed = Number.isNaN(startMs) ? 0 : Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+      return { clockedIn: true, inTime: hhmm(latest.clockedInAt), outTime: null, elapsedSeconds: elapsed, lastPunch: summary };
+    }
+
+    const inMs = new Date(latest.clockedInAt).getTime();
+    const outMs = new Date(latest.clockedOutAt).getTime();
+    const worked = Number.isNaN(inMs) || Number.isNaN(outMs) ? 0 : Math.max(0, Math.floor((outMs - inMs) / 1000));
+    return {
+      clockedIn: false,
+      inTime: hhmm(latest.clockedInAt),
+      outTime: hhmm(latest.clockedOutAt),
+      elapsedSeconds: worked,
+      lastPunch: summary,
+    };
+  } catch (err) {
+    console.warn('[attendance] fetchClockStatus failed — treating as not clocked in', err);
+    return { ...NOT_CLOCKED_IN };
   }
-
-  const open = punches.find((p) => !p.clockedOutAt);
-  const late = calculateAttendanceStatus(actorName(), new Date(open?.clockedInAt ?? punches[0].clockedInAt));
-
-  if (open) {
-    const startMs = new Date(open.clockedInAt).getTime();
-    const elapsed = Number.isNaN(startMs) ? 0 : Math.max(0, Math.floor((Date.now() - startMs) / 1000));
-    return { clockedIn: true, inTime: hhmm(open.clockedInAt), outTime: null, elapsedSeconds: elapsed, lastPunch: summaryFrom(late) };
-  }
-
-  const last = punches[0];
-  const inMs = new Date(last.clockedInAt).getTime();
-  const outMs = new Date(last.clockedOutAt as string).getTime();
-  const worked = Number.isNaN(inMs) || Number.isNaN(outMs) ? 0 : Math.max(0, Math.floor((outMs - inMs) / 1000));
-  return {
-    clockedIn: false,
-    inTime: hhmm(last.clockedInAt),
-    outTime: hhmm(last.clockedOutAt as string),
-    elapsedSeconds: worked,
-    lastPunch: summaryFrom(late),
-  };
 }
 
-/** Clock in (new `clock_ins` + companion `attendance` doc) or clock out (merge both). */
+/**
+ * Clock out (close every open punch for today) or clock in (reopen today's row
+ * if one exists, else create it) + sync the companion `attendance` doc.
+ */
 export async function toggleClock(input: ClockToggleInput): Promise<void> {
   const uid = actorUid();
   if (!uid) throw new Error('toggleClock: no Firebase Auth UID — clock_ins.staffId is required by the security rules');
@@ -133,31 +194,49 @@ export async function toggleClock(input: ClockToggleInput): Promise<void> {
   const attId = `${today}_${uid}`;
 
   const punches = await todaysPunches(uid);
-  const open = punches.find((p) => !p.clockedOutAt);
+  const openPunches = punches.filter((p) => !p.clockedOutAt);
 
-  if (open) {
-    const inMs = new Date(open.clockedInAt).getTime();
-    const workedHours = Number.isNaN(inMs) ? undefined : Math.max(0, Math.round(((now.getTime() - inMs) / 3_600_000) * 10) / 10);
-    await patchDocument(CLOCK_INS, open.id, { clockedOutAt: serverTimestamp(), workedHours });
+  if (openPunches.length > 0) {
+    // Clock OUT — close every open punch (guards against an earlier duplicate).
+    let workedHours: number | undefined;
+    for (const p of openPunches) {
+      const inMs = new Date(p.clockedInAt).getTime();
+      const h = Number.isNaN(inMs) ? undefined : Math.max(0, Math.round(((now.getTime() - inMs) / 3_600_000) * 10) / 10);
+      if (workedHours == null) workedHours = h;
+      await patchDocument(CLOCK_INS, p.id, { clockedOutAt: serverTimestamp(), workedHours: h });
+    }
     await setDocument(ATTENDANCE, attId, { note: 'GPS clock-in & out', hours: workedHours }, { merge: true });
     return;
   }
 
   const late = calculateAttendanceStatus(name, now);
   const geo = input.coords ? evaluateGeofence(input.coords.lat, input.coords.lng, input.coords.accuracyM) : null;
-
-  await createDocument(CLOCK_INS, {
-    staffId: uid,
-    staffName: name,
-    role,
-    date: today,
+  const gps = {
     lat: input.coords?.lat ?? null,
     lng: input.coords?.lng ?? null,
     accuracyM: geo ? geo.accuracyM : null,
     distanceToSiteM: geo ? geo.distanceM : null,
-    clockedInAt: serverTimestamp(),
-    ...(input.bypassUsed ? { bypassUsed: true } : {}),
-  });
+  };
+
+  if (punches.length > 0) {
+    // Today already has a (closed) punch — reopen it, never add a second doc.
+    await patchDocument(CLOCK_INS, punches[0].id, {
+      ...gps,
+      clockedOutAt: null,
+      workedHours: null,
+      ...(input.bypassUsed ? { bypassUsed: true } : {}),
+    });
+  } else {
+    await createDocument(CLOCK_INS, {
+      staffId: uid,
+      staffName: name,
+      role,
+      date: today,
+      ...gps,
+      clockedInAt: serverTimestamp(),
+      ...(input.bypassUsed ? { bypassUsed: true } : {}),
+    });
+  }
 
   await setDocument(
     ATTENDANCE,
@@ -183,7 +262,9 @@ const STATUS_TO_LIVE: Record<AttendanceStatus, string> = {
   present: 'Present',
   late: 'Late',
   absent: 'Absent',
-  half: 'Half Day',
+  // "Half-day" exactly — the reference's STATUS_OPTIONS value, which its report
+  // and payroll filters match on.
+  half: 'Half-day',
   leave: 'Leave',
 };
 

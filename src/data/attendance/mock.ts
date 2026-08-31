@@ -56,6 +56,7 @@ export const MY_SUMMARY: MySummary = {
   leaveTaken: 1,
   leaveAllowed: 12,
   deduction: 1250,
+  deductionDays: 3,
   deductionNote: '1 absent day · 3 late marks',
 };
 
@@ -64,13 +65,13 @@ export const DEFAULT_CLOCK_STATUS: ClockStatus = { clockedIn: true, inTime: '08:
 export const TODAY_LABEL = 'Tue 26 Aug';
 
 export const TEAM: TeamMember[] = [
-  { id: 1, name: 'Anil Karki', role: 'Cutting', initials: 'AK', avatarTint: 'mint', status: 'present', times: '08:04 → —', hours: '6h 50m', month: { present: 22, late: 1, absent: 0, half: 1, leave: 0, otHours: '9h 20m', hoursMTD: '176h 10m' } },
-  { id: 2, name: 'Pramila Thapa', role: 'Sewing', initials: 'PT', avatarTint: 'clay', status: 'late', times: '09:22 → —', hours: '5h 32m', month: { present: 18, late: 4, absent: 1, half: 1, leave: 0, otHours: '3h 05m', hoursMTD: '162h 40m' } },
-  { id: 3, name: 'Rabin Bhandari', role: 'Finishing', initials: 'RB', avatarTint: 'draft', status: 'present', times: '07:58 → —', hours: '6h 56m', month: { present: 23, late: 0, absent: 0, half: 0, leave: 1, otHours: '11h 45m', hoursMTD: '181h 05m' } },
-  { id: 4, name: 'Manisha Gurung', role: 'Packing', initials: 'MG', avatarTint: 'amber', status: 'half', times: '08:10 → 12:30', hours: '4h 20m', month: { present: 20, late: 2, absent: 0, half: 2, leave: 0, otHours: '1h 30m', hoursMTD: '156h 20m' } },
-  { id: 5, name: 'Deepak Shrestha', role: 'QC', initials: 'DS', avatarTint: 'draft', status: 'absent', times: '— → —', hours: '0h 00m', month: { present: 19, late: 1, absent: 3, half: 0, leave: 1, otHours: '0h 00m', hoursMTD: '148h 00m' } },
-  { id: 6, name: 'Sunita Rai', role: 'Sewing', initials: 'SR', avatarTint: 'mint', status: 'leave', times: 'Approved leave', hours: '0h 00m', month: { present: 17, late: 0, absent: 0, half: 0, leave: 6, otHours: '2h 10m', hoursMTD: '133h 15m' } },
-  { id: 7, name: 'Bimal Katwal', role: 'Cutting', initials: 'BK', avatarTint: 'dark', status: 'present', times: '08:01 → —', hours: '6h 53m', month: { present: 24, late: 0, absent: 0, half: 0, leave: 0, otHours: '14h 00m', hoursMTD: '188h 30m' } },
+  { id: 1, staffId: 'mock-1', staffIds: ['mock-1'], employeeDocId: null, name: 'Anil Karki', role: 'Cutting', initials: 'AK', avatarTint: 'mint', status: 'present', times: '08:04 → —', hours: '6h 50m', month: { present: 22, late: 1, absent: 0, half: 1, leave: 0, otHours: '9h 20m', hoursMTD: '176h 10m' } },
+  { id: 2, staffId: 'mock-2', staffIds: ['mock-2'], employeeDocId: null, name: 'Pramila Thapa', role: 'Sewing', initials: 'PT', avatarTint: 'clay', status: 'late', times: '09:22 → —', hours: '5h 32m', month: { present: 18, late: 4, absent: 1, half: 1, leave: 0, otHours: '3h 05m', hoursMTD: '162h 40m' } },
+  { id: 3, staffId: 'mock-3', staffIds: ['mock-3'], employeeDocId: null, name: 'Rabin Bhandari', role: 'Finishing', initials: 'RB', avatarTint: 'draft', status: 'present', times: '07:58 → —', hours: '6h 56m', month: { present: 23, late: 0, absent: 0, half: 0, leave: 1, otHours: '11h 45m', hoursMTD: '181h 05m' } },
+  { id: 4, staffId: 'mock-4', staffIds: ['mock-4'], employeeDocId: null, name: 'Manisha Gurung', role: 'Packing', initials: 'MG', avatarTint: 'amber', status: 'half', times: '08:10 → 12:30', hours: '4h 20m', month: { present: 20, late: 2, absent: 0, half: 2, leave: 0, otHours: '1h 30m', hoursMTD: '156h 20m' } },
+  { id: 5, staffId: 'mock-5', staffIds: ['mock-5'], employeeDocId: null, name: 'Deepak Shrestha', role: 'QC', initials: 'DS', avatarTint: 'draft', status: 'absent', times: '— → —', hours: '0h 00m', month: { present: 19, late: 1, absent: 3, half: 0, leave: 1, otHours: '0h 00m', hoursMTD: '148h 00m' } },
+  { id: 6, staffId: 'mock-6', staffIds: ['mock-6'], employeeDocId: null, name: 'Sunita Rai', role: 'Sewing', initials: 'SR', avatarTint: 'mint', status: 'leave', times: 'Approved leave', hours: '0h 00m', month: { present: 17, late: 0, absent: 0, half: 0, leave: 6, otHours: '2h 10m', hoursMTD: '133h 15m' } },
+  { id: 7, staffId: 'mock-7', staffIds: ['mock-7'], employeeDocId: null, name: 'Bimal Katwal', role: 'Cutting', initials: 'BK', avatarTint: 'dark', status: 'present', times: '08:01 → —', hours: '6h 53m', month: { present: 24, late: 0, absent: 0, half: 0, leave: 0, otHours: '14h 00m', hoursMTD: '188h 30m' } },
 ];
 
 /** The signed-in "Mine" view persona — schedule + late-cut key into `schedule.ts`. */

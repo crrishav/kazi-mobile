@@ -31,8 +31,11 @@ export const EMPLOYEE_SCHEDULES: Record<string, Shift> = {
   'Bimal Katwal': { start: '08:00', end: '16:00' },
 };
 
-/** Minutes past shift start before a late-arrival triggers a salary cut. */
-export const LATE_GRACE_MIN = 10;
+/**
+ * Minutes past shift start before a late arrival forfeits 25% of the day's
+ * salary. Matches the reference `calculateAttendanceStatus` (`diffMins >= 15`).
+ */
+export const LATE_GRACE_MIN = 15;
 
 /** Case-insensitive name lookup, `DEFAULT_SHIFT` when unknown (reference `getEmployeeScheduleForDate`). */
 export function shiftFor(name: string | undefined | null): Shift {
@@ -45,7 +48,7 @@ export interface LateCalc {
   status: 'Present' | 'Late';
   /** Whole minutes after shift start, 0 when on time / early. */
   lateMinutes: number;
-  /** `lateMinutes > LATE_GRACE_MIN`. */
+  /** `lateMinutes >= LATE_GRACE_MIN` — the 25% salary cut applies. */
   lateCutApplied: boolean;
   /** The shift start the arrival was measured against ("HH:MM"). */
   shiftStart: string;
@@ -60,7 +63,7 @@ export function calculateAttendanceStatus(name: string | undefined | null, clock
 
   const diffMins = (clockInDate.getTime() - scheduled.getTime()) / 60_000;
 
-  if (diffMins > LATE_GRACE_MIN) {
+  if (diffMins >= LATE_GRACE_MIN) {
     return { status: 'Late', lateMinutes: Math.round(diffMins), lateCutApplied: true, shiftStart: shift.start };
   }
   if (diffMins > 0) {

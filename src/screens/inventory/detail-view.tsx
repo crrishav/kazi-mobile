@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { ThresholdBar } from '@/components/ui/threshold-bar';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
@@ -42,19 +43,7 @@ export function DetailView({ item, movements, onBack, onRaisePO, onAdjust, onEdi
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <View style={[styles.header, { borderBottomColor: theme.border }]}>
-        <Pressable onPress={onBack} style={[styles.backButton, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Icon name="chevron-left" size={18} color={theme.textPrimary} />
-        </Pressable>
-        <View style={styles.headerTextWrap}>
-          <Text style={[styles.headerTitle, { color: theme.textPrimary }]} numberOfLines={1}>
-            {item.name}
-          </Text>
-          <Text style={[styles.headerMeta, { color: theme.textSecondary }]} numberOfLines={1}>
-            {item.sku} · {item.supplier}
-          </Text>
-        </View>
-      </View>
+      <ScreenHeader title={item.name} subtitle={`${item.sku} · ${item.supplier}`} onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.content}>
         <Card elevation="inverted" style={styles.onHandCard}>
@@ -193,25 +182,6 @@ export function DetailView({ item, movements, onBack, onRaisePO, onAdjust, onEdi
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTextWrap: { flex: 1, gap: 2, minWidth: 0 },
-  headerTitle: { fontFamily: fontFamily.semibold, fontSize: 18, letterSpacing: -0.02 * 18 },
-  headerMeta: { fontFamily: fontFamily.mono, fontSize: 10, letterSpacing: 0.1 * 10, textTransform: 'uppercase' },
   content: { padding: 16, paddingBottom: 32, gap: 12 },
   onHandCard: { padding: 17, gap: 14 },
   onHandRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14 },

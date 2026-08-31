@@ -48,13 +48,25 @@ export function MonthlySummary({ summary, onRaiseCorrection }: MonthlySummaryPro
         </View>
       </View>
 
-      <View style={[styles.deductionCard, { backgroundColor: theme.dangerWash }]}>
-        <View style={styles.gap3}>
-          <Text style={[styles.deductionLabel, { color: theme.dangerWashText }]}>Salary deduction</Text>
-          <Text style={[styles.deductionNote, { color: theme.dangerWashText }]}>{summary.deductionNote}</Text>
+      {/* Shown only when late cuts were actually applied. A cut with no basic
+          salary on file still shows — with the days, not a fabricated amount. */}
+      {summary.deductionDays > 0 ? (
+        <View style={[styles.deductionCard, { backgroundColor: theme.dangerWash }]}>
+          <View style={styles.gap3}>
+            <Text style={[styles.deductionLabel, { color: theme.dangerWashText }]}>Salary deduction</Text>
+            {summary.deductionNote ? (
+              <Text style={[styles.deductionNote, { color: theme.dangerWashText }]}>{summary.deductionNote}</Text>
+            ) : null}
+          </View>
+          {summary.deduction > 0 ? (
+            <Text style={[styles.deductionValue, tabularNums, { color: theme.dangerWashText }]}>
+              − {npr(summary.deduction)}
+            </Text>
+          ) : (
+            <Text style={[styles.deductionPending, { color: theme.dangerWashText }]}>Amount pending</Text>
+          )}
         </View>
-        <Text style={[styles.deductionValue, tabularNums, { color: theme.dangerWashText }]}>− {npr(summary.deduction)}</Text>
-      </View>
+      ) : null}
 
       <Pressable onPress={onRaiseCorrection} style={[styles.correctionButton, { borderColor: theme.border }]}>
         <Text style={[styles.correctionLabel, { color: theme.textPrimary }]}>Raise a correction request</Text>
@@ -82,6 +94,7 @@ const styles = StyleSheet.create({
   deductionLabel: { fontSize: 13.5, fontWeight: '600' },
   deductionNote: { fontSize: 11.5, opacity: 0.85 },
   deductionValue: { fontSize: 18, fontWeight: '600' },
+  deductionPending: { fontFamily: fontFamily.mono, fontSize: 10.5, textAlign: 'right', lineHeight: 14 },
   correctionButton: { height: 46, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   correctionLabel: { fontFamily: fontFamily.semibold, fontSize: 14 },
 });

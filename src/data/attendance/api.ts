@@ -14,6 +14,7 @@ import { withMockFallback } from '@/lib/firestore/read';
 import { liveWrite } from '@/lib/firestore/write';
 
 import * as live from './firestore';
+import * as liveMonth from './firestore-month';
 import * as writeLive from './firestore-write';
 import * as mock from './mock-api';
 import type { AttendanceStatus } from './types';
@@ -29,9 +30,17 @@ export const fetchClockPunches = isFirebaseConfigured
   ? withMockFallback('attendance/punches', live.fetchClockPunches, mock.fetchClockPunches)
   : mock.fetchClockPunches;
 
+// No mock fallback: `writeLive.fetchClockStatus` already catches its own errors
+// and returns a safe "not clocked in" state. Falling back to the mock here would
+// surface its seeded "clocked in since 08:12" demo value to a real user.
 export const fetchClockStatus = isFirebaseConfigured
-  ? withMockFallback('attendance/clock', writeLive.fetchClockStatus, mock.fetchClockStatus)
+  ? writeLive.fetchClockStatus
   : mock.fetchClockStatus;
+
+// Same reasoning as `fetchClockStatus`: no mock fallback. `liveMonth.fetchMyMonth`
+// catches its own read failures and returns an honest empty month — falling back
+// would show a real user the seeded "168h 40m / NPR 1,250 deduction" persona.
+export const fetchMyMonth = isFirebaseConfigured ? liveMonth.fetchMyMonth : mock.fetchMyMonth;
 
 export const toggleClock = liveWrite('attendance/toggleClock', writeLive.toggleClock, mock.toggleClock);
 

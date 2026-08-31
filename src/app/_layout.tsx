@@ -22,7 +22,7 @@ import { AccountInactive } from '@/screens/account/account-inactive';
 import { queryClient } from '@/data/client';
 import { isFirebaseConfigured } from '@/lib/firebase';
 import { CurrencyProvider } from '@/lib/currency-context';
-import { ThemeProvider } from '@/theme/theme-provider';
+import { ThemeProvider, useTheme } from '@/theme/theme-provider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,6 +35,7 @@ if (__DEV__) {
 
 function RootNavigator() {
   const { session, profile, isLoading } = useAuth();
+  const theme = useTheme();
   if (isLoading) return null;
 
   // A signed-in user whose employee record was deactivated gets a dead end,
@@ -42,7 +43,7 @@ function RootNavigator() {
   if (session && profile?.status === 'Inactive') return <AccountInactive />;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.background } }}>
       <Stack.Protected guard={!session}>
         <Stack.Screen name="(auth)" />
       </Stack.Protected>

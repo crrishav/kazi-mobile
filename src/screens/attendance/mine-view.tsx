@@ -1,11 +1,13 @@
-import { StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { RiseIn } from '@/components/ui/rise-in';
-import { MY_SUMMARY, WEEKLY_HOURS } from '@/data/attendance/mock';
-import type { PunchSummary } from '@/data/attendance/types';
+import type { MyMonth, PunchSummary } from '@/data/attendance/types';
+import { useTheme } from '@/theme/theme-provider';
 import type { GeofenceEval } from '@/lib/geo';
 
 import { ClockCard } from './clock-card';
+import { DayDetailSheet } from './day-detail';
 import { MonthCalendar } from './month-calendar';
 import { MonthlySummary } from './monthly-summary';
 import { WeeklyHours } from './weekly-hours';
@@ -22,6 +24,8 @@ export interface MineViewProps {
   geo: GeofenceEval | null;
   lastPunch?: PunchSummary;
   onOpenSettings?: () => void;
+  /** The signed-in user's live month; undefined while the Firestore read is in flight. */
+  month: MyMonth | undefined;
 }
 
 export function MineView({
@@ -35,7 +39,12 @@ export function MineView({
   geo,
   lastPunch,
   onOpenSettings,
+  month,
 }: MineViewProps) {
+  const theme = useTheme();
+  const [openDay, setOpenDay] = useState<string | null>(null);
+  const openDetail = openDay ? (month?.details[openDay] ?? null) : null;
+
   return (
     <RiseIn viewKey="mine">
       <View style={styles.wrap}>
@@ -50,9 +59,26 @@ export function MineView({
           lastPunch={lastPunch}
           onOpenSettings={onOpenSettings}
         />
-        <MonthCalendar />
-        <WeeklyHours weeks={WEEKLY_HOURS} />
-        <MonthlySummary summary={MY_SUMMARY} onRaiseCorrection={onRaiseCorrection} />
+        {month ? (
+          <>
+            <MonthCalendar
+              monthLabel={month.monthLabel}
+              monthISOStart={month.monthISOStart}
+              monthISOEnd={month.monthISOEnd}
+              workingDays={month.workingDays}
+              days={month.days}
+              onSelectDay={setOpenDay}
+            />
+            <WeeklyHours weeks={month.weeks} />
+            <MonthlySummary summary={month.summary} onRaiseCorrection={onRaiseCorrection} />
+          </>
+        ) : (
+          <View style={styles.pending}>
+            <ActivityIndicator color={theme.accent} />
+          </View>
+        )}
+
+        <DayDetailSheet visible={openDetail !== null} detail={openDetail} onClose={() => setOpenDay(null)} />
       </View>
     </RiseIn>
   );
@@ -60,4 +86,5 @@ export function MineView({
 
 const styles = StyleSheet.create({
   wrap: { gap: 14 },
+  pending: { paddingVertical: 48, alignItems: 'center' },
 });

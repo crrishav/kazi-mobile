@@ -26,7 +26,7 @@ export function TeamRow({ member, index, editable = false, onSetStatus, onOpenRe
   return (
     <Animated.View entering={FadeInUp.delay(Math.min(index, 6) * 30).duration(200)}>
       <Pressable
-        disabled={editable || !onOpenReport}
+        disabled={!onOpenReport}
         onPress={onOpenReport}
         style={[styles.row, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }]}
       >

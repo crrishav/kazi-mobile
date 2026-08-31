@@ -4,7 +4,8 @@ import { Icon } from '@/components/ui/icon';
 import { RiseIn } from '@/components/ui/rise-in';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { TEAM_MONTH_STATS, TODAY_LABEL } from '@/data/attendance/mock';
+import { TEAM_MONTH_STATS } from '@/data/attendance/mock';
+import { todayLabel } from '@/data/attendance/utils';
 import { npr } from '@/data/attendance/utils';
 import type { AttendanceStatus, TeamFilter, TeamMember } from '@/data/attendance/types';
 
@@ -49,7 +50,7 @@ export function TeamView({
         >
           <Icon name={editMode ? 'check' : 'edit-2'} size={14} color={editMode ? theme.accentWashText : theme.textPrimary} />
           <Text style={[styles.editToggleLabel, { color: editMode ? theme.accentWashText : theme.textPrimary }]}>
-            {editMode ? `Done${edits ? ` · ${edits} updated` : ''}` : `Edit roll call · ${TODAY_LABEL}`}
+            {editMode ? `Done${edits ? ` · ${edits} updated` : ''}` : `Edit roll call · ${todayLabel()}`}
           </Text>
         </Pressable>
 
