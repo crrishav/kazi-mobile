@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { SegmentedProportionBar } from '@/components/ui/segmented-proportion-bar';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { stageRampDark, stageRampLight } from '@/data/dashboard/mock';
+import { stageRampDark, stageRampLight } from '@/data/dashboard/stage-ramp';
 import type { StageDatum } from '@/data/dashboard/types';
 
 export interface OrdersByStageCardProps {

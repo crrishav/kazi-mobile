@@ -1,93 +1,47 @@
 import { router } from 'expo-router';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
-import { isAtLeast, ROLE_LABEL } from '@/auth/roles';
+import { ROLE_LABEL } from '@/auth/roles';
 import { useUnreadCount } from '@/data/notifications/context';
-import { useToast } from '@/components/toast/toast-provider';
 import { useTheme } from '@/theme/theme-provider';
-import { useDecideApproval, useApprovals, useUndoApproval } from '@/data/approvals/hooks';
-import type { ApprovalItem } from '@/data/approvals/types';
-import { useDashboardSummary, useRefreshDashboard } from '@/data/dashboard/hooks';
 
-import { ApprovalsList } from './approvals-list';
-import { AttendanceCard } from './attendance-card';
-import { DashboardClockInCard } from './clock-in-card';
 import { DashboardHeader } from './header';
-import { KpiGrid } from './kpi-grid';
-import { OrdersByStageCard } from './orders-by-stage-card';
+import { DirectorDashboard } from './variants/director';
+import { MyDayDashboard } from './variants/my-day';
+import { OpsDashboard } from './variants/ops';
 
+/**
+ * One dashboard per role (mirrors the reference `Dashboard.jsx` split):
+ *   uk_admin              → Director  (money + big picture)
+ *   employee / nepal_staff → My day   (own tasks, attendance, clock-in)
+ *   nepal_admin / super_admin → Ops   (factory floor)
+ * Every card inside a variant deep-links to its module and is hidden when the
+ * signed-in profile can't view that section.
+ */
 export function Dashboard() {
   const theme = useTheme();
-  const toast = useToast();
   const { profile, role } = useAuth();
   const unreadCount = useUnreadCount();
 
-  // Everyone below Nepal admin (Nepal staff, employees) punches a clock; admins don't.
-  const canClock = role != null && !isAtLeast(role, 'nepal_admin');
-
-  const { data: summary, isRefetching, refetch } = useDashboardSummary();
-  const invalidateSummary = useRefreshDashboard();
-  const { data: approvals } = useApprovals();
-  const decideApproval = useDecideApproval();
-  const undoApproval = useUndoApproval();
-
-  const handleRefresh = async () => {
-    await invalidateSummary();
-    await refetch();
-  };
-
-  const handleDecision = (item: ApprovalItem, index: number, decision: 'approve' | 'reject') => {
-    decideApproval.mutate(item, {
-      onSuccess: () => {
-        toast.show({
-          message: `${item.title} ${decision === 'approve' ? 'approved' : 'rejected'}`,
-          tone: decision === 'approve' ? 'ok' : 'bad',
-          action: {
-            label: 'Undo',
-            onPress: () => undoApproval.mutate({ item, index }),
-          },
-        });
-      },
-    });
-  };
-
-  if (!summary) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  const Variant =
+    role === 'uk_admin'
+      ? DirectorDashboard
+      : role === 'employee' || role === 'nepal_staff'
+        ? MyDayDashboard
+        : OpsDashboard;
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <DashboardHeader
-        name={profile ? profile.name.split(' ')[0] : summary.userName}
-        roleLine={profile ? profile.jobRole?.trim() || ROLE_LABEL[profile.role] : summary.roleLine}
+        name={profile ? profile.name.split(' ')[0] : 'there'}
+        roleLine={profile ? profile.jobRole?.trim() || ROLE_LABEL[profile.role] : ''}
         initials={profile?.initials ?? 'SR'}
         unreadCount={unreadCount}
         onPressNotifications={() => router.push('/notifications')}
         onPressAccount={() => router.push('/account')}
       />
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={handleRefresh} tintColor={theme.accent} />}
-      >
-        {canClock ? <DashboardClockInCard /> : null}
-
-        <KpiGrid kpis={summary.kpis} approvalsCount={approvals?.length ?? 0} />
-
-        <OrdersByStageCard stages={summary.stages} total={summary.activeOrdersTotal} />
-
-        <AttendanceCard breakdown={summary.attendance} onRoll={summary.attendanceOnRoll} />
-
-        <ApprovalsList
-          items={approvals ?? []}
-          onApprove={(item, index) => handleDecision(item, index, 'approve')}
-          onReject={(item, index) => handleDecision(item, index, 'reject')}
-        />
-      </ScrollView>
+      <Variant />
     </View>
   );
 }
@@ -95,15 +49,5 @@ export function Dashboard() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-  },
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 32,
-    gap: 16,
   },
 });

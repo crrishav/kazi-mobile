@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Linking } from 'react-native';
 import * as Location from 'expo-location';
 
@@ -41,17 +41,16 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
  *
  * Fix: asks for a high-accuracy position, and if that times out falls back to
  * the last known location so a slow GPS doesn't strand the clock-in. Callers
- * proceed automatically on `ok`, or offer the manual "clock in anyway" bypass.
+ * clock in only when `locate()` resolves `ok` (inside the fence, accurate
+ * enough); every other outcome shows the blocked banner with no override.
  */
 export function useGeoClockIn() {
   const [state, setState] = useState<GeoState>('idle');
   const [geo, setGeo] = useState<GeofenceEval | null>(null);
-  const coordsRef = useRef<GeoCoords | null>(null);
 
   const reset = useCallback(() => {
     setState('idle');
     setGeo(null);
-    coordsRef.current = null;
   }, []);
 
   const openSettings = useCallback(() => {
@@ -61,7 +60,6 @@ export function useGeoClockIn() {
   const locate = useCallback(async (): Promise<LocateResult> => {
     setState('locating');
     setGeo(null);
-    coordsRef.current = null;
     try {
       let perm = await Location.getForegroundPermissionsAsync();
       if (!perm.granted && perm.canAskAgain) {
@@ -92,7 +90,6 @@ export function useGeoClockIn() {
         lng: pos.coords.longitude,
         accuracyM: pos.coords.accuracy ?? Number.POSITIVE_INFINITY,
       };
-      coordsRef.current = coords;
       const ev = evaluateGeofence(coords.lat, coords.lng, coords.accuracyM);
       setGeo(ev);
       setState('ready');
@@ -103,5 +100,5 @@ export function useGeoClockIn() {
     }
   }, []);
 
-  return { state, geo, coordsRef, locate, reset, openSettings };
+  return { state, geo, locate, reset, openSettings };
 }

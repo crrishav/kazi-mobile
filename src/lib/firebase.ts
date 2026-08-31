@@ -11,6 +11,8 @@
  * never imported here — the client authenticates with the public Web config.
  */
 
+import { Platform } from 'react-native';
+
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import {
   initializeFirestore,
@@ -55,19 +57,21 @@ export function getFirebaseApp(): FirebaseApp {
 }
 
 /**
- * Firestore with offline persistence (the `expo-data-fetching` skill's offline
- * requirement). Falls back to an in-memory cache if the platform can't back
- * `persistentLocalCache` (bare React Native has no IndexedDB — a dev build with
- * the right polyfill, or `@react-native-firebase`, is the eventual answer).
+ * Firestore with offline persistence on web (the `expo-data-fetching` skill's
+ * offline requirement) and an in-memory cache on native.
+ *
+ * `persistentLocalCache` needs IndexedDB. Browsers have it; bare React Native
+ * (Expo Go, or a dev build with no polyfill) does not — and the SDK only finds
+ * that out asynchronously on first use, logging a noisy "missing IndexedDB /
+ * persistence disabled" fallback warning. So the cache is chosen by platform up
+ * front rather than left to fail over. A dev build with the right polyfill, or
+ * `@react-native-firebase`, is the eventual answer for native persistence.
  */
 export function getDb(): Firestore {
   assertConfigured();
   if (!dbRef) {
-    try {
-      dbRef = initializeFirestore(getFirebaseApp(), { localCache: persistentLocalCache() });
-    } catch {
-      dbRef = initializeFirestore(getFirebaseApp(), { localCache: memoryLocalCache() });
-    }
+    const localCache = Platform.OS === 'web' ? persistentLocalCache() : memoryLocalCache();
+    dbRef = initializeFirestore(getFirebaseApp(), { localCache });
   }
   return dbRef;
 }

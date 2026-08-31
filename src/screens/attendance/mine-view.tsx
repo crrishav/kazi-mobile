@@ -21,7 +21,6 @@ export interface MineViewProps {
   geoState: GeoState;
   geo: GeofenceEval | null;
   lastPunch?: PunchSummary;
-  onBypassClockIn: () => void;
   onOpenSettings?: () => void;
 }
 
@@ -35,7 +34,6 @@ export function MineView({
   geoState,
   geo,
   lastPunch,
-  onBypassClockIn,
   onOpenSettings,
 }: MineViewProps) {
   return (
@@ -50,7 +48,6 @@ export function MineView({
           geoState={geoState}
           geo={geo}
           lastPunch={lastPunch}
-          onBypass={onBypassClockIn}
           onOpenSettings={onOpenSettings}
         />
         <MonthCalendar />

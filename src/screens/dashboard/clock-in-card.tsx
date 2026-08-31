@@ -11,8 +11,8 @@ import { useGeoClockIn } from '@/screens/attendance/use-geo-clock-in';
 /**
  * Self-contained clock in / out card for the dashboard — same `ClockCard` and
  * GPS-geofenced wiring as the Attendance "Mine" view, so people who punch a
- * clock can do it without leaving the home screen. Renders nothing for admins
- * (see `Dashboard`, which gates on role before mounting this).
+ * clock can do it without leaving the home screen. Only mounted by the "My day"
+ * dashboard variant (employee / nepal_staff) — admins never see it.
  */
 export function DashboardClockInCard() {
   const toast = useToast();
@@ -42,11 +42,8 @@ export function DashboardClockInCard() {
   if (!clockStatus) return null;
 
   // GPS geofenced clock-in — take a fix, verify against WORK_SITE, then punch.
-  const finishClockIn = async (
-    coords: { lat: number; lng: number; accuracyM: number } | null,
-    bypassUsed: boolean,
-  ) => {
-    const next = await toggleClock.mutateAsync({ elapsedSeconds: elapsed, staffName, coords, bypassUsed });
+  const finishClockIn = async (coords: { lat: number; lng: number; accuracyM: number } | null) => {
+    const next = await toggleClock.mutateAsync({ elapsedSeconds: elapsed, staffName, coords, bypassUsed: false });
     geoClock.reset();
     const p = next.lastPunch;
     if (!p) return;
@@ -55,8 +52,6 @@ export function DashboardClockInCard() {
         message: `Clocked in · ${p.lateMinutes} min late${p.lateCutApplied ? ' · salary cut applied' : ''}`,
         tone: p.lateCutApplied ? 'warn' : 'ok',
       });
-    } else if (bypassUsed) {
-      toast.show({ message: 'Clocked in · geofence bypassed, flagged for review', tone: 'warn' });
     } else {
       toast.show({ message: 'Clocked in · at the workshop, on time', tone: 'ok' });
     }
@@ -70,13 +65,9 @@ export function DashboardClockInCard() {
     }
     const res = await geoClock.locate();
     if (res.ok && res.coords) {
-      await finishClockIn(res.coords, false);
+      await finishClockIn(res.coords);
     }
-    // otherwise the clock card shows the blocked banner + "Clock in anyway"
-  };
-
-  const handleBypassClockIn = () => {
-    void finishClockIn(geoClock.coordsRef.current, true);
+    // otherwise the clock card shows the blocked banner — clock-in needs a valid on-site fix
   };
 
   return (
@@ -89,7 +80,6 @@ export function DashboardClockInCard() {
       geoState={geoClock.state}
       geo={geoClock.geo}
       lastPunch={clockStatus.lastPunch}
-      onBypass={handleBypassClockIn}
       onOpenSettings={geoClock.openSettings}
     />
   );

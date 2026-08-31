@@ -21,8 +21,6 @@ export interface ClockCardProps {
   geo: GeofenceEval | null;
   /** Geofence + late-cut outcome of the current session, shown while clocked in. */
   lastPunch?: PunchSummary;
-  /** Clock in despite a failed geofence / accuracy / permission gate. */
-  onBypass: () => void;
   /** Open the OS settings so the user can re-enable location (shown when denied/blocked). */
   onOpenSettings?: () => void;
 }
@@ -47,12 +45,16 @@ function blockedMessage(geoState: GeoState, geo: GeofenceEval | null): string | 
   return null;
 }
 
-export function ClockCard({ clockedIn, inTime, outTime, elapsedSeconds, onToggle, geoState, geo, lastPunch, onBypass, onOpenSettings }: ClockCardProps) {
+export function ClockCard({ clockedIn, inTime, outTime, elapsedSeconds, onToggle, geoState, geo, lastPunch, onOpenSettings }: ClockCardProps) {
   const theme = useTheme();
 
   const locating = !clockedIn && geoState === 'locating';
   const blocked = !clockedIn ? blockedMessage(geoState, geo) : null;
   const verified = !clockedIn && geoState === 'ready' && geo && geo.withinFence && geo.accuracyOk;
+
+  // A failed geofence has no override — the only recovery is turning location
+  // back on, offered when the OS denied/blocked it.
+  const showSettings = (geoState === 'denied' || geoState === 'blocked') && !!onOpenSettings;
 
   let geoCaption: string | null = null;
   if (clockedIn && lastPunch) geoCaption = lateLine(lastPunch);
@@ -84,16 +86,13 @@ export function ClockCard({ clockedIn, inTime, outTime, elapsedSeconds, onToggle
       {blocked ? (
         <View style={[styles.blockedBox, { backgroundColor: theme.onDark.warningWash }]}>
           <Text style={[styles.blockedText, { color: theme.onDark.warningWashText }]}>{blocked}</Text>
-          <View style={styles.blockedActions}>
-            {(geoState === 'denied' || geoState === 'blocked') && onOpenSettings ? (
+          {showSettings ? (
+            <View style={styles.blockedActions}>
               <Pressable onPress={onOpenSettings} hitSlop={8}>
-                <Text style={[styles.bypassLink, { color: theme.onDark.accent }]}>Open Settings</Text>
+                <Text style={[styles.actionLink, { color: theme.onDark.accent }]}>Open Settings</Text>
               </Pressable>
-            ) : null}
-            <Pressable onPress={onBypass} hitSlop={8}>
-              <Text style={[styles.bypassLink, { color: theme.onDark.accent }]}>Clock in anyway</Text>
-            </Pressable>
-          </View>
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -125,7 +124,7 @@ const styles = StyleSheet.create({
   blockedBox: { borderRadius: 14, padding: 14, gap: 8 },
   blockedText: { fontSize: 13, lineHeight: 18 },
   blockedActions: { flexDirection: 'row', gap: 18 },
-  bypassLink: { fontFamily: fontFamily.semibold, fontSize: 13 },
+  actionLink: { fontFamily: fontFamily.semibold, fontSize: 13 },
   clockButton: { height: 54, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   clockButtonLabel: { fontFamily: fontFamily.semibold, fontSize: 16 },
 });

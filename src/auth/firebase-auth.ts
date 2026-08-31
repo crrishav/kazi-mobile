@@ -110,6 +110,58 @@ function minimalSession(user: User): Session {
   };
 }
 
+/**
+ * Per-user permission overrides the reference app seeds in `AuthContext.jsx`
+ * for staff whose access doesn't fit their role. Ported so the same people keep
+ * the same access here. Applied in-memory only — the Admin Panel
+ * (`users/{uid}.permissions`) stays the persistent source of truth:
+ *   - Anmol / Sarbagya: fill a single gap, never override an explicit Admin Panel value.
+ *   - Sunam Deepa (accountant): force the finance/billing/sales/HR/attendance
+ *     flags on — an earlier bulk demotion left explicit `false`s on her doc that
+ *     a plain fallback can't clear.
+ * (Anusha's former override is intentionally dropped — she has left.)
+ */
+function applyStaffOverrides(
+  email: string,
+  current: PermissionOverrides | undefined,
+): PermissionOverrides | undefined {
+  const fillGap = (patch: PermissionOverrides): PermissionOverrides => {
+    const next: PermissionOverrides = { ...(current ?? {}) };
+    for (const [key, value] of Object.entries(patch)) {
+      if (next[key as keyof PermissionOverrides] === undefined) {
+        (next as Record<string, unknown>)[key] = value;
+      }
+    }
+    return next;
+  };
+
+  switch (email) {
+    case 'basnetanamol21@gmail.com':
+      return fillGap({ production: true });
+    case 'sarbagyakarkig8@gmail.com':
+      return fillGap({ marketing: true });
+    case 'deepasunam581@gmail.com': {
+      const currentFinance =
+        current?.finance && typeof current.finance === 'object' ? current.finance : {};
+      const defaultFinance =
+        DEFAULT_NEPAL_ADMIN_PERMISSIONS.finance && typeof DEFAULT_NEPAL_ADMIN_PERMISSIONS.finance === 'object'
+          ? DEFAULT_NEPAL_ADMIN_PERMISSIONS.finance
+          : {};
+      return {
+        ...(current ?? {}),
+        finance: { ...defaultFinance, ...currentFinance },
+        billing: true,
+        accounting: true,
+        sales: true,
+        'employees-hr': true,
+        attendance: true,
+      };
+    }
+    default:
+      return current;
+  }
+}
+
 async function resolveProfile(user: User): Promise<Session> {
   const db = getDb();
   const email = (user.email ?? '').toLowerCase();
@@ -165,6 +217,7 @@ async function resolveProfile(user: User): Promise<Session> {
 
   let permissions = userDoc?.permissions;
   if (!permissions && appRole === 'nepal_admin') permissions = DEFAULT_NEPAL_ADMIN_PERMISSIONS;
+  permissions = applyStaffOverrides(email, permissions);
 
   const createdAt = tsToISO(userDoc?.createdAt) || undefined;
 
