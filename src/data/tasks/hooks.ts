@@ -3,14 +3,20 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notify } from '@/data/notifications/notify';
 
 import { tasksKeys } from './keys';
-import { PEOPLE, STATUS_LABEL } from './mock';
+import { STATUS_LABEL } from './mock';
 import * as api from './api';
 import type { Task } from './types';
 
-const personName = (id: string): string | null => PEOPLE.find((p) => p.id === id)?.name ?? null;
-
 export function useTasks() {
   return useQuery({ queryKey: tasksKeys.list(), queryFn: api.fetchTasks });
+}
+
+/**
+ * Who a task can be assigned to — the live Employee Directory. Rarely changes,
+ * so it's fine to serve from cache across the session.
+ */
+export function useAssignees() {
+  return useQuery({ queryKey: tasksKeys.assignees(), queryFn: api.fetchAssignees, staleTime: 5 * 60_000 });
 }
 
 export function useSaveTask() {
@@ -32,24 +38,26 @@ export function useSaveTask() {
     },
     onSuccess: (_data, task, context) => {
       const prev = context?.previous?.find((t) => t.id === task.id);
-      const assignee = personName(task.personId);
+      // Tasks no longer carry a reference code, so the title is what identifies
+      // them in a notification.
+      const assignee = task.assignee || null;
       if (!prev) {
-        notify({ eventType: 'task.assigned', section: 'tasks', targetRef: task.ref, payload: { assignee } });
+        notify({ eventType: 'task.assigned', section: 'tasks', targetRef: task.title, payload: { assignee } });
         return;
       }
-      if (prev.personId !== task.personId) {
+      if (prev.assignee !== task.assignee) {
         notify({
           eventType: 'task.reassigned',
           section: 'tasks',
-          targetRef: task.ref,
-          payload: { assignee, prevAssignee: personName(prev.personId) },
+          targetRef: task.title,
+          payload: { assignee, prevAssignee: prev.assignee || null },
         });
       }
       if (prev.status !== task.status) {
         notify({
           eventType: 'task.status_changed',
           section: 'tasks',
-          targetRef: task.ref,
+          targetRef: task.title,
           payload: { assignee, status: STATUS_LABEL[task.status] },
         });
       }

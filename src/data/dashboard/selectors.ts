@@ -11,7 +11,6 @@ import type { StockItem } from '@/data/inventory/types';
 import type { QcLog } from '@/data/quality-control/types';
 import { STAGES } from '@/data/sales/mock';
 import type { Order } from '@/data/sales/types';
-import { PEOPLE } from '@/data/tasks/mock';
 import type { Task } from '@/data/tasks/types';
 import type { TeamMember } from '@/data/attendance/types';
 
@@ -263,15 +262,13 @@ export function deriveMyDay(input: {
   canViewFinance: boolean;
 }): MyDayDashboard {
   const me = firstName(input.myName);
-  const nameById = new Map(PEOPLE.map((p) => [p.id, p.name.toLowerCase()]));
 
-  const mine = (input.tasks ?? []).filter((t) => {
-    const n = nameById.get(t.personId);
-    return n != null && samePerson(n, me);
-  });
+  // `tasks.assignee` is a display name, so this now matches the real person
+  // rather than a stand-in roster id.
+  const mine = (input.tasks ?? []).filter((t) => !!t.assignee && samePerson(firstName(t.assignee), me));
   const myTasks = mine
     .filter((t) => t.status !== 'done')
-    .map((t) => ({ id: t.id, title: t.title, ref: t.ref, status: t.status }));
+    .map((t) => ({ id: t.id, title: t.title, due: t.due, status: t.status }));
   const tasksDone = mine.filter((t) => t.status === 'done').length;
 
   const rosterMe = (input.roster ?? []).find((m) => samePerson(firstName(m.name), me));

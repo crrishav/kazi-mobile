@@ -1,6 +1,6 @@
 import type { SectionId } from '@/auth/permissions';
 import type { DeltaArrow, DeltaTone } from '@/components/ui/kpi-card';
-import type { TaskStatus } from '@/data/tasks/types';
+import type { DueOptionId, TaskStatus } from '@/data/tasks/types';
 
 /** One KPI tile on a dashboard variant. `route` + `section` make it tappable and permission-gated. */
 export interface DashKpi {
@@ -73,7 +73,7 @@ export interface DirectorDashboard {
 export interface MyDayTask {
   id: string;
   title: string;
-  ref: string;
+  due: DueOptionId;
   status: TaskStatus;
 }
 

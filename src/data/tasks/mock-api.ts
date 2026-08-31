@@ -1,12 +1,17 @@
 import { simulateLatency } from '../mock/delay';
-import { seedTasks } from './mock';
-import type { Task } from './types';
+import { MOCK_ASSIGNEES, seedTasks } from './mock';
+import type { Assignee, Task } from './types';
 
 let db: Task[] = [...seedTasks];
 
 export async function fetchTasks(): Promise<Task[]> {
   await simulateLatency();
   return [...db];
+}
+
+export async function fetchAssignees(): Promise<Assignee[]> {
+  await simulateLatency();
+  return [...MOCK_ASSIGNEES];
 }
 
 export async function saveTask(task: Task): Promise<void> {

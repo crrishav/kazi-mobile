@@ -20,6 +20,12 @@ export const fetchTasks = isFirebaseConfigured
   ? withMockFallback('tasks', live.fetchTasks, mock.fetchTasks)
   : mock.fetchTasks;
 
+// The assignee picker is the live Employee Directory — falling back to the
+// mock roster is fine, it just means a denied read shows stand-in names.
+export const fetchAssignees = isFirebaseConfigured
+  ? withMockFallback('tasks/assignees', live.fetchAssignees, mock.fetchAssignees)
+  : mock.fetchAssignees;
+
 export const saveTask = liveWrite('tasks/saveTask', writeLive.saveTask, mock.saveTask);
 export const deleteTask = liveWrite('tasks/deleteTask', writeLive.deleteTask, mock.deleteTask);
 export const restoreTask = liveWrite('tasks/restoreTask', writeLive.restoreTask, mock.restoreTask);

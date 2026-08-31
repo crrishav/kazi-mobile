@@ -1,11 +1,11 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp, FadeOutUp, LinearTransition } from 'react-native-reanimated';
 
-import { Avatar } from '@/components/ui/avatar';
+import { Avatar, tintFromSeed } from '@/components/ui/avatar';
 import { StatusPill, type StatusKind } from '@/components/ui/status-pill';
 import { useTheme } from '@/theme/theme-provider';
-import { fontFamily, tabularNums } from '@/theme';
-import { DUE_OPTIONS, PEOPLE, STATUS_LABEL } from '@/data/tasks/mock';
+import { fontFamily } from '@/theme';
+import { DUE_OPTIONS, STATUS_LABEL, initialsOf } from '@/data/tasks/mock';
 import type { Task, TaskStatus } from '@/data/tasks/types';
 
 const PILL_KIND: Record<TaskStatus, StatusKind> = {
@@ -23,7 +23,6 @@ export interface TaskRowProps {
 
 export function TaskRow({ task, index, onPress }: TaskRowProps) {
   const theme = useTheme();
-  const person = PEOPLE.find((p) => p.id === task.personId) ?? PEOPLE[0];
   const due = DUE_OPTIONS.find((d) => d.id === task.due) ?? DUE_OPTIONS[0];
   const isDone = task.status === 'done';
   const isDueToday = task.due === 'today' && !isDone;
@@ -38,7 +37,11 @@ export function TaskRow({ task, index, onPress }: TaskRowProps) {
         onPress={onPress}
         style={[styles.row, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }]}
       >
-        <Avatar initials={person.initials} tint={person.tint} size="md" />
+        <Avatar
+          initials={task.assignee ? initialsOf(task.assignee) : '—'}
+          tint={task.assignee ? tintFromSeed(task.assignee) : 'draft'}
+          size="md"
+        />
         <View style={styles.textWrap}>
           <Text
             style={[
@@ -50,7 +53,9 @@ export function TaskRow({ task, index, onPress }: TaskRowProps) {
             {task.title}
           </Text>
           <View style={styles.metaRow}>
-            <Text style={[styles.ref, tabularNums, { color: theme.textSecondary }]}>{task.ref}</Text>
+            <Text style={[styles.assignee, { color: theme.textSecondary }]} numberOfLines={1}>
+              {task.assignee || 'Unassigned'}
+            </Text>
             <View
               style={[
                 styles.dueChip,
@@ -92,9 +97,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  ref: {
-    fontFamily: fontFamily.mono,
-    fontSize: 11,
+  assignee: {
+    fontSize: 11.5,
+    flexShrink: 1,
   },
   dueChip: {
     height: 20,

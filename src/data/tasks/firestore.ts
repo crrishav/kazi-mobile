@@ -1,23 +1,24 @@
 /**
- * Live `tasks` reader (Track B, read-only). Maps the reference ERP's `tasks`
- * docs onto the mobile `Task` shape. Writes still go through `mock-api.ts`.
+ * Live `tasks` reader. Maps the reference ERP's `tasks` docs onto the mobile
+ * `Task` shape, and reads the assignee picker's list from `employees`.
  *
- * Live shape (sampled 2026-08-30):
- *   { title, description, status: "To Do"|"In Progress"|"Blocked"|"Done",
- *     assignee: string, priority: "low"|"med"|"high", dueDate: string,
- *     customer, orderRef, notes, category, createdBy, createdAt }
+ * Live shape (sampled 2026-08-31):
+ *   tasks      { title, description, status: "To Do"|"In Progress"|"Blocked"|"Done",
+ *                assignee: string (a plain display name, often ""), priority,
+ *                dueDate: string (usually ""), customer, orderRef, notes,
+ *                category, createdBy, createdAt }
+ *   employees  { name, email, role, status: "Active"|… }
  *
- * Gaps handled locally (see plan §Batch 1):
- *   - no `ref` field         → `TASK-<id slice>`
- *   - `dueDate` mostly ""    → bucketed to today/tomorrow/week, default `week`
- *   - `assignee` free string → first-name match to `PEOPLE`, else stable hash
+ * `assignee` is carried through as the raw name — the reference stores a name,
+ * not an id, so mapping it to a directory id and back would only lose data.
+ * `dueDate` is mostly empty, so it buckets to today/tomorrow/week, default `week`.
  */
 
 import { str } from '@/lib/firestore/normalise';
 import { readCollection, type DocData } from '@/lib/firestore/read';
 
-import { PEOPLE } from './mock';
-import type { DueOptionId, Task, TaskStatus } from './types';
+import { assigneeFromName } from './mock';
+import type { Assignee, DueOptionId, Task, TaskStatus } from './types';
 
 const STATUS_MAP: Record<string, TaskStatus> = {
   'to do': 'inactive',
@@ -49,35 +50,34 @@ function mapDue(raw: unknown): DueOptionId {
   return 'week';
 }
 
-function hashToPerson(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i += 1) h = (h * 31 + name.charCodeAt(i)) | 0;
-  return PEOPLE[Math.abs(h) % PEOPLE.length].id;
-}
-
-/** Live `assignee` name → a `PEOPLE` id (first-name match, else stable hash, else PEOPLE[0]). */
-function mapAssignee(raw: unknown): string {
-  const name = str(raw).trim();
-  if (!name) return PEOPLE[0].id;
-  const first = name.split(/\s+/)[0].toLowerCase();
-  const hit = PEOPLE.find((p) => p.name.toLowerCase() === first || p.name.toLowerCase() === name.toLowerCase());
-  return hit ? hit.id : hashToPerson(name);
-}
-
 function mapTaskDoc(id: string, d: DocData): Task | null {
   const title = str(d.title).trim();
   if (!title) return null;
-  const liveRef = str(d.orderRef).trim();
   return {
     id,
     title,
-    ref: liveRef || `TASK-${id.slice(0, 4).toUpperCase()}`,
     due: mapDue(d.dueDate),
     status: mapStatus(d.status),
-    personId: mapAssignee(d.assignee),
+    assignee: str(d.assignee).trim(),
   };
 }
 
 export async function fetchTasks(): Promise<Task[]> {
   return readCollection('tasks', mapTaskDoc);
+}
+
+/**
+ * Who a task can be assigned to: the live Employee Directory, active staff only,
+ * sorted by name. A staffer with no name is skipped — `tasks.assignee` is the
+ * name, so a blank one would be indistinguishable from unassigned.
+ */
+export async function fetchAssignees(): Promise<Assignee[]> {
+  const rows = await readCollection<Assignee>('employees', (id, d) => {
+    const name = str(d.name).trim();
+    if (!name) return null;
+    const status = str(d.status).trim().toLowerCase();
+    if (status && status !== 'active') return null;
+    return assigneeFromName(name, id, str(d.role).trim());
+  });
+  return rows.sort((a, b) => a.name.localeCompare(b.name));
 }

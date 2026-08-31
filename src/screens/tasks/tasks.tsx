@@ -9,17 +9,18 @@ import { PermissionNotice } from '@/components/ui/permission-notice';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import { PEOPLE, STATUS_ORDER } from '@/data/tasks/mock';
+import { STATUS_LABEL, STATUS_ORDER } from '@/data/tasks/mock';
 import { useDeleteTask, useSaveTask, useTasks, useUndoDeleteTask } from '@/data/tasks/hooks';
-import type { Task } from '@/data/tasks/types';
+import type { Task, TaskStatus } from '@/data/tasks/types';
 
 import { FilterChips, type TaskFilter } from './filter-chips';
 import { TasksHeader } from './header';
 import { TaskEditSheet } from './task-edit-sheet';
+import { TaskProgressSheet } from './task-progress-sheet';
 import { TaskRow } from './task-row';
 
 function emptyDraft(): Task {
-  return { id: `t${Date.now()}`, title: '', ref: '', due: 'today', status: 'progress', personId: 'sr' };
+  return { id: `t${Date.now()}`, title: '', due: 'today', status: 'progress', assignee: '' };
 }
 
 export function Tasks() {
@@ -38,6 +39,8 @@ export function Tasks() {
   const [dueTodayOnly, setDueTodayOnly] = useState(false);
   const [sheetMode, setSheetMode] = useState<'new' | 'edit' | null>(null);
   const [draft, setDraft] = useState<Task | null>(null);
+  // Non-admins get the progress-only sheet instead of the full editor.
+  const [progressTask, setProgressTask] = useState<Task | null>(null);
 
   if (!tasks) {
     return (
@@ -48,8 +51,7 @@ export function Tasks() {
   }
 
   const q = query.trim().toLowerCase();
-  const nameFor = (id: string) => PEOPLE.find((p) => p.id === id)?.name ?? '';
-  const matchesQuery = (t: Task) => !q || `${t.title} ${t.ref} ${nameFor(t.personId)}`.toLowerCase().includes(q);
+  const matchesQuery = (t: Task) => !q || `${t.title} ${t.assignee}`.toLowerCase().includes(q);
   const matchesFilters = (t: Task, f: TaskFilter) =>
     (f === 'all' || t.status === f) && (!dueTodayOnly || t.due === 'today') && matchesQuery(t);
   const countFor = (f: TaskFilter) => tasks.filter((t) => matchesFilters(t, f)).length;
@@ -61,8 +63,12 @@ export function Tasks() {
     setDraft(emptyDraft());
     setSheetMode('new');
   };
-  const openEdit = (task: Task) => {
-    if (!canEdit) return;
+  // Admins open the full editor; everyone else gets progress-only.
+  const openTask = (task: Task) => {
+    if (!canEdit) {
+      setProgressTask(task);
+      return;
+    }
     setDraft({ ...task });
     setSheetMode('edit');
   };
@@ -70,11 +76,17 @@ export function Tasks() {
     setSheetMode(null);
     setDraft(null);
   };
+
+  const handleSaveProgress = (status: TaskStatus) => {
+    if (!progressTask) return;
+    saveTask.mutate({ ...progressTask, status });
+    setProgressTask(null);
+  };
   const patchDraft = (patch: Partial<Task>) => setDraft((d) => (d ? { ...d, ...patch } : d));
 
   const handleSave = () => {
     if (!draft) return;
-    const cleaned: Task = { ...draft, title: draft.title.trim() || 'Untitled task', ref: draft.ref.trim() || '—' };
+    const cleaned: Task = { ...draft, title: draft.title.trim() || 'Untitled task' };
     saveTask.mutate(cleaned);
     closeSheet();
   };
@@ -105,7 +117,7 @@ export function Tasks() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search tasks, ref or assignee"
+            placeholder="Search tasks or assignee"
             placeholderTextColor={theme.textSecondary}
             style={[styles.searchInput, { color: theme.textPrimary }]}
           />
@@ -130,7 +142,7 @@ export function Tasks() {
       </View>
 
       <ScrollView contentContainerStyle={styles.list}>
-        <PermissionNotice section="tasks" />
+        <PermissionNotice section="tasks" message="Tap a task to move its progress. Everything else is set by an admin." />
         {visible.length === 0 ? (
           <EmptyState
             icon="check"
@@ -145,12 +157,12 @@ export function Tasks() {
               <View key={status} style={styles.group}>
                 <View style={styles.groupHeader}>
                   <View style={[styles.groupDot, { backgroundColor: groupDotColor(theme, status) }]} />
-                  <Text style={[styles.groupLabel, { color: theme.textPrimary }]}>{groupLabel(status)}</Text>
+                  <Text style={[styles.groupLabel, { color: theme.textPrimary }]}>{STATUS_LABEL[status]}</Text>
                   <Text style={[styles.groupCount, { color: theme.textSecondary }]}>{group.length}</Text>
                   <View style={[styles.groupLine, { backgroundColor: theme.border }]} />
                 </View>
                 {group.map((task, index) => (
-                  <TaskRow key={task.id} task={task} index={index} onPress={() => openEdit(task)} />
+                  <TaskRow key={task.id} task={task} index={index} onPress={() => openTask(task)} />
                 ))}
               </View>
             );
@@ -167,6 +179,14 @@ export function Tasks() {
         </Pressable>
       ) : null}
 
+      <TaskProgressSheet
+        visible={progressTask !== null}
+        task={progressTask}
+        saving={saveTask.isPending}
+        onClose={() => setProgressTask(null)}
+        onSave={handleSaveProgress}
+      />
+
       <TaskEditSheet
         visible={sheetMode !== null}
         draft={draft}
@@ -178,10 +198,6 @@ export function Tasks() {
       />
     </View>
   );
-}
-
-function groupLabel(status: Task['status']): string {
-  return { blocked: 'Blocked', progress: 'In progress', inactive: 'Inactive', done: 'Done' }[status];
 }
 
 function groupDotColor(theme: ReturnType<typeof useTheme>, status: Task['status']): string {

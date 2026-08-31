@@ -12,7 +12,6 @@ import { getDb } from '@/lib/firebase';
 import { createDocument, patchDocument, removeDocument } from '@/lib/firestore/write';
 import { getActor } from '@/data/notifications/actor';
 
-import { PEOPLE } from './mock';
 import type { Task, TaskStatus } from './types';
 
 const COLLECTION = 'tasks';
@@ -24,10 +23,6 @@ const STATUS_TO_LIVE: Record<TaskStatus, string> = {
   done: 'Done',
 };
 
-function assigneeName(personId: string): string {
-  return PEOPLE.find((p) => p.id === personId)?.name ?? '';
-}
-
 function dueDateFor(due: Task['due']): string {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -36,12 +31,16 @@ function dueDateFor(due: Task['due']): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Only the fields the mobile edit owns. `orderRef` is deliberately absent: the
+ * mobile task has no reference field any more, and patching it would wipe one
+ * set on the web.
+ */
 function toLive(task: Task) {
   return {
     title: task.title,
     status: STATUS_TO_LIVE[task.status],
-    assignee: assigneeName(task.personId),
-    orderRef: task.ref,
+    assignee: task.assignee,
     dueDate: dueDateFor(task.due),
   };
 }
@@ -57,7 +56,13 @@ export async function saveTask(task: Task): Promise<void> {
   if (exists) {
     await patchDocument(COLLECTION, task.id, toLive(task));
   } else {
-    await createDocument(COLLECTION, { ...toLive(task), description: '', category: '', createdBy: getActor()?.name ?? 'kazi-mobile' });
+    await createDocument(COLLECTION, {
+      ...toLive(task),
+      description: '',
+      category: '',
+      orderRef: '',
+      createdBy: getActor()?.name ?? 'kazi-mobile',
+    });
   }
 }
 
@@ -67,5 +72,11 @@ export async function deleteTask(id: string): Promise<void> {
 
 /** Undo-after-delete — re-creates the row (a fresh doc id). */
 export async function restoreTask(task: Task, _index: number): Promise<void> {
-  await createDocument(COLLECTION, { ...toLive(task), description: '', category: '', createdBy: getActor()?.name ?? 'kazi-mobile' });
+  await createDocument(COLLECTION, {
+    ...toLive(task),
+    description: '',
+    category: '',
+    orderRef: '',
+    createdBy: getActor()?.name ?? 'kazi-mobile',
+  });
 }

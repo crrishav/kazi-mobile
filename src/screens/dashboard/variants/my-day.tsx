@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/auth/auth-context';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useMyDayDashboard } from '@/data/dashboard/hooks';
-import { STATUS_LABEL } from '@/data/tasks/mock';
+import { DUE_OPTIONS, STATUS_LABEL } from '@/data/tasks/mock';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 
@@ -67,7 +67,9 @@ export function MyDayDashboard() {
                     <Text style={[styles.taskTitle, { color: theme.textPrimary }]} numberOfLines={1}>
                       {t.title}
                     </Text>
-                    <Text style={[styles.taskRef, tabularNums, { color: theme.textSecondary }]}>{t.ref}</Text>
+                    <Text style={[styles.taskRef, tabularNums, { color: theme.textSecondary }]}>
+                      {DUE_OPTIONS.find((d) => d.id === t.due)?.label ?? ''}
+                    </Text>
                   </View>
                   <Text style={[styles.taskStatus, { color: theme.textSecondary }]}>{STATUS_LABEL[t.status]}</Text>
                 </View>
