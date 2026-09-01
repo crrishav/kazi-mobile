@@ -18,7 +18,7 @@
  */
 
 import { num, str } from '@/lib/firestore/normalise';
-import { readCollection, type DocData } from '@/lib/firestore/read';
+import { readCollection, type DocData } from '@/lib/supabase/read';
 
 import type { LibraryItem, StockItem, StockMovement } from './types';
 

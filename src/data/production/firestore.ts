@@ -13,7 +13,7 @@
  */
 
 import { num, str, tsToISO } from '@/lib/firestore/normalise';
-import { readCollection, type DocData } from '@/lib/firestore/read';
+import { readCollection, type DocData } from '@/lib/supabase/read';
 
 import { PEOPLE } from './mock';
 import type { Batch, BatchStatus, StageKey } from './types';

@@ -28,12 +28,12 @@
  * Roll-call editing is admin-gated in the UI (permission path in the rules).
  */
 
-import { collection, doc, getDoc, getDocs, query, serverTimestamp, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, where } from '@/lib/supabase/firestore-compat';
 
 import { evaluateGeofence } from '@/lib/geo';
-import { getDb } from '@/lib/firebase';
+import { getDb } from '@/lib/supabase/firestore-compat';
 import { num, str, tsToISO } from '@/lib/firestore/normalise';
-import { createDocument, patchDocument, setDocument } from '@/lib/firestore/write';
+import { createDocument, patchDocument, setDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
 import { calculateAttendanceStatus } from './schedule';

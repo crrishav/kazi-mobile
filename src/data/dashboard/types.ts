@@ -82,7 +82,7 @@ export interface MyDayDashboard {
   myTasks: MyDayTask[];
   myOpenCount: number;
   attendanceMonth: { present: number; late: number; leave: number; absent: number };
+  /** Your tasks closed this period — still used to tell "no data yet" from "nothing to do". */
   tasksDone: number;
-  taskTarget: number;
   financeMTD: number;
 }

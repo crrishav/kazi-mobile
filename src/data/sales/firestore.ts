@@ -16,7 +16,7 @@
  */
 
 import { num, parseMaybeJson, str, tsToISO } from '@/lib/firestore/normalise';
-import { readCollection, type DocData } from '@/lib/firestore/read';
+import { readCollection, type DocData } from '@/lib/supabase/read';
 
 import { STAGE_IDS, stageIndex } from './mock';
 import type { Order, OrderNote, OrderPriority, StageHistoryEntry, StageId } from './types';

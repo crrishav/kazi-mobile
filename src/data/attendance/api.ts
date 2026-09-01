@@ -9,9 +9,9 @@
  * `restoreTeam` stays mock-only (used only as a local snapshot restore).
  */
 
-import { isFirebaseConfigured } from '@/lib/firebase';
-import { withMockFallback } from '@/lib/firestore/read';
-import { liveWrite } from '@/lib/firestore/write';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { withMockFallback } from '@/lib/supabase/read';
+import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
 import * as liveMonth from './firestore-month';
@@ -22,25 +22,25 @@ import type { AttendanceStatus } from './types';
 export { restoreTeam, statusLabel } from './mock-api';
 export type { ClockToggleInput } from './mock-api';
 
-export const fetchTeam = isFirebaseConfigured
+export const fetchTeam = isSupabaseConfigured
   ? withMockFallback('attendance/team', live.fetchTeam, mock.fetchTeam)
   : mock.fetchTeam;
 
-export const fetchClockPunches = isFirebaseConfigured
+export const fetchClockPunches = isSupabaseConfigured
   ? withMockFallback('attendance/punches', live.fetchClockPunches, mock.fetchClockPunches)
   : mock.fetchClockPunches;
 
 // No mock fallback: `writeLive.fetchClockStatus` already catches its own errors
 // and returns a safe "not clocked in" state. Falling back to the mock here would
 // surface its seeded "clocked in since 08:12" demo value to a real user.
-export const fetchClockStatus = isFirebaseConfigured
+export const fetchClockStatus = isSupabaseConfigured
   ? writeLive.fetchClockStatus
   : mock.fetchClockStatus;
 
 // Same reasoning as `fetchClockStatus`: no mock fallback. `liveMonth.fetchMyMonth`
 // catches its own read failures and returns an honest empty month — falling back
 // would show a real user the seeded "168h 40m / NPR 1,250 deduction" persona.
-export const fetchMyMonth = isFirebaseConfigured ? liveMonth.fetchMyMonth : mock.fetchMyMonth;
+export const fetchMyMonth = isSupabaseConfigured ? liveMonth.fetchMyMonth : mock.fetchMyMonth;
 
 export const toggleClock = liveWrite('attendance/toggleClock', writeLive.toggleClock, mock.toggleClock);
 

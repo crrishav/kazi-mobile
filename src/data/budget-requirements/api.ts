@@ -7,19 +7,19 @@
  * (`type` discriminates). Snapshot-undo restores are not reversed server-side.
  */
 
-import { isFirebaseConfigured } from '@/lib/firebase';
-import { withMockFallback } from '@/lib/firestore/read';
-import { liveWrite } from '@/lib/firestore/write';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { withMockFallback } from '@/lib/supabase/read';
+import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
 import * as writeLive from './firestore-write';
 import * as mock from './mock-api';
 
-export const fetchRequirements = isFirebaseConfigured
+export const fetchRequirements = isSupabaseConfigured
   ? withMockFallback('budget-requirements/req', live.fetchRequirements, mock.fetchRequirements)
   : mock.fetchRequirements;
 
-export const fetchBudgetRequests = isFirebaseConfigured
+export const fetchBudgetRequests = isSupabaseConfigured
   ? withMockFallback('budget-requirements/budget', live.fetchBudgetRequests, mock.fetchBudgetRequests)
   : mock.fetchBudgetRequests;
 

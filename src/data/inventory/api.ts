@@ -9,24 +9,24 @@
  * server-side.
  */
 
-import { isFirebaseConfigured } from '@/lib/firebase';
-import { withMockFallback } from '@/lib/firestore/read';
-import { liveWrite } from '@/lib/firestore/write';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { withMockFallback } from '@/lib/supabase/read';
+import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
 import * as writeLive from './firestore-write';
 import * as mock from './mock-api';
 import type { StockItem, StockMoveKind, StockMovement } from './types';
 
-export const fetchStock = isFirebaseConfigured
+export const fetchStock = isSupabaseConfigured
   ? withMockFallback('inventory/stock', live.fetchStock, mock.fetchStock)
   : mock.fetchStock;
 
-export const fetchLibrary = isFirebaseConfigured
+export const fetchLibrary = isSupabaseConfigured
   ? withMockFallback('inventory/library', live.fetchLibrary, mock.fetchLibrary)
   : mock.fetchLibrary;
 
-export const fetchMovements = isFirebaseConfigured
+export const fetchMovements = isSupabaseConfigured
   ? withMockFallback('inventory/movements', live.fetchMovements, mock.fetchMovements)
   : mock.fetchMovements;
 

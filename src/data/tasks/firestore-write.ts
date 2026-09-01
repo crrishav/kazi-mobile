@@ -6,10 +6,10 @@
  * 3-way bucket on mobile, so `dueDate` is reconstructed to a concrete date.
  */
 
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from '@/lib/supabase/firestore-compat';
 
-import { getDb } from '@/lib/firebase';
-import { createDocument, patchDocument, removeDocument } from '@/lib/firestore/write';
+import { getDb } from '@/lib/supabase/firestore-compat';
+import { createDocument, patchDocument, removeDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
 import type { Task, TaskStatus } from './types';

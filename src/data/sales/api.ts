@@ -7,15 +7,15 @@
  * (snapshot undo) is not reversed server-side.
  */
 
-import { isFirebaseConfigured } from '@/lib/firebase';
-import { withMockFallback } from '@/lib/firestore/read';
-import { liveWrite } from '@/lib/firestore/write';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { withMockFallback } from '@/lib/supabase/read';
+import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
 import * as writeLive from './firestore-write';
 import * as mock from './mock-api';
 
-export const fetchOrders = isFirebaseConfigured
+export const fetchOrders = isSupabaseConfigured
   ? withMockFallback('sales', live.fetchOrders, mock.fetchOrders)
   : mock.fetchOrders;
 

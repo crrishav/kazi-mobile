@@ -8,11 +8,11 @@
  * read-modify-write.
  */
 
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from '@/lib/supabase/firestore-compat';
 
-import { getDb } from '@/lib/firebase';
+import { getDb } from '@/lib/supabase/firestore-compat';
 import { num } from '@/lib/firestore/normalise';
-import { createDocument, patchDocument } from '@/lib/firestore/write';
+import { createDocument, patchDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
 import type { Invoice, Payment, Quotation, QuotationStatus } from './types';

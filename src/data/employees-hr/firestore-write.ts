@@ -10,11 +10,11 @@
  * collection and stay mock-only.
  */
 
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs } from '@/lib/supabase/firestore-compat';
 
-import { getDb } from '@/lib/firebase';
+import { getDb } from '@/lib/supabase/firestore-compat';
 import { str } from '@/lib/firestore/normalise';
-import { createDocument, patchDocument, removeDocument } from '@/lib/firestore/write';
+import { createDocument, patchDocument, removeDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
 import type { Employee } from './types';

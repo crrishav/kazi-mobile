@@ -8,9 +8,9 @@
  * server-side.
  */
 
-import { isFirebaseConfigured } from '@/lib/firebase';
-import { withMockFallback } from '@/lib/firestore/read';
-import { liveWrite } from '@/lib/firestore/write';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { withMockFallback } from '@/lib/supabase/read';
+import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
 import * as writeLive from './firestore-write';
@@ -32,19 +32,19 @@ export {
   deleteJournalEntry,
 } from './mock-api';
 
-export const fetchExpenses = isFirebaseConfigured
+export const fetchExpenses = isSupabaseConfigured
   ? withMockFallback('finance/expenses', live.fetchExpenses, mock.fetchExpenses)
   : mock.fetchExpenses;
 
-export const fetchAccounts = isFirebaseConfigured
+export const fetchAccounts = isSupabaseConfigured
   ? withMockFallback('finance/accounts', live.fetchAccounts, mock.fetchAccounts)
   : mock.fetchAccounts;
 
-export const fetchJournalEntries = isFirebaseConfigured
+export const fetchJournalEntries = isSupabaseConfigured
   ? withMockFallback('finance/journal', live.fetchJournalEntries, mock.fetchJournalEntries)
   : mock.fetchJournalEntries;
 
-export const fetchBankTransactions = isFirebaseConfigured
+export const fetchBankTransactions = isSupabaseConfigured
   ? withMockFallback('finance/bank', live.fetchBankTransactions, mock.fetchBankTransactions)
   : mock.fetchBankTransactions;
 

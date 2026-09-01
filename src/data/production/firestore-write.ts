@@ -7,7 +7,7 @@
  * Stage / status moves have no live field and stay mock-only.
  */
 
-import { createDocument, patchDocument } from '@/lib/firestore/write';
+import { createDocument, patchDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
 import type { Batch } from './types';

@@ -7,7 +7,7 @@
  */
 
 import { queryClient } from '@/data/client';
-import { isFirebaseConfigured } from '@/lib/firebase';
+import { isSupabaseConfigured as isFirebaseConfigured } from '@/lib/supabase';
 
 import { getActor } from './actor';
 import { describeEvent, deepLinkFor } from './events';

@@ -4,7 +4,7 @@
  * (`removeFromQueue` / `restoreToQueue`) stay mock-only.
  */
 
-import { createDocument } from '@/lib/firestore/write';
+import { createDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
 import type { CheckVerdict, QcLog } from './types';

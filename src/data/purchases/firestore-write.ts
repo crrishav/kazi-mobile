@@ -4,7 +4,7 @@
  * field names already mirror the live doc, so the mapping is near 1:1.
  */
 
-import { createDocument, patchDocument, removeDocument } from '@/lib/firestore/write';
+import { createDocument, patchDocument, removeDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
 import type { PurchaseEntry } from './types';

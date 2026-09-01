@@ -15,7 +15,7 @@
  */
 
 import { str } from '@/lib/firestore/normalise';
-import { readCollection, type DocData } from '@/lib/firestore/read';
+import { readCollection, type DocData } from '@/lib/supabase/read';
 
 import { assigneeFromName } from './mock';
 import type { Assignee, DueOptionId, Task, TaskStatus } from './types';

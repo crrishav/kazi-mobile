@@ -4,7 +4,7 @@
  * `invoices` are joins, never written here.
  */
 
-import { createDocument, patchDocument, removeDocument } from '@/lib/firestore/write';
+import { createDocument, patchDocument, removeDocument } from '@/lib/supabase/write';
 
 import type { Customer } from './types';
 

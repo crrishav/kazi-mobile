@@ -7,9 +7,9 @@
  * full history from the current stage, so patching `stage` alone is enough.
  */
 
-import { arrayUnion } from 'firebase/firestore';
+import { arrayUnion } from '@/lib/supabase/firestore-compat';
 
-import { createDocument, patchDocument, removeDocument } from '@/lib/firestore/write';
+import { createDocument, patchDocument, removeDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
 import type { Order, OrderNote, OrderPriority, StageId } from './types';

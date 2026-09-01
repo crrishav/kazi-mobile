@@ -15,11 +15,11 @@
  *     payroll is computed on screen and can be synced from Attendance
  */
 
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs } from '@/lib/supabase/firestore-compat';
 
 import type { AvatarTint } from '@/components/ui/avatar';
 import { num, str } from '@/lib/firestore/normalise';
-import { getDb } from '@/lib/firebase';
+import { getDb } from '@/lib/supabase/firestore-compat';
 
 import type { Employee } from './types';
 

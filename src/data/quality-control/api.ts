@@ -7,9 +7,9 @@
  * off `production` with no live collection.
  */
 
-import { isFirebaseConfigured } from '@/lib/firebase';
-import { withMockFallback } from '@/lib/firestore/read';
-import { liveWrite } from '@/lib/firestore/write';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { withMockFallback } from '@/lib/supabase/read';
+import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
 import * as writeLive from './firestore-write';
@@ -17,7 +17,7 @@ import * as mock from './mock-api';
 
 export { fetchQueue, removeFromQueue, restoreToQueue } from './mock-api';
 
-export const fetchQcLogs = isFirebaseConfigured
+export const fetchQcLogs = isSupabaseConfigured
   ? withMockFallback('quality-control/logs', live.fetchQcLogs, mock.fetchQcLogs)
   : mock.fetchQcLogs;
 

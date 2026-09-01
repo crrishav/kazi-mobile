@@ -3,7 +3,7 @@
  * tabs; the `type` field ("budget" | "requirement") discriminates.
  */
 
-import { createDocument, patchDocument } from '@/lib/firestore/write';
+import { createDocument, patchDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
 import type { BudgetRequest, Requirement } from './types';

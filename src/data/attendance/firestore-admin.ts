@@ -13,9 +13,9 @@
  * rules are the real boundary.
  */
 
-import { serverTimestamp } from 'firebase/firestore';
+import { serverTimestamp } from '@/lib/supabase/firestore-compat';
 
-import { patchDocument, setDocument } from '@/lib/firestore/write';
+import { patchDocument, setDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
 import {

@@ -25,8 +25,6 @@ import type {
   TaskBoardCounts,
 } from './types';
 
-const TASK_TARGET = 10;
-
 const thisMonth = (): string => new Date().toISOString().slice(0, 7);
 
 /** "रु 41.2L" above a lakh, plain grouped rupees below it. */
@@ -284,7 +282,6 @@ export function deriveMyDay(input: {
       absent: month?.absent ?? 0,
     },
     tasksDone,
-    taskTarget: TASK_TARGET,
     financeMTD: input.canViewFinance ? financeMTD(input.expenses) : 0,
   };
 }

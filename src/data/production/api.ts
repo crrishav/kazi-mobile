@@ -7,15 +7,15 @@
  * edits round-trip (see `firestore-write.ts`); stage moves stay local.
  */
 
-import { isFirebaseConfigured } from '@/lib/firebase';
-import { withMockFallback } from '@/lib/firestore/read';
-import { liveWrite } from '@/lib/firestore/write';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { withMockFallback } from '@/lib/supabase/read';
+import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
 import * as writeLive from './firestore-write';
 import * as mock from './mock-api';
 
-export const fetchBatches = isFirebaseConfigured
+export const fetchBatches = isSupabaseConfigured
   ? withMockFallback('production', live.fetchBatches, mock.fetchBatches)
   : mock.fetchBatches;
 

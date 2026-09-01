@@ -7,15 +7,15 @@
  * (snapshot undo) is not reversed server-side — see `firestore-write.ts`.
  */
 
-import { isFirebaseConfigured } from '@/lib/firebase';
-import { withMockFallback } from '@/lib/firestore/read';
-import { liveWrite } from '@/lib/firestore/write';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { withMockFallback } from '@/lib/supabase/read';
+import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
 import * as writeLive from './firestore-write';
 import * as mock from './mock-api';
 
-export const fetchCustomers = isFirebaseConfigured
+export const fetchCustomers = isSupabaseConfigured
   ? withMockFallback('customers', live.fetchCustomers, mock.fetchCustomers)
   : mock.fetchCustomers;
 

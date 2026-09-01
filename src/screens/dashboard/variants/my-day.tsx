@@ -30,9 +30,6 @@ export function MyDayDashboard() {
     { key: 'absent', label: 'Absent', value: att.absent, color: theme.dangerWashText },
   ];
 
-  const target = data.taskTarget || 1;
-  const ratio = Math.min(data.tasksDone / target, 1);
-  const hitTarget = data.tasksDone >= data.taskTarget;
   const nothingYet =
     data.myOpenCount === 0 &&
     data.tasksDone === 0 &&
@@ -92,30 +89,6 @@ export function MyDayDashboard() {
         </DashboardCard>
       ) : null}
 
-      {canView('tasks') ? (
-        <DashboardCard title="Task target" onPress={() => router.push('/tasks')}>
-          <View style={styles.targetHeader}>
-            <Text style={[styles.targetValue, tabularNums, { color: theme.textPrimary }]}>{data.tasksDone}</Text>
-            <Text style={[styles.targetSub, { color: theme.textSecondary }]}>
-              of {data.taskTarget} tasks
-            </Text>
-          </View>
-          <View style={[styles.track, { backgroundColor: theme.border }]}>
-            <View
-              style={[
-                styles.fill,
-                { width: `${ratio * 100}%`, backgroundColor: hitTarget ? theme.accent : theme.link },
-              ]}
-            />
-          </View>
-          <Text style={[styles.targetNote, { color: theme.textSecondary }]}>
-            {hitTarget
-              ? 'Target hit — nice work.'
-              : `${data.taskTarget - data.tasksDone} more to hit your target`}
-          </Text>
-        </DashboardCard>
-      ) : null}
-
       {canView('finance') ? (
         <DashboardCard title="Spend · this month" onPress={() => router.push('/finance')}>
           <Text style={[styles.financeValue, tabularNums, { color: theme.textPrimary }]}>
@@ -168,31 +141,6 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 11.5,
-  },
-  targetHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-  },
-  targetValue: {
-    fontFamily: fontFamily.semibold,
-    fontSize: 30,
-    letterSpacing: -0.02 * 30,
-  },
-  targetSub: {
-    fontSize: 12,
-  },
-  track: {
-    height: 12,
-    borderRadius: 99,
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-    borderRadius: 99,
-  },
-  targetNote: {
-    fontSize: 12,
   },
   financeValue: {
     fontFamily: fontFamily.semibold,

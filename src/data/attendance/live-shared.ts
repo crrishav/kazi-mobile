@@ -17,9 +17,9 @@
  * one denied collection can't blank a whole screen.
  */
 
-import { collection, getDocs, query, where, type QueryConstraint } from 'firebase/firestore';
+import { collection, getDocs, query, where, type QueryConstraint } from '@/lib/supabase/firestore-compat';
 
-import { getDb } from '@/lib/firebase';
+import { getDb } from '@/lib/supabase/firestore-compat';
 import { arr, num, str, tsToISO } from '@/lib/firestore/normalise';
 
 import type { AttendanceStatus, DayDetail, WorkSchedule } from './types';

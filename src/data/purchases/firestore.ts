@@ -14,7 +14,7 @@
  */
 
 import { bool, num, parseMaybeJson, str, tsToISO } from '@/lib/firestore/normalise';
-import { readCollection, type DocData } from '@/lib/firestore/read';
+import { readCollection, type DocData } from '@/lib/supabase/read';
 
 import { PURCHASE_CATEGORIES, type PaymentType, type PurchaseCategory, type PurchaseEntry, type PurchaseLine } from './types';
 import { computeTotals } from './utils';

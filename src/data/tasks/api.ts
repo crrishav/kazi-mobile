@@ -8,21 +8,21 @@
  * on remount) — no per-mutation invalidation is wired this pass.
  */
 
-import { isFirebaseConfigured } from '@/lib/firebase';
-import { withMockFallback } from '@/lib/firestore/read';
-import { liveWrite } from '@/lib/firestore/write';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { withMockFallback } from '@/lib/supabase/read';
+import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
 import * as writeLive from './firestore-write';
 import * as mock from './mock-api';
 
-export const fetchTasks = isFirebaseConfigured
+export const fetchTasks = isSupabaseConfigured
   ? withMockFallback('tasks', live.fetchTasks, mock.fetchTasks)
   : mock.fetchTasks;
 
 // The assignee picker is the live Employee Directory — falling back to the
 // mock roster is fine, it just means a denied read shows stand-in names.
-export const fetchAssignees = isFirebaseConfigured
+export const fetchAssignees = isSupabaseConfigured
   ? withMockFallback('tasks/assignees', live.fetchAssignees, mock.fetchAssignees)
   : mock.fetchAssignees;
 

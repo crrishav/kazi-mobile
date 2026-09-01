@@ -8,7 +8,7 @@
  * (or no live field) and stay mock-only.
  */
 
-import { createDocument, patchDocument, removeDocument } from '@/lib/firestore/write';
+import { createDocument, patchDocument, removeDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
 import type { BankTransaction, Expense, ExpenseCategoryId, JournalEntry } from './types';

@@ -16,9 +16,10 @@ import {
   updateDoc,
   where,
   writeBatch,
-} from 'firebase/firestore';
+} from '@/lib/supabase/firestore-compat';
 
-import { getDb, isFirebaseConfigured } from '@/lib/firebase';
+import { getDb } from '@/lib/supabase/firestore-compat';
+import { isSupabaseConfigured as isFirebaseConfigured } from '@/lib/supabase';
 import { tsToISO } from '@/lib/firestore/normalise';
 
 import type { NotificationDoc, NotificationRecord } from './types';

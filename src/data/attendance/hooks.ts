@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { isFirebaseConfigured } from '@/lib/firebase';
+import { isSupabaseConfigured as isFirebaseConfigured } from '@/lib/supabase';
 import { notify } from '@/data/notifications/notify';
 
 import { attendanceKeys } from './keys';

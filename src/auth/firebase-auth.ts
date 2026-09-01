@@ -25,6 +25,7 @@ import { tsToISO } from '@/lib/firestore/normalise';
 
 import type { Session } from './mock-auth';
 import { DEFAULT_NEPAL_ADMIN_PERMISSIONS, type PermissionOverrides } from './permissions';
+import { fetchSupabaseIdentity } from './supabase-profile';
 import { ROLES, type Role } from './roles';
 import { findTeamMember } from './team-members';
 
@@ -162,10 +163,47 @@ function applyStaffOverrides(
   }
 }
 
+/**
+ * The coarse legacy role, derived from the position's tier. Nothing gates on
+ * it any more — RLS and the position matrix do — but a few screens still read
+ * `appRole`, so it is kept consistent rather than left stale.
+ */
+function roleFromTier(tier: number, location: 'nepal' | 'uk'): Role {
+  if (tier >= 4) return 'super_admin';
+  if (tier === 3) return location === 'uk' ? 'uk_admin' : 'nepal_admin';
+  if (tier === 2) return 'nepal_admin';
+  if (tier === 1) return 'nepal_staff';
+  return 'employee';
+}
+
 async function resolveProfile(user: User): Promise<Session> {
-  const db = getDb();
   const email = (user.email ?? '').toLowerCase();
   const uid = user.uid;
+
+  // Preferred path: Postgres knows who this is and what their position grants.
+  // Firebase supplies only the session. The Firestore chain below is kept as a
+  // fallback for when Supabase is unreachable, so sign-in never hard-fails.
+  const identity = await fetchSupabaseIdentity();
+  if (identity) {
+    const location = identity.location ?? 'nepal';
+    const name = identity.fullName || user.displayName || email || 'User';
+    return {
+      email: identity.email || email,
+      name,
+      initials: initialsFrom(name, email),
+      role: identity.positionLabel ?? '',
+      appRole: email === 'admin@kazi.com'
+        ? 'super_admin'
+        : roleFromTier(identity.tier, location),
+      jobRole: identity.positionLabel ?? '',
+      permissions: identity.permissions,
+      uid,
+      location,
+      status: 'Active', // an Inactive person resolves to no row at all, so we never get here
+    };
+  }
+
+  const db = getDb();
 
   // 1. employees, matched by email — source of truth for `status`.
   let employee: EmployeeDoc | null = null;
@@ -215,9 +253,18 @@ async function resolveProfile(user: User): Promise<Session> {
       ? 'uk'
       : 'nepal';
 
-  let permissions = userDoc?.permissions;
-  if (!permissions && appRole === 'nepal_admin') permissions = DEFAULT_NEPAL_ADMIN_PERMISSIONS;
-  permissions = applyStaffOverrides(email, permissions);
+  // Permissions come from Postgres: the person's POSITION decides what they
+  // see, via `position_permissions`. The local rules below are only a fallback
+  // for when Supabase can't be reached — and even then they are advisory,
+  // since RLS is what actually allows or refuses every read and write.
+
+
+  let permissions: PermissionOverrides | undefined;
+  {
+    permissions = userDoc?.permissions;
+    if (!permissions && appRole === 'nepal_admin') permissions = DEFAULT_NEPAL_ADMIN_PERMISSIONS;
+    permissions = applyStaffOverrides(email, permissions);
+  }
 
   const createdAt = tsToISO(userDoc?.createdAt) || undefined;
 

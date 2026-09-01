@@ -4,7 +4,7 @@
  * `scheduledDate` ISO string (mobile `m` is 0-indexed).
  */
 
-import { createDocument, patchDocument, removeDocument } from '@/lib/firestore/write';
+import { createDocument, patchDocument, removeDocument } from '@/lib/supabase/write';
 
 import type { CalendarEntry, EntryKind } from './types';
 
