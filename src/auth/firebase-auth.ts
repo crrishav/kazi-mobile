@@ -1,9 +1,14 @@
 /**
- * Real Firebase Auth + Firestore profile resolution (FRONTEND_GAP_PLAN §2.2).
+ * Firebase Auth + the legacy Firestore profile chain.
  *
- * Mirrors the surface `auth-context.tsx` needs, but session delivery is a
- * subscription (`subscribe`) rather than a one-shot read — `onAuthStateChanged`
- * is the source of truth and also restores a persisted session on cold start.
+ * **This is the fallback source, not the primary one.** Postgres cannot verify
+ * a Firebase token, so a session that exists only here reads no live data —
+ * `real-auth.ts` prefers a Supabase session and comes back to this chain only
+ * when there isn't one. It is kept because 8 of 11 staff have not yet set a
+ * Supabase password, and dropping it would lock them out entirely.
+ *
+ * Session delivery is a subscription (`subscribeUser`) rather than a one-shot
+ * read — `onAuthStateChanged` also restores a persisted session on cold start.
  *
  * `resolveProfile` ports the reference `src/context/AuthContext.jsx` chain:
  *   Firebase Auth user → `employees` (by email) → `TEAM_MEMBERS` → `users/{uid}`.
@@ -25,20 +30,13 @@ import { tsToISO } from '@/lib/firestore/normalise';
 
 import type { Session } from './mock-auth';
 import { DEFAULT_NEPAL_ADMIN_PERMISSIONS, type PermissionOverrides } from './permissions';
-import { fetchSupabaseIdentity } from './supabase-profile';
 import { ROLES, type Role } from './roles';
+import { initialsFrom } from './session-shape';
 import { findTeamMember } from './team-members';
 
 const ROLE_SET = new Set<string>(ROLES);
 function asRole(value: unknown): Role | null {
   return typeof value === 'string' && ROLE_SET.has(value) ? (value as Role) : null;
-}
-
-function initialsFrom(name: string, email: string): string {
-  const src = name.trim() || email.split('@')[0] || 'User';
-  const parts = src.split(/[.\-_\s]+/).filter(Boolean);
-  const letters = parts.slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('');
-  return letters || src.slice(0, 2).toUpperCase();
 }
 
 // ---- Auth actions ---------------------------------------------------------
@@ -56,24 +54,9 @@ export async function signOut(): Promise<void> {
   await fbSignOut(getFirebaseAuth());
 }
 
-/** Real auth has no dev role switch — the switcher is hidden when Firebase is configured. */
-export async function setDevRole(_role?: Role): Promise<Session | null> {
-  return null;
-}
-
-export function subscribe(onSession: (session: Session | null) => void): () => void {
-  return onAuthStateChanged(getFirebaseAuth(), async (user) => {
-    if (!user) {
-      onSession(null);
-      return;
-    }
-    try {
-      onSession(await resolveProfile(user));
-    } catch (err) {
-      console.warn('[auth] profile resolve failed — using a minimal session', err);
-      onSession(minimalSession(user));
-    }
-  });
+/** Raw Firebase user stream. `real-auth.ts` combines it with the Supabase one. */
+export function subscribeUser(onUser: (user: User | null) => void): () => void {
+  return onAuthStateChanged(getFirebaseAuth(), onUser);
 }
 
 // ---- Profile resolution -------------------------------------------------------
@@ -93,22 +76,6 @@ interface UserDoc {
   location?: unknown;
   permissions?: PermissionOverrides;
   createdAt?: unknown;
-}
-
-function minimalSession(user: User): Session {
-  const email = (user.email ?? '').toLowerCase();
-  const name = user.displayName || email || 'User';
-  return {
-    email,
-    name,
-    initials: initialsFrom(name, email),
-    role: '',
-    appRole: 'employee',
-    jobRole: '',
-    uid: user.uid,
-    location: 'nepal',
-    status: 'Active',
-  };
 }
 
 /**
@@ -163,46 +130,9 @@ function applyStaffOverrides(
   }
 }
 
-/**
- * The coarse legacy role, derived from the position's tier. Nothing gates on
- * it any more — RLS and the position matrix do — but a few screens still read
- * `appRole`, so it is kept consistent rather than left stale.
- */
-function roleFromTier(tier: number, location: 'nepal' | 'uk'): Role {
-  if (tier >= 4) return 'super_admin';
-  if (tier === 3) return location === 'uk' ? 'uk_admin' : 'nepal_admin';
-  if (tier === 2) return 'nepal_admin';
-  if (tier === 1) return 'nepal_staff';
-  return 'employee';
-}
-
-async function resolveProfile(user: User): Promise<Session> {
+export async function resolveProfile(user: User): Promise<Session> {
   const email = (user.email ?? '').toLowerCase();
   const uid = user.uid;
-
-  // Preferred path: Postgres knows who this is and what their position grants.
-  // Firebase supplies only the session. The Firestore chain below is kept as a
-  // fallback for when Supabase is unreachable, so sign-in never hard-fails.
-  const identity = await fetchSupabaseIdentity();
-  if (identity) {
-    const location = identity.location ?? 'nepal';
-    const name = identity.fullName || user.displayName || email || 'User';
-    return {
-      email: identity.email || email,
-      name,
-      initials: initialsFrom(name, email),
-      role: identity.positionLabel ?? '',
-      appRole: email === 'admin@kazi.com'
-        ? 'super_admin'
-        : roleFromTier(identity.tier, location),
-      jobRole: identity.positionLabel ?? '',
-      permissions: identity.permissions,
-      uid,
-      location,
-      status: 'Active', // an Inactive person resolves to no row at all, so we never get here
-    };
-  }
-
   const db = getDb();
 
   // 1. employees, matched by email — source of truth for `status`.

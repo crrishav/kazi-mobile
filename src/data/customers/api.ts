@@ -1,14 +1,14 @@
 /**
  * Data-source selector for the customers module.
- *   reads  → Firestore when configured (mock fallback on error)
- *   writes → Firestore when configured, mirrored into the mock (see `liveWrite`)
+ *   reads  → Supabase when configured (a failed read throws; no mock fallback)
+ *   writes → Supabase when configured, mirrored into the mock (see `liveWrite`)
  *
  * Writes hit the reference ERP's own `customers` collection. `restoreCustomers`
  * (snapshot undo) is not reversed server-side — see `firestore-write.ts`.
  */
 
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { withMockFallback } from '@/lib/supabase/read';
+import { liveRead } from '@/lib/supabase/read';
 import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
@@ -16,7 +16,7 @@ import * as writeLive from './firestore-write';
 import * as mock from './mock-api';
 
 export const fetchCustomers = isSupabaseConfigured
-  ? withMockFallback('customers', live.fetchCustomers, mock.fetchCustomers)
+  ? liveRead('customers', live.fetchCustomers)
   : mock.fetchCustomers;
 
 export const addCustomer = liveWrite('customers/addCustomer', writeLive.addCustomer, mock.addCustomer);

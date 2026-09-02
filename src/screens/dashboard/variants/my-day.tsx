@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ScreenGate } from '@/components/ui/screen-gate';
 import { useMyDayDashboard } from '@/data/dashboard/hooks';
 import { DUE_OPTIONS, STATUS_LABEL } from '@/data/tasks/mock';
 import { useTheme } from '@/theme/theme-provider';
@@ -20,7 +21,8 @@ function compactNpr(n: number): string {
 export function MyDayDashboard() {
   const theme = useTheme();
   const { canView } = useAuth();
-  const { data, isLoading, isRefetching, refetch } = useMyDayDashboard();
+  const { data, isLoading, isRefetching, refetch, isError, queries } = useMyDayDashboard();
+  if (isError) return <ScreenGate queries={queries} />;
 
   const att = data.attendanceMonth;
   const attCells = [

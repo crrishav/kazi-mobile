@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Switch } from '@/components/ui/switch';
 import { TextField } from '@/components/ui/text-field';
+import { ErrorState } from '@/components/ui/error-state';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import { STATUS_LABELS, STATUS_RAMP } from '@/data/attendance/mock';
@@ -72,7 +73,7 @@ export function MemberSheet({ visible, member, canEdit, onClose, onExport }: Mem
   const [monthISO, setMonthISO] = useState(() => today.slice(0, 7));
   const [selectedDate, setSelectedDate] = useState(today);
 
-  const { data: report, isFetching } = useMemberMonth(
+  const { data: report, isFetching, isError, error, refetch } = useMemberMonth(
     member?.staffId ? { staffId: member.staffId, staffIds: member.staffIds, name: member.name, monthISO } : null,
   );
   const saveStatus = useSaveDayStatus();
@@ -216,6 +217,11 @@ export function MemberSheet({ visible, member, canEdit, onClose, onExport }: Mem
             <View style={styles.pending}>
               <ActivityIndicator color={theme.accent} />
             </View>
+          ) : isError ? (
+            // Without this the fall-through below claims "No record for this
+            // date", which is a statement about the month — not something we
+            // are entitled to make when the month never loaded.
+            <ErrorState error={error} onRetry={refetch} retrying={isFetching} />
           ) : day ? (
             <DayDetailBody detail={day} />
           ) : (

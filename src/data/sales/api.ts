@@ -1,14 +1,14 @@
 /**
  * Data-source selector for the sales/orders module.
- *   reads  → Firestore when configured (mock fallback on error)
- *   writes → Firestore when configured, mirrored into the mock (see `liveWrite`)
+ *   reads  → Supabase when configured (a failed read throws; no mock fallback)
+ *   writes → Supabase when configured, mirrored into the mock (see `liveWrite`)
  *
  * Writes hit the reference ERP's own `orders` collection. `restoreOrders`
  * (snapshot undo) is not reversed server-side.
  */
 
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { withMockFallback } from '@/lib/supabase/read';
+import { liveRead } from '@/lib/supabase/read';
 import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
@@ -16,7 +16,7 @@ import * as writeLive from './firestore-write';
 import * as mock from './mock-api';
 
 export const fetchOrders = isSupabaseConfigured
-  ? withMockFallback('sales', live.fetchOrders, mock.fetchOrders)
+  ? liveRead('sales', live.fetchOrders)
   : mock.fetchOrders;
 
 export const addOrder = liveWrite('sales/addOrder', writeLive.addOrder, mock.addOrder);

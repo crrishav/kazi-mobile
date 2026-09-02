@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
+import { ScreenGate } from '@/components/ui/screen-gate';
 import { SegmentedProportionBar } from '@/components/ui/segmented-proportion-bar';
 import { useDirectorDashboard } from '@/data/dashboard/hooks';
 import { useTheme } from '@/theme/theme-provider';
@@ -17,7 +18,8 @@ import { OrdersByStageCard } from '../orders-by-stage-card';
 export function DirectorDashboard() {
   const theme = useTheme();
   const { canView } = useAuth();
-  const { data, isLoading, isRefetching, refetch } = useDirectorDashboard();
+  const { data, isLoading, isRefetching, refetch, isError, queries } = useDirectorDashboard();
+  if (isError) return <ScreenGate queries={queries} />;
 
   const c = data.invoiceCounts;
   const invoiceRows = [

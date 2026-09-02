@@ -1,11 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { setActor } from '@/data/notifications/actor';
-import { isFirebaseConfigured } from '@/lib/firebase';
 
-import * as firebaseAuth from './firebase-auth';
 import * as mockAuth from './mock-auth';
 import type { Session } from './mock-auth';
+import * as realAuth from './real-auth';
+import { isRealAuthConfigured } from './real-auth';
 import {
   financeTabAllowed,
   sectionCanEdit,
@@ -37,8 +37,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/** Real Firebase Auth when configured (§2.2); the in-memory mock otherwise. */
-const impl = isFirebaseConfigured ? firebaseAuth : mockAuth;
+/** Real auth (Supabase session, Firebase fallback) when configured; the in-memory mock otherwise. */
+const impl = isRealAuthConfigured ? realAuth : mockAuth;
 
 function toProfile(session: Session | null): Profile | null {
   if (!session) return null;
@@ -61,10 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (isFirebaseConfigured) {
-      // onAuthStateChanged fires once on cold start (restoring a persisted
-      // session) and on every sign-in / sign-out thereafter.
-      return firebaseAuth.subscribe((s) => {
+    if (isRealAuthConfigured) {
+      // Fires once on cold start (after both backends have restored whatever
+      // they had persisted) and on every sign-in / sign-out thereafter.
+      return realAuth.subscribe((s) => {
         setSession(s);
         setIsLoading(false);
       });

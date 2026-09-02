@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -57,7 +58,8 @@ export function OrderManagement() {
   const { can } = useAuth();
   const canEdit = can('order-management');
 
-  const { data: orders } = useOrders();
+  const ordersQuery = useOrders();
+  const { data: orders } = ordersQuery;
   const addOrder = useAddOrder();
   const updateOrder = useUpdateOrder();
   const setStage = useSetOrderStage();
@@ -71,13 +73,7 @@ export function OrderManagement() {
   const [draft, setDraft] = useState<OrderDraft | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  if (!orders) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(ordersQuery) || !orders) return <ScreenGate queries={[ordersQuery]} />;
 
   const selected = orders.find((o) => o.id === selectedId) ?? null;
   const activeCount = orders.filter((o) => o.status === 'active' && o.stage !== 'delivered').length;

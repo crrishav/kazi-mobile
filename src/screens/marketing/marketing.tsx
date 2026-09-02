@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -24,7 +25,8 @@ export function Marketing() {
   const { can } = useAuth();
   const canEdit = can('marketing');
 
-  const { data: entries } = useEntries();
+  const entriesQuery = useEntries();
+  const { data: entries } = entriesQuery;
   const addEntry = useAddEntry();
   const updateEntry = useUpdateEntry();
   const removeEntry = useRemoveEntry();
@@ -37,13 +39,7 @@ export function Marketing() {
   const [sheetMode, setSheetMode] = useState<'new' | 'edit' | null>(null);
   const [draft, setDraft] = useState<CalendarEntry | null>(null);
 
-  if (!entries) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(entriesQuery) || !entries) return <ScreenGate queries={[entriesQuery]} />;
 
   const monthEntries = entries.filter((e) => e.y === cursor.y && e.m === cursor.m);
   const dayEntries = entries.filter((e) => e.y === selected.y && e.m === selected.m && e.d === selected.d);

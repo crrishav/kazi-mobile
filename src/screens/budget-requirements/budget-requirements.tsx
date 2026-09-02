@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { canApprove } from '@/auth/permissions';
@@ -7,6 +7,7 @@ import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { GBP_RATE, toGBP } from '@/lib/currency';
 import { useTheme } from '@/theme/theme-provider';
@@ -58,8 +59,10 @@ export function BudgetRequirements() {
   const toast = useToast();
   const { profile, can } = useAuth();
 
-  const { data: requirements } = useRequirements();
-  const { data: requests } = useBudgetRequests();
+  const requirementsQuery = useRequirements();
+  const { data: requirements } = requirementsQuery;
+  const requestsQuery = useBudgetRequests();
+  const { data: requests } = requestsQuery;
   const addRequirement = useAddRequirement();
   const updateRequirement = useUpdateRequirement();
   const restoreRequirements = useRestoreRequirements();
@@ -82,13 +85,7 @@ export function BudgetRequirements() {
   const [draft, setDraft] = useState<RequirementDraft>(emptyDraft());
   const [reqDraft, setReqDraft] = useState<BudgetRequestDraft>(emptyRequestDraft());
 
-  if (!requirements || !requests) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(requirementsQuery, requestsQuery) || !requirements || !requests) return <ScreenGate queries={[requirementsQuery, requestsQuery]} />;
 
   const pendingReqs = requirements.filter((r) => r.status === 'pending');
   const pendingRequests = requests.filter((r) => r.status === 'Pending');

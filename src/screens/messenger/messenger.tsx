@@ -1,5 +1,6 @@
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
@@ -17,8 +18,10 @@ export function Messenger() {
   const { can } = useAuth();
   const canPost = can('messenger');
 
-  const { data: messages, refetch: refetchMessages } = useMessages();
-  const { data: readStatus, refetch: refetchReadStatus } = useReadStatus();
+  const messagesQuery = useMessages();
+  const { data: messages, refetch: refetchMessages } = messagesQuery;
+  const readStatusQuery = useReadStatus();
+  const { data: readStatus, refetch: refetchReadStatus } = readStatusQuery;
   const sendMessage = useSendMessage();
   const markRead = useMarkRead();
 
@@ -28,13 +31,7 @@ export function Messenger() {
   const [refreshing, setRefreshing] = useState(false);
   const [pulledAt, setPulledAt] = useState('07:44');
 
-  if (!messages || !readStatus) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(messagesQuery, readStatusQuery) || !messages || !readStatus) return <ScreenGate queries={[messagesQuery, readStatusQuery]} />;
 
   function handleOpen(id: ThreadId) {
     setActiveId(id);

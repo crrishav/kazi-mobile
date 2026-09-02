@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
-import { HeaderAccount } from '@/components/ui/header-account';
 import { EmptyState } from '@/components/ui/empty-state';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { StatusPill, type StatusKind } from '@/components/ui/status-pill';
 import { useTheme } from '@/theme/theme-provider';
@@ -47,7 +48,8 @@ export function Production() {
   const { can } = useAuth();
   const canEdit = can('production');
 
-  const { data: batches } = useBatches();
+  const batchesQuery = useBatches();
+  const { data: batches } = batchesQuery;
   const addBatch = useAddBatch();
   const updateBatch = useUpdateBatch();
 
@@ -60,13 +62,7 @@ export function Production() {
   const [outputOpen, setOutputOpen] = useState(false);
   const [outputDraft, setOutputDraft] = useState<BatchOutputDraft>(emptyOutputDraft());
 
-  if (!batches) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(batchesQuery) || !batches) return <ScreenGate queries={[batchesQuery]} />;
 
   const selected = batches.find((b) => b.id === selectedId) ?? null;
   const activeCount = batches.filter((b) => b.status === 'active' || b.status === 'hold').length;

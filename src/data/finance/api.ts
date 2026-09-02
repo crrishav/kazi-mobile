@@ -1,7 +1,7 @@
 /**
  * Data-source selector for the finance module.
- *   reads  → expenses / accounts / journal / bank from Firestore when configured
- *   writes → expenses / journal / bank to Firestore when configured, mirrored to mock
+ *   reads  → expenses / accounts / journal / bank from Supabase when configured
+ *   writes → expenses / journal / bank to Supabase when configured, mirrored to mock
  *
  * VAT bills, order costs and `updateAccountOpening` have no live collection /
  * field and stay entirely mock. Snapshot-undo restores are not reversed
@@ -9,7 +9,7 @@
  */
 
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { withMockFallback } from '@/lib/supabase/read';
+import { liveRead } from '@/lib/supabase/read';
 import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
@@ -33,19 +33,19 @@ export {
 } from './mock-api';
 
 export const fetchExpenses = isSupabaseConfigured
-  ? withMockFallback('finance/expenses', live.fetchExpenses, mock.fetchExpenses)
+  ? liveRead('finance/expenses', live.fetchExpenses)
   : mock.fetchExpenses;
 
 export const fetchAccounts = isSupabaseConfigured
-  ? withMockFallback('finance/accounts', live.fetchAccounts, mock.fetchAccounts)
+  ? liveRead('finance/accounts', live.fetchAccounts)
   : mock.fetchAccounts;
 
 export const fetchJournalEntries = isSupabaseConfigured
-  ? withMockFallback('finance/journal', live.fetchJournalEntries, mock.fetchJournalEntries)
+  ? liveRead('finance/journal', live.fetchJournalEntries)
   : mock.fetchJournalEntries;
 
 export const fetchBankTransactions = isSupabaseConfigured
-  ? withMockFallback('finance/bank', live.fetchBankTransactions, mock.fetchBankTransactions)
+  ? liveRead('finance/bank', live.fetchBankTransactions)
   : mock.fetchBankTransactions;
 
 export const addExpense = liveWrite('finance/addExpense', writeLive.addExpense, mock.addExpense);

@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
-import { HeaderAccount } from '@/components/ui/header-account';
 import { EmptyState } from '@/components/ui/empty-state';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { TextField } from '@/components/ui/text-field';
 import { toCSV } from '@/lib/export/csv';
@@ -82,10 +83,14 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
   const canEdit = can('billing');
   const createdBy = profile?.name ?? 'You';
 
-  const { data: invoices } = useInvoices();
-  const { data: openChallans } = useOpenChallans();
-  const { data: challans } = useChallans();
-  const { data: quotations } = useQuotations();
+  const invoicesQuery = useInvoices();
+  const { data: invoices } = invoicesQuery;
+  const openChallansQuery = useOpenChallans();
+  const { data: openChallans } = openChallansQuery;
+  const challansQuery = useChallans();
+  const { data: challans } = challansQuery;
+  const quotationsQuery = useQuotations();
+  const { data: quotations } = quotationsQuery;
   const addInvoice = useAddInvoice();
   const updateInvoice = useUpdateInvoice();
   const addPayment = useAddPayment();
@@ -134,13 +139,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
     }
   }, [focus, autoEdit, invoices, focusHandled, can]);
 
-  if (!invoices || !openChallans || !challans || !quotations) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(invoicesQuery, openChallansQuery, challansQuery, quotationsQuery) || !invoices || !openChallans || !challans || !quotations) return <ScreenGate queries={[invoicesQuery, openChallansQuery, challansQuery, quotationsQuery]} />;
 
   const docCounts: Record<DocType, number> = { invoice: invoices.length, challan: challans.length, quotation: quotations.length };
   const activeDoc =

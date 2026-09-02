@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter } from 'expo-router';
 
@@ -7,6 +7,7 @@ import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import { useInvoices } from '@/data/billing/hooks';
@@ -135,16 +136,26 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   const isAccounting = variant === 'accounting';
   const section = isAccounting ? 'accounting' : 'finance';
 
-  const { data: expenses } = useExpenses();
-  const { data: vatBills } = useVatBills();
-  const { data: accounts } = useAccounts();
-  const { data: journal } = useJournalEntries();
-  const { data: bankTransactions } = useBankTransactions();
-  const { data: purchases } = usePurchaseEntries();
-  const { data: invoices } = useInvoices();
-  const { data: employees } = useEmployees();
-  const { data: orders } = useOrders();
-  const { data: orderCosts } = useOrderCosts();
+  const expensesQuery = useExpenses();
+  const { data: expenses } = expensesQuery;
+  const vatBillsQuery = useVatBills();
+  const { data: vatBills } = vatBillsQuery;
+  const accountsQuery = useAccounts();
+  const { data: accounts } = accountsQuery;
+  const journalQuery = useJournalEntries();
+  const { data: journal } = journalQuery;
+  const bankTransactionsQuery = useBankTransactions();
+  const { data: bankTransactions } = bankTransactionsQuery;
+  const purchasesQuery = usePurchaseEntries();
+  const { data: purchases } = purchasesQuery;
+  const invoicesQuery = useInvoices();
+  const { data: invoices } = invoicesQuery;
+  const employeesQuery = useEmployees();
+  const { data: employees } = employeesQuery;
+  const ordersQuery = useOrders();
+  const { data: orders } = ordersQuery;
+  const orderCostsQuery = useOrderCosts();
+  const { data: orderCosts } = orderCostsQuery;
 
   const addExpense = useAddExpense();
   const updateExpense = useUpdateExpense();
@@ -255,13 +266,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
     [orderPnlRows],
   );
 
-  if (!expenses || !vatBills || !accounts || !journal || !bankTransactions || !purchases || !invoices || !employees || !orders || !orderCosts) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(expensesQuery, vatBillsQuery, accountsQuery, journalQuery, bankTransactionsQuery, purchasesQuery, invoicesQuery, employeesQuery, ordersQuery, orderCostsQuery) || !expenses || !vatBills || !accounts || !journal || !bankTransactions || !purchases || !invoices || !employees || !orders || !orderCosts) return <ScreenGate queries={[expensesQuery, vatBillsQuery, accountsQuery, journalQuery, bankTransactionsQuery, purchasesQuery, invoicesQuery, employeesQuery, ordersQuery, orderCostsQuery]} />;
 
   const year = YEARS.find((y) => y.id === yearId) ?? null;
   const yearLedger = year ? (LEDGER[year.id] ?? []) : [];

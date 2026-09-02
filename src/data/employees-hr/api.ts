@@ -1,7 +1,7 @@
 /**
  * Data-source selector for the employees & HR module.
- *   reads  → Firestore when configured (mock fallback on error)
- *   writes → Firestore when configured, mirrored into the mock (see `liveWrite`)
+ *   reads  → Supabase when configured (a failed read throws; no mock fallback)
+ *   writes → Supabase when configured, mirrored into the mock (see `liveWrite`)
  *
  * Writes hit the reference ERP's own `employees` collection. Payroll month
  * approvals have no live collection and stay mock-only. Snapshot-undo restore is
@@ -9,7 +9,7 @@
  */
 
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { withMockFallback } from '@/lib/supabase/read';
+import { liveRead } from '@/lib/supabase/read';
 import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
@@ -19,7 +19,7 @@ import * as mock from './mock-api';
 export { fetchApprovals, approveMonth } from './mock-api';
 
 export const fetchEmployees = isSupabaseConfigured
-  ? withMockFallback('employees-hr', live.fetchEmployees, mock.fetchEmployees)
+  ? liveRead('employees-hr', live.fetchEmployees)
   : mock.fetchEmployees;
 
 export const addEmployee = liveWrite('employees-hr/addEmployee', writeLive.addEmployee, mock.addEmployee);

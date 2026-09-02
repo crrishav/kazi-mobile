@@ -1,6 +1,6 @@
 /**
  * Data-source selector for the billing module.
- *   reads  → `fetchInvoices` / `fetchQuotations` from Firestore when configured
+ *   reads  → `fetchInvoices` / `fetchQuotations` from Supabase when configured
  *   writes → invoice/quotation UPDATES + payments to Firestore; CREATES stay mock
  *
  * `addInvoice` / `addQuotation` are deliberately mock-only: the reference ERP
@@ -12,7 +12,7 @@
  */
 
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { withMockFallback } from '@/lib/supabase/read';
+import { liveRead } from '@/lib/supabase/read';
 import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
@@ -32,11 +32,11 @@ export {
 } from './mock-api';
 
 export const fetchInvoices = isSupabaseConfigured
-  ? withMockFallback('billing/invoices', live.fetchInvoices, mock.fetchInvoices)
+  ? liveRead('billing/invoices', live.fetchInvoices)
   : mock.fetchInvoices;
 
 export const fetchQuotations = isSupabaseConfigured
-  ? withMockFallback('billing/quotations', live.fetchQuotations, mock.fetchQuotations)
+  ? liveRead('billing/quotations', live.fetchQuotations)
   : mock.fetchQuotations;
 
 export const updateInvoice = liveWrite('billing/updateInvoice', writeLive.updateInvoice, mock.updateInvoice);

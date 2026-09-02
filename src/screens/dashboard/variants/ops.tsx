@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ScreenGate } from '@/components/ui/screen-gate';
 import { useOpsDashboard } from '@/data/dashboard/hooks';
 import { STATUS_LABEL } from '@/data/tasks/mock';
 import type { TaskStatus } from '@/data/tasks/types';
@@ -21,7 +22,8 @@ const TASK_COLS: TaskStatus[] = ['blocked', 'progress', 'inactive', 'done'];
 export function OpsDashboard() {
   const theme = useTheme();
   const { canView } = useAuth();
-  const { data, isLoading, isRefetching, refetch } = useOpsDashboard();
+  const { data, isLoading, isRefetching, refetch, isError, queries } = useOpsDashboard();
+  if (isError) return <ScreenGate queries={queries} />;
 
   const nothingYet = data.attendanceOnRoll === 0 && data.activeOrdersTotal === 0 && data.openTasksTotal === 0;
 

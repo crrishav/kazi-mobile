@@ -1,14 +1,14 @@
 /**
  * Data-source selector for the budget & requirements module.
- *   reads  → Firestore when configured (mock fallback on error)
- *   writes → Firestore when configured, mirrored into the mock (see `liveWrite`)
+ *   reads  → Supabase when configured (a failed read throws; no mock fallback)
+ *   writes → Supabase when configured, mirrored into the mock (see `liveWrite`)
  *
  * Both tabs read/write the reference ERP's own `budget_requests` collection
  * (`type` discriminates). Snapshot-undo restores are not reversed server-side.
  */
 
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { withMockFallback } from '@/lib/supabase/read';
+import { liveRead } from '@/lib/supabase/read';
 import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
@@ -16,11 +16,11 @@ import * as writeLive from './firestore-write';
 import * as mock from './mock-api';
 
 export const fetchRequirements = isSupabaseConfigured
-  ? withMockFallback('budget-requirements/req', live.fetchRequirements, mock.fetchRequirements)
+  ? liveRead('budget-requirements/req', live.fetchRequirements)
   : mock.fetchRequirements;
 
 export const fetchBudgetRequests = isSupabaseConfigured
-  ? withMockFallback('budget-requirements/budget', live.fetchBudgetRequests, mock.fetchBudgetRequests)
+  ? liveRead('budget-requirements/budget', live.fetchBudgetRequests)
   : mock.fetchBudgetRequests;
 
 export const addRequirement = liveWrite('budget-requirements/addRequirement', writeLive.addRequirement, mock.addRequirement);

@@ -2,6 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { Avatar, type AvatarTint } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
+import { ErrorState } from '@/components/ui/error-state';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import { useAssignees } from '@/data/tasks/hooks';
@@ -19,7 +20,7 @@ export interface AssigneePickerProps {
  */
 export function AssigneePicker({ value, onChange }: AssigneePickerProps) {
   const theme = useTheme();
-  const { data: people, isLoading } = useAssignees();
+  const { data: people, isLoading, isError, error, refetch, isFetching } = useAssignees();
 
   if (isLoading) {
     return (
@@ -27,6 +28,13 @@ export function AssigneePicker({ value, onChange }: AssigneePickerProps) {
         <ActivityIndicator color={theme.accent} />
       </View>
     );
+  }
+
+  // An empty picker and an unreachable directory look identical once the rows
+  // are gone, and picking "Unassigned" because the list failed to load would
+  // quietly clear a real assignee.
+  if (isError) {
+    return <ErrorState error={error} onRetry={refetch} retrying={isFetching} />;
   }
 
   // Someone assigned on the web who has since left the directory would otherwise

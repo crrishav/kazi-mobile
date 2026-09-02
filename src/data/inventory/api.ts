@@ -1,7 +1,7 @@
 /**
  * Data-source selector for the inventory module.
- *   reads  → Firestore when configured (mock fallback on error)
- *   writes → Firestore when configured, mirrored into the mock (see `liveWrite`)
+ *   reads  → Supabase when configured (a failed read throws; no mock fallback)
+ *   writes → Supabase when configured, mirrored into the mock (see `liveWrite`)
  *
  * Writes hit the reference ERP's own `inventory` collection. There is no live
  * movements ledger — stock movements patch `openingStock` to the new level and
@@ -10,7 +10,7 @@
  */
 
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { withMockFallback } from '@/lib/supabase/read';
+import { liveRead } from '@/lib/supabase/read';
 import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
@@ -19,15 +19,15 @@ import * as mock from './mock-api';
 import type { StockItem, StockMoveKind, StockMovement } from './types';
 
 export const fetchStock = isSupabaseConfigured
-  ? withMockFallback('inventory/stock', live.fetchStock, mock.fetchStock)
+  ? liveRead('inventory/stock', live.fetchStock)
   : mock.fetchStock;
 
 export const fetchLibrary = isSupabaseConfigured
-  ? withMockFallback('inventory/library', live.fetchLibrary, mock.fetchLibrary)
+  ? liveRead('inventory/library', live.fetchLibrary)
   : mock.fetchLibrary;
 
 export const fetchMovements = isSupabaseConfigured
-  ? withMockFallback('inventory/movements', live.fetchMovements, mock.fetchMovements)
+  ? liveRead('inventory/movements', live.fetchMovements)
   : mock.fetchMovements;
 
 export const addStockItem = liveWrite('inventory/addStockItem', writeLive.addStockItem, mock.addStockItem);

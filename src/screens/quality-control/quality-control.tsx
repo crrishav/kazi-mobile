@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
-import { HeaderAccount } from '@/components/ui/header-account';
 import { EmptyState } from '@/components/ui/empty-state';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import {
@@ -37,8 +38,10 @@ export function QualityControl() {
   const { can } = useAuth();
   const canEdit = can('quality-control');
 
-  const { data: queue } = useQueue();
-  const { data: logs } = useQcLogs();
+  const queueQuery = useQueue();
+  const { data: queue } = queueQuery;
+  const logsQuery = useQcLogs();
+  const { data: logs } = logsQuery;
   const removeFromQueue = useRemoveFromQueue();
   const restoreToQueue = useRestoreToQueue();
   const addQcLog = useAddQcLog();
@@ -53,13 +56,7 @@ export function QualityControl() {
   const [notes] = useState<QcNote[]>([{ time: '10:19', body: 'Sample pulled from carton 4 and carton 11 per AQL plan.' }]);
   const [noteDraft, setNoteDraft] = useState('');
 
-  if (!queue || !logs) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(queueQuery, logsQuery) || !queue || !logs) return <ScreenGate queries={[queueQuery, logsQuery]} />;
 
   const selected = queue.find((q) => q.id === selectedId) ?? null;
 

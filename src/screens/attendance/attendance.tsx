@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { HeaderAccount } from '@/components/ui/header-account';
+import { hasFailed, isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { toCSV } from '@/lib/export/csv';
 import { useTheme } from '@/theme/theme-provider';
@@ -34,11 +35,14 @@ export function Attendance() {
   const staffName = profile?.name ?? MY_NAME;
   const canEdit = can('attendance');
 
-  const { data: clockStatus } = useClockStatus();
+  const clockStatusQuery = useClockStatus();
+  const { data: clockStatus } = clockStatusQuery;
   const toggleClock = useToggleClock();
   const geoClock = useGeoClockIn();
-  const { data: team } = useTeamRoster();
-  const { data: month } = useMyMonth();
+  const teamQuery = useTeamRoster();
+  const { data: team } = teamQuery;
+  const monthQuery = useMyMonth();
+  const { data: month } = monthQuery;
   const setMemberStatus = useSetMemberStatus();
   // Stable for the session — the label only turns over at midnight in Kathmandu.
   const today = useMemo(todayLabel, []);
@@ -62,13 +66,10 @@ export function Attendance() {
     return () => clearInterval(id);
   }, [clockStatus?.clockedIn]);
 
-  if (!clockStatus || !team) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(clockStatusQuery, teamQuery) || !clockStatus || !team) return <ScreenGate queries={[clockStatusQuery, teamQuery]} />;
+  // The month loads progressively (MineView draws its own spinner), but a
+  // failure there would leave that spinner up for ever.
+  if (hasFailed(monthQuery)) return <ScreenGate queries={[monthQuery]} />;
 
   const counts: Record<TeamFilter, number> = { all: team.length, present: 0, late: 0, absent: 0, half: 0, leave: 0 };
   team.forEach((m) => {

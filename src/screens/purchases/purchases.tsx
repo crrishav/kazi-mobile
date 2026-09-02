@@ -1,7 +1,8 @@
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { HeaderAccount } from '@/components/ui/header-account';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { useEntries } from '@/data/purchases/hooks';
@@ -10,15 +11,10 @@ import { PurchasesPane } from './purchases-pane';
 
 export function Purchases() {
   const theme = useTheme();
-  const { data: entries } = useEntries();
+  const entriesQuery = useEntries();
+  const { data: entries } = entriesQuery;
 
-  if (!entries) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(entriesQuery) || !entries) return <ScreenGate queries={[entriesQuery]} />;
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>

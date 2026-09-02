@@ -1,7 +1,8 @@
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { HeaderAccount } from '@/components/ui/header-account';
 import { EmptyState } from '@/components/ui/empty-state';
+import { HeaderAccount } from '@/components/ui/header-account';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { useOrders } from '@/data/sales/hooks';
@@ -16,15 +17,10 @@ import { TopCustomers } from './top-customers';
  */
 export function Sales() {
   const theme = useTheme();
-  const { data: orders } = useOrders();
+  const ordersQuery = useOrders();
+  const { data: orders } = ordersQuery;
 
-  if (!orders) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(ordersQuery) || !orders) return <ScreenGate queries={[ordersQuery]} />;
 
   const active = orders.filter((o) => o.stage !== 'delivered').length;
 

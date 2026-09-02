@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { useInvoices } from '@/data/billing/hooks';
@@ -29,7 +30,8 @@ export function Customers() {
   const { can } = useAuth();
   const canEdit = can('customers');
 
-  const { data: customers } = useCustomers();
+  const customersQuery = useCustomers();
+  const { data: customers } = customersQuery;
   const { data: salesOrders } = useOrders();
   const { data: billingInvoices } = useInvoices();
   const addCustomer = useAddCustomer();
@@ -47,13 +49,7 @@ export function Customers() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
 
-  if (!customers) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(customersQuery) || !customers) return <ScreenGate queries={[customersQuery]} />;
 
   const q = query.trim().toLowerCase();
   let rows = customers;

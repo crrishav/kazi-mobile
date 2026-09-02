@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useToast } from '@/components/toast/toast-provider';
 import { HeaderAccount } from '@/components/ui/header-account';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
@@ -19,17 +20,12 @@ import { PersonRow } from './person-row';
 export function Directors() {
   const theme = useTheme();
   const toast = useToast();
-  const { data: directors } = useDirectors();
+  const directorsQuery = useDirectors();
+  const { data: directors } = directorsQuery;
 
   const [openId, setOpenId] = useState<number | null>(null);
 
-  if (!directors) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(directorsQuery) || !directors) return <ScreenGate queries={[directorsQuery]} />;
 
   const open: Director | null = openId ? (directors.find((p) => p.id === openId) ?? null) : null;
   const groups = GROUPS.map((g) => ({ ...g, people: directors.filter((p) => p.group === g.key) })).filter((g) => g.people.length > 0);

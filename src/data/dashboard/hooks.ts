@@ -1,8 +1,10 @@
 /**
  * Role-based dashboard data. Each hook composes the existing per-module query
  * hooks and derives its variant's shape with a pure selector. React Query keeps
- * every underlying query cached and isolates a failed / permission-denied read
- * per key, so one empty module never blanks the dashboard.
+ * every underlying query cached, so one slow module never blanks the others.
+ * A FAILED module is different: its selector input would be `undefined` and the
+ * derived figures would silently read as zero, so `combine` surfaces `isError`
+ * and the variants refuse to draw.
  */
 import { useMemo } from 'react';
 
@@ -17,9 +19,15 @@ import { useTasks } from '@/data/tasks/hooks';
 
 import { deriveDirector, deriveMyDay, deriveOps } from './selectors';
 
+/** Structurally satisfied by any `UseQueryResult`, and by `GateQuery`. */
 interface QueryLike {
   isLoading: boolean;
   isRefetching: boolean;
+  isError: boolean;
+  isPending: boolean;
+  isFetching: boolean;
+  error: unknown;
+  data: unknown;
   refetch: () => unknown;
 }
 
@@ -27,7 +35,14 @@ function combine(queries: QueryLike[]) {
   return {
     isLoading: queries.some((q) => q.isLoading),
     isRefetching: queries.some((q) => q.isRefetching),
+    // A selector fed `undefined` derives zeros, which read as real figures —
+    // "0 overdue invoices" is a claim, not a blank. So a failed module has to
+    // stop the variant rendering rather than quietly flatten it.
+    isError: queries.some((q) => q.isError && q.data === undefined),
+    error: queries.find((q) => q.isError)?.error ?? null,
     refetch: () => Promise.all(queries.map((q) => q.refetch())),
+    /** Handed to `<ScreenGate>` so it can show the failure and retry it. */
+    queries,
   };
 }
 

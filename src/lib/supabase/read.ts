@@ -10,10 +10,11 @@
  * views are `security_invoker`, so RLS on the underlying tables applies to
  * every read here.
  *
- * **Reads only** — nothing in this module writes.
+ * **Reads only** — nothing in this module writes. A failed read throws
+ * {@link DataReadError}; it never substitutes mock data (see {@link liveRead}).
  */
 
-import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { getSupabase, lastTokenSource } from '@/lib/supabase';
 
 /** The plain object handed to a mapper — a row from a compat view. */
 export type DocData = Record<string, unknown>;
@@ -64,6 +65,15 @@ const VIEW_BY_COLLECTION: Record<string, string> = {
   users: 'fs_users',
 };
 
+/**
+ * PostgREST puts the useful part in `code`, not `message`: a rejected token
+ * reads "No suitable key or wrong key type", which names no cause at all until
+ * you see the `PGRST301` beside it. Keep both.
+ */
+function failed(where: string, error: { message: string; code?: string }): Error {
+  return new Error(`${where}: ${error.message}${error.code ? ` [${error.code}]` : ''}`);
+}
+
 export function viewFor(collection: string): string {
   const view = VIEW_BY_COLLECTION[collection];
   if (!view) throw new Error(`No Supabase compat view mapped for collection "${collection}"`);
@@ -72,15 +82,16 @@ export function viewFor(collection: string): string {
 
 /**
  * Read a whole collection and map each row to `T`. A mapper may return `null`
- * to drop a row. Throws on any Supabase error so `withMockFallback` can catch
- * it — note an RLS denial is NOT an error, it comes back as zero rows.
+ * to drop a row. Throws on any Supabase error so `liveRead` can turn it
+ * into a {@link DataReadError} — note an RLS denial is NOT an error, it comes
+ * back as zero rows.
  */
 export async function readCollection<T>(
   name: string,
   map: (id: string, data: DocData) => T | null,
 ): Promise<T[]> {
   const { data, error } = await getSupabase().from(viewFor(name)).select('*');
-  if (error) throw new Error(`${name}: ${error.message}`);
+  if (error) throw failed(name, error);
   const out: T[] = [];
   for (const row of data ?? []) {
     const mapped = map(String((row as DocData).id ?? ''), row as DocData);
@@ -98,7 +109,7 @@ export async function readCollectionWhere<T>(
   let q = getSupabase().from(viewFor(name)).select('*');
   for (const [k, v] of Object.entries(filters)) q = q.eq(k, v);
   const { data, error } = await q;
-  if (error) throw new Error(`${name}: ${error.message}`);
+  if (error) throw failed(name, error);
   const out: T[] = [];
   for (const row of data ?? []) {
     const mapped = map(String((row as DocData).id ?? ''), row as DocData);
@@ -114,25 +125,75 @@ export async function readDocument(name: string, id: string): Promise<DocData | 
     .select('*')
     .eq('id', id)
     .maybeSingle();
-  if (error) throw new Error(`${name}/${id}: ${error.message}`);
+  if (error) throw failed(`${name}/${id}`, error);
   return (data as DocData) ?? null;
 }
 
 const loggedOk = new Set<string>();
 
 /**
- * Wrap a live reader so a failure falls back to the mock reader with the same
- * signature. Only **errors** fall back — an empty live result is returned
- * as-is, because under RLS "you may not see these rows" is a valid answer and
- * must not be papered over with seed data.
+ * A failed live read.
+ *
+ * Carries a message fit to put in front of a user, plus the `tag` of the read
+ * that failed so a banner can name the module. The original error is kept in
+ * `cause` for the console — it usually says far more than we want on screen.
  */
-export function withMockFallback<A extends unknown[], R>(
+export class DataReadError extends Error {
+  readonly tag: string;
+
+  constructor(tag: string, cause: unknown) {
+    super(messageFor(cause));
+    this.name = 'DataReadError';
+    this.tag = tag;
+    this.cause = cause;
+  }
+}
+
+/**
+ * Turn a Supabase/PostgREST failure into something a person can act on.
+ *
+ * A rejected token splits two ways, and telling them apart matters because the
+ * remedies are opposite. On a Firebase session EVERY request is rejected and
+ * always will be — the project's JWKS has no Firebase key — so signing in
+ * again changes nothing; the person needs a Supabase password. On a Supabase
+ * session it means the token really did go stale, and signing in again is the
+ * fix. Anything else is a network or server problem they cannot act on.
+ */
+function messageFor(cause: unknown): string {
+  const raw = cause instanceof Error ? cause.message : String(cause ?? '');
+  if (/JWT|token|PGRST301|suitable key|key type|Unauthorized|401/i.test(raw)) {
+    if (lastTokenSource() === 'firebase') {
+      return 'This login can’t read live data yet. Sign out, tap “Forgot password?” to set a password, then sign in with it.';
+    }
+    return 'Your session was rejected by the server. Please sign out and sign in again.';
+  }
+  if (/Network request failed|fetch|ENOTFOUND|timeout/i.test(raw)) {
+    return "Couldn't reach the server. Check your connection and try again.";
+  }
+  return 'The server refused this request.';
+}
+
+/**
+ * Wrap a live reader so a failure SURFACES instead of being papered over.
+ *
+ * This deliberately has no mock fallback. It used to fall back to seed data on
+ * any error, which meant a rejected token — the exact failure this app had —
+ * rendered a screen full of convincing fake records with nothing but a
+ * `console.warn` to say so. Showing an error the user can report beats showing
+ * numbers they might act on.
+ *
+ * Note what is NOT an error: an empty result. Under RLS "you may not see these
+ * rows" is a valid answer and still comes back as `[]`, not a throw.
+ *
+ * Callers pick the mock themselves when Supabase is unconfigured — every call
+ * site is already a `isSupabaseConfigured ? liveRead(...) : mock` ternary — so
+ * local development without a `.env` is unaffected.
+ */
+export function liveRead<A extends unknown[], R>(
   tag: string,
   liveFn: (...args: A) => Promise<R>,
-  mockFn: (...args: A) => Promise<R>,
 ): (...args: A) => Promise<R> {
   return async (...args: A) => {
-    if (!isSupabaseConfigured) return mockFn(...args);
     try {
       const result = await liveFn(...args);
       if (__DEV__ && !loggedOk.has(tag)) {
@@ -142,8 +203,8 @@ export function withMockFallback<A extends unknown[], R>(
       }
       return result;
     } catch (err) {
-      console.warn(`[supabase] ${tag}: live read failed → mock`, err);
-      return mockFn(...args);
+      console.error(`[supabase] ${tag}: live read FAILED — surfacing to the user`, err);
+      throw new DataReadError(tag, err);
     }
   };
 }

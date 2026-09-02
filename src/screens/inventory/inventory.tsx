@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import {
@@ -42,9 +43,12 @@ export function Inventory() {
   const { can } = useAuth();
   const canEdit = can('inventory');
 
-  const { data: stock } = useStock();
-  const { data: library } = useLibrary();
-  const { data: movements } = useStockMovements();
+  const stockQuery = useStock();
+  const { data: stock } = stockQuery;
+  const libraryQuery = useLibrary();
+  const { data: library } = libraryQuery;
+  const movementsQuery = useStockMovements();
+  const { data: movements } = movementsQuery;
   const addStockItem = useAddStockItem();
   const postMovement = usePostStockMovement();
   const updateStockItem = useUpdateStockItem();
@@ -65,13 +69,7 @@ export function Inventory() {
   const [editOpen, setEditOpen] = useState(false);
   const [detailsDraft, setDetailsDraft] = useState<StockDetailsDraft>({ threshold: '', lead: '', location: '', cost: '', supplier: '' });
 
-  if (!stock || !library || !movements) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(stockQuery, libraryQuery, movementsQuery) || !stock || !library || !movements) return <ScreenGate queries={[stockQuery, libraryQuery, movementsQuery]} />;
 
   const isFabric = tab === 'inventory';
   const q = query.trim().toLowerCase();

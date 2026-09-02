@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { HeaderAccount } from '@/components/ui/header-account';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii } from '@/theme';
@@ -23,7 +24,8 @@ export function AdminPanel() {
   const toast = useToast();
   const { can } = useAuth();
   const canEdit = can('admin-panel');
-  const { data: matrix } = usePermissionMatrix();
+  const matrixQuery = usePermissionMatrix();
+  const { data: matrix } = matrixQuery;
   const applyMutation = useApplyRoleChanges();
 
   const [role, setRole] = useState<RoleKey>('sup');
@@ -36,13 +38,7 @@ export function AdminPanel() {
     return idx;
   }, []);
 
-  if (!matrix) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(matrixQuery) || !matrix) return <ScreenGate queries={[matrixQuery]} />;
 
   const roleObj = ROLES.find((r) => r.key === role)!;
   const base = matrix[role];

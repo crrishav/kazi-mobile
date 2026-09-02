@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import {
@@ -30,7 +31,8 @@ export function BugReports() {
   const { can, profile } = useAuth();
   const canEdit = can('bug-report');
 
-  const { data: reports } = useBugReports();
+  const reportsQuery = useBugReports();
+  const { data: reports } = reportsQuery;
   const addReport = useAddBugReport();
   const updateStatus = useUpdateBugStatus();
   const restoreReports = useRestoreBugReports();
@@ -40,13 +42,7 @@ export function BugReports() {
   const [draft, setDraft] = useState<BugReportDraft | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  if (!reports) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(reportsQuery) || !reports) return <ScreenGate queries={[reportsQuery]} />;
 
   const selected = reports.find((r) => r.id === selectedId) ?? null;
 

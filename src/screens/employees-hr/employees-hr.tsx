@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 
 import { useAuth } from '@/auth/auth-context';
@@ -7,6 +7,7 @@ import { useToast } from '@/components/toast/toast-provider';
 import { tintFromSeed } from '@/components/ui/avatar';
 import { HeaderAccount } from '@/components/ui/header-account';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import {
@@ -49,12 +50,14 @@ export function EmployeesHR() {
   const { can } = useAuth();
   const canEdit = can('employees-hr');
 
-  const { data: employees } = useEmployees();
+  const employeesQuery = useEmployees();
+  const { data: employees } = employeesQuery;
   const addEmployee = useAddEmployee();
   const updateEmployee = useUpdateEmployee();
   const deleteEmployee = useDeleteEmployee();
   const restoreEmployees = useRestoreEmployees();
-  const { data: approvals } = useApprovals();
+  const approvalsQuery = useApprovals();
+  const { data: approvals } = approvalsQuery;
   const approveMonth = useApproveMonth();
   const { data: attendanceTeam } = useTeamRoster();
 
@@ -66,13 +69,7 @@ export function EmployeesHR() {
   const [draft, setDraft] = useState<EmployeeDraft>(blankDraft());
   const [slipId, setSlipId] = useState<number | null>(null);
 
-  if (!employees || !approvals) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(employeesQuery, approvalsQuery) || !employees || !approvals) return <ScreenGate queries={[employeesQuery, approvalsQuery]} />;
 
   const month = MONTHS.find((m) => m.key === monthKey) ?? AUG;
   const approved = !!approvals[month.key];

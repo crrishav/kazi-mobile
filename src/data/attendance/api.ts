@@ -1,7 +1,7 @@
 /**
  * Data-source selector for the attendance module.
- *   reads  → Firestore when configured (mock fallback on error)
- *   writes → Firestore when configured, mirrored into the mock (see `liveWrite`)
+ *   reads  → Supabase when configured (a failed read throws; no mock fallback)
+ *   writes → Supabase when configured, mirrored into the mock (see `liveWrite`)
  *
  * `fetchClockStatus` is derived from today's `clock_ins` rows for the signed-in
  * user; `toggleClock` / `setMemberStatus` hit `clock_ins` / `attendance`.
@@ -10,7 +10,7 @@
  */
 
 import { isSupabaseConfigured } from '@/lib/supabase';
-import { withMockFallback } from '@/lib/supabase/read';
+import { liveRead } from '@/lib/supabase/read';
 import { liveWrite } from '@/lib/supabase/write';
 
 import * as live from './firestore';
@@ -23,11 +23,11 @@ export { restoreTeam, statusLabel } from './mock-api';
 export type { ClockToggleInput } from './mock-api';
 
 export const fetchTeam = isSupabaseConfigured
-  ? withMockFallback('attendance/team', live.fetchTeam, mock.fetchTeam)
+  ? liveRead('attendance/team', live.fetchTeam)
   : mock.fetchTeam;
 
 export const fetchClockPunches = isSupabaseConfigured
-  ? withMockFallback('attendance/punches', live.fetchClockPunches, mock.fetchClockPunches)
+  ? liveRead('attendance/punches', live.fetchClockPunches)
   : mock.fetchClockPunches;
 
 // No mock fallback: `writeLive.fetchClockStatus` already catches its own errors

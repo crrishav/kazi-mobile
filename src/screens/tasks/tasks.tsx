@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { Switch } from '@/components/ui/switch';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -29,7 +30,8 @@ export function Tasks() {
   const { can } = useAuth();
   const canEdit = can('tasks');
 
-  const { data: tasks } = useTasks();
+  const tasksQuery = useTasks();
+  const { data: tasks } = tasksQuery;
   const saveTask = useSaveTask();
   const deleteTask = useDeleteTask();
   const undoDeleteTask = useUndoDeleteTask();
@@ -42,13 +44,7 @@ export function Tasks() {
   // Non-admins get the progress-only sheet instead of the full editor.
   const [progressTask, setProgressTask] = useState<Task | null>(null);
 
-  if (!tasks) {
-    return (
-      <View style={[styles.loading, { backgroundColor: theme.background }]}>
-        <ActivityIndicator color={theme.accent} />
-      </View>
-    );
-  }
+  if (isBlocked(tasksQuery) || !tasks) return <ScreenGate queries={[tasksQuery]} />;
 
   const q = query.trim().toLowerCase();
   const matchesQuery = (t: Task) => !q || `${t.title} ${t.assignee}`.toLowerCase().includes(q);
@@ -207,11 +203,6 @@ function groupDotColor(theme: ReturnType<typeof useTheme>, status: Task['status'
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-  },
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   searchWrap: {
     paddingHorizontal: 20,

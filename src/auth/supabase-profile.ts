@@ -11,8 +11,9 @@
  * which tabs are worth rendering. If it were wrong or tampered with, the
  * database would still refuse the underlying read or write.
  *
- * Firebase still owns the session; `me()` resolves the Firebase token's uid
- * to a `people` row (see migration 0009).
+ * `me()` resolves the caller's token to a `people` row. `app_person_id()`
+ * accepts both a native Supabase uuid `sub` and a legacy Firebase uid, so this
+ * works whichever session the app is running on.
  */
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -83,12 +84,22 @@ interface PermRow { section_id: string; can_view: boolean; can_edit: boolean }
 interface TabRow { tab_id: string; can_view: boolean }
 
 /**
- * Resolve the caller. Returns null when Supabase isn't configured, nobody is
- * signed in, or the Firebase account has no `people` row — the last case is
- * how a departed staff member keeps a login but loses all access.
+ * `ok: true` means the database answered: `identity` is the caller, or null
+ * when the token resolves to nobody. `ok: false` means we never got an answer
+ * — a network drop, a rejected token — which callers must NOT read as "this
+ * person has no access", or a hiccup would sign a valid user out.
  */
-export async function fetchSupabaseIdentity(): Promise<SupabaseIdentity | null> {
-  if (!isSupabaseConfigured) return null;
+export type IdentityResult =
+  | { ok: true; identity: SupabaseIdentity | null }
+  | { ok: false; error: unknown };
+
+/**
+ * Resolve the caller. A signed-in account with no `people` row comes back as
+ * `{ ok: true, identity: null }` — that is how a departed staff member keeps a
+ * login but loses all access.
+ */
+export async function fetchIdentityResult(): Promise<IdentityResult> {
+  if (!isSupabaseConfigured) return { ok: true, identity: null };
   try {
     const sb = getSupabase();
     const [meRes, permRes, tabRes] = await Promise.all([
@@ -99,7 +110,7 @@ export async function fetchSupabaseIdentity(): Promise<SupabaseIdentity | null> 
     if (meRes.error) throw meRes.error;
 
     const me = (meRes.data as MeRow[] | null)?.[0];
-    if (!me) return null;
+    if (!me) return { ok: true, identity: null };
 
     const permissions: PermissionOverrides = {};
     for (const row of ((permRes.data ?? []) as PermRow[])) {
@@ -117,7 +128,7 @@ export async function fetchSupabaseIdentity(): Promise<SupabaseIdentity | null> 
     }
     if (Object.keys(finance).length) permissions.finance = finance;
 
-    return {
+    const identity: SupabaseIdentity = {
       personId: me.person_id,
       fullName: me.full_name,
       email: me.email,
@@ -127,8 +138,9 @@ export async function fetchSupabaseIdentity(): Promise<SupabaseIdentity | null> 
       location: me.location === 'uk' ? 'uk' : me.location === 'nepal' ? 'nepal' : null,
       permissions,
     };
-  } catch (err) {
-    console.warn('[auth] Supabase identity lookup failed — falling back to local rules', err);
-    return null;
+    return { ok: true, identity };
+  } catch (error) {
+    return { ok: false, error };
   }
 }
+
