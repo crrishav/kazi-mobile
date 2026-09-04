@@ -5,7 +5,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import type { Person } from '@/data/messenger/types';
+import type { Person } from '@/data/chat/types';
 
 export interface ThreadHeaderProps {
   person: Person | null;

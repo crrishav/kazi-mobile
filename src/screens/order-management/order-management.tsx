@@ -7,6 +7,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { useIsOwnTab } from '@/components/tab-bar/use-own-tab';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -57,6 +58,9 @@ export function OrderManagement() {
   const toast = useToast();
   const { can } = useAuth();
   const canEdit = can('order-management');
+  // A tab for this position means this screen is a root destination, so the
+  // header's back chevron would have nothing to go back to.
+  const isOwnTab = useIsOwnTab('order-management');
 
   const ordersQuery = useOrders();
   const { data: orders } = ordersQuery;
@@ -198,6 +202,7 @@ export function OrderManagement() {
       <ScreenHeader
         title="Order Management"
         subtitle={`${activeCount} in production · ${orders.length} total`}
+        showBack={!isOwnTab}
         rightSlot={
           <View style={[styles.viewTabs, { backgroundColor: theme.draftWash, borderColor: theme.border }]}>
             <Pressable onPress={() => setView('board')} style={[styles.viewTab, { backgroundColor: view === 'board' ? theme.surface : 'transparent' }]}>

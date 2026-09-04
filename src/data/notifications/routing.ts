@@ -258,7 +258,7 @@ const RULES: Record<string, Rule[]> = {
     { type: 'info', reason: 'You handle Employees & HR', when: EDIT('employees-hr') },
   ],
 
-  // Messenger — bypasses the section-visibility guard
+  // Chat — bypasses the section-visibility guard
   'message.received': [{ type: 'mention', reason: 'You are in this conversation', when: IN_LIST('participants') }],
   'message.mention': [{ type: 'mention', reason: 'You were mentioned', when: IN_LIST('mentions') }],
 

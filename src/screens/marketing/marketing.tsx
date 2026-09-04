@@ -7,6 +7,7 @@ import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { useIsOwnTab } from '@/components/tab-bar/use-own-tab';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -24,6 +25,9 @@ export function Marketing() {
   const toast = useToast();
   const { can } = useAuth();
   const canEdit = can('marketing');
+  // A tab for this position means this screen is a root destination, so the
+  // header's back chevron would have nothing to go back to.
+  const isOwnTab = useIsOwnTab('marketing');
 
   const entriesQuery = useEntries();
   const { data: entries } = entriesQuery;
@@ -94,6 +98,7 @@ export function Marketing() {
       <ScreenHeader
         title="Marketing"
         subtitle={`${monthEntries.length} planned · ${MONTHS_SHORT[cursor.m]} ${cursor.y}`}
+        showBack={!isOwnTab}
         rightSlot={
           <View style={styles.headerRight}>
             <View style={[styles.viewTabs, { backgroundColor: theme.draftWash, borderColor: theme.border }]}>

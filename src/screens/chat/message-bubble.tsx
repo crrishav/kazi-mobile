@@ -3,7 +3,7 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import type { Message } from '@/data/messenger/types';
+import type { Message } from '@/data/chat/types';
 
 export interface MessageBubbleProps {
   message: Message;

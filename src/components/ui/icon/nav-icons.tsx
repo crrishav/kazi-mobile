@@ -47,6 +47,50 @@ export function FinanceIcon({ size = 22, color }: NavIconProps) {
   );
 }
 
+export function ChatIcon({ size = 22, color }: NavIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M20.5 12.2c0 4-3.8 7.2-8.5 7.2a10 10 0 01-2.6-.34L4.2 20.5l1.3-3.6A6.8 6.8 0 013.5 12.2C3.5 8.2 7.3 5 12 5s8.5 3.2 8.5 7.2z" />
+    </Svg>
+  );
+}
+
+export function ProductionIcon({ size = 22, color }: NavIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M3.5 20.5V10l5 3.2V10l5 3.2V10l5 3.2V20.5z" />
+      <Path d="M18.5 10V3.5h-2.2" />
+    </Svg>
+  );
+}
+
+export function OrdersIcon({ size = 22, color }: NavIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Rect x={4} y={4} width={16} height={16} rx={3} />
+      <Path d="M4 9.5h16M9.5 9.5V20" />
+    </Svg>
+  );
+}
+
+export function BillingIcon({ size = 22, color }: NavIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M5.5 3.5h13v17l-2.2-1.6-2.2 1.6-2.1-1.6-2.2 1.6-2.1-1.6-2.2 1.6z" />
+      <Path d="M9 8.5h6M9 12.5h6" />
+    </Svg>
+  );
+}
+
+export function MarketingIcon({ size = 22, color }: NavIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 9.5h3.5L15 5v14l-7.5-4.5H4z" />
+      <Path d="M18 9.2a4 4 0 010 5.6" />
+    </Svg>
+  );
+}
+
 export function MoreIcon({ size = 22, color }: NavIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

@@ -9,6 +9,7 @@ import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { useIsOwnTab } from '@/components/tab-bar/use-own-tab';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { TextField } from '@/components/ui/text-field';
 import { toCSV } from '@/lib/export/csv';
@@ -81,6 +82,9 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
   const toast = useToast();
   const { profile, can } = useAuth();
   const canEdit = can('billing');
+  // A tab for this position means this screen is a root destination, so the
+  // header's back chevron would have nothing to go back to.
+  const isOwnTab = useIsOwnTab('billing');
   const createdBy = profile?.name ?? 'You';
 
   const invoicesQuery = useInvoices();
@@ -547,6 +551,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
       <ScreenHeader
         title="Billing"
         subtitle="23 Aug 2026 · invoice FX"
+        showBack={!isOwnTab}
         rightSlot={
           <View style={styles.headerRight}>
             {docType === 'invoice' ? (

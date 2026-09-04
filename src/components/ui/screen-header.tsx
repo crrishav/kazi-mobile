@@ -16,7 +16,16 @@ export interface ScreenHeaderProps {
   rightSlot?: React.ReactNode;
 }
 
-/** Used by every pushed module screen (the design's headers aren't native-header shapes, so native headers stay off throughout). */
+/**
+ * Used by every module screen (the design's headers aren't native-header
+ * shapes, so native headers stay off throughout).
+ *
+ * Back falls through to the dashboard when there is nothing to pop. Some
+ * modules — Production, Orders, Billing, Marketing, Chat — are tab routes for
+ * the positions that live in them, and navigating to a tab switches rather than
+ * pushes, so anyone arriving from More or a dashboard quick link has no stack
+ * entry behind them. Without the fallback that chevron would be dead.
+ */
 export function ScreenHeader({ title, subtitle, showBack = true, onBack, rightSlot }: ScreenHeaderProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -25,7 +34,7 @@ export function ScreenHeader({ title, subtitle, showBack = true, onBack, rightSl
     <View style={[styles.row, { paddingTop: insets.top + 12, borderBottomColor: theme.border, backgroundColor: theme.background }]}>
       {showBack ? (
         <Pressable
-          onPress={onBack ?? (() => router.back())}
+          onPress={onBack ?? (() => (router.canGoBack() ? router.back() : router.navigate('/')))}
           hitSlop={8}
           style={[styles.backButton, { backgroundColor: theme.surface, borderColor: theme.border }]}
         >

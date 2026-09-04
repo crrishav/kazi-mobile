@@ -48,6 +48,7 @@ function toProfile(session: Session | null): Profile | null {
     initials: session.initials,
     role: session.appRole,
     jobRole: session.jobRole ?? session.role,
+    positionId: session.positionId,
     permissions: session.permissions,
     uid: session.uid,
     location: session.location,

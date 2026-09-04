@@ -24,7 +24,7 @@ const SECTION_ROUTE: Record<SectionId, string> = {
   'employees-hr': '/employees-hr',
   attendance: '/attendance',
   marketing: '/marketing',
-  messenger: '/messenger',
+  messenger: '/chat',
   directors: '/directors',
   'admin-panel': '/admin-panel',
   changelog: '/changelog',

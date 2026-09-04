@@ -34,6 +34,8 @@ export type SectionId =
   | 'employees-hr'
   | 'attendance'
   | 'marketing'
+  // Chat. The id stays `messenger`: it is the primary key of `sections` in
+  // Postgres and the join key in `position_permissions` — only the label moved.
   | 'messenger'
   | 'directors'
   | 'admin-panel'
@@ -70,6 +72,8 @@ export interface Profile {
   role: Role;
   /** Free-text job title (reference `jobRole`), display-only. */
   jobRole?: string;
+  /** `positions.id` in Postgres. Absent on the legacy Firebase path. */
+  positionId?: string;
   permissions?: PermissionOverrides;
   /** Firebase Auth UID — present on the real-auth path only. */
   uid?: string;

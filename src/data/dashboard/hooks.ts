@@ -13,11 +13,19 @@ import { useTeamRoster } from '@/data/attendance/hooks';
 import { useInvoices } from '@/data/billing/hooks';
 import { useExpenses } from '@/data/finance/hooks';
 import { useStock } from '@/data/inventory/hooks';
+import { useEntries } from '@/data/marketing/hooks';
 import { useQcLogs } from '@/data/quality-control/hooks';
 import { useOrders } from '@/data/sales/hooks';
 import { useTasks } from '@/data/tasks/hooks';
 
-import { deriveDirector, deriveMyDay, deriveOps } from './selectors';
+import {
+  deriveAccountant,
+  deriveDesigner,
+  deriveDirector,
+  deriveMarketing,
+  deriveMyDay,
+  deriveOps,
+} from './selectors';
 
 /** Structurally satisfied by any `UseQueryResult`, and by `GateQuery`. */
 interface QueryLike {
@@ -107,4 +115,45 @@ export function useMyDayDashboard() {
   );
 
   return { data, ...combine([tasks, roster, expenses]) };
+}
+
+export function useAccountantDashboard() {
+  const invoices = useInvoices();
+  const expenses = useExpenses();
+
+  const data = useMemo(
+    () => deriveAccountant({ invoices: invoices.data, expenses: expenses.data }),
+    [invoices.data, expenses.data],
+  );
+
+  return { data, ...combine([invoices, expenses]) };
+}
+
+export function useDesignerDashboard() {
+  const { profile } = useAuth();
+  const tasks = useTasks();
+  const orders = useOrders();
+  const stock = useStock();
+  const myName = profile?.name ?? '';
+
+  const data = useMemo(
+    () => deriveDesigner({ tasks: tasks.data, orders: orders.data, stock: stock.data, myName }),
+    [tasks.data, orders.data, stock.data, myName],
+  );
+
+  return { data, ...combine([tasks, orders, stock]) };
+}
+
+export function useMarketingDashboard() {
+  const { profile } = useAuth();
+  const tasks = useTasks();
+  const entries = useEntries();
+  const myName = profile?.name ?? '';
+
+  const data = useMemo(
+    () => deriveMarketing({ tasks: tasks.data, entries: entries.data, myName }),
+    [tasks.data, entries.data, myName],
+  );
+
+  return { data, ...combine([tasks, entries]) };
 }

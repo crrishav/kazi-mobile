@@ -78,6 +78,7 @@ export function sessionFromIdentity(
     // admin@kazi.com is always super_admin (lock-out failsafe, ported from reference).
     appRole: email === 'admin@kazi.com' ? 'super_admin' : roleFromTier(identity.tier, location),
     jobRole: identity.positionLabel ?? '',
+    positionId: identity.positionId ?? undefined,
     permissions: identity.permissions,
     uid: fallback.uid,
     location,

@@ -46,7 +46,7 @@ export interface NotificationPayload {
   employee?: string | null;
   /** Affected people for `permissions.changed` / `payroll.run_finalised`. */
   people?: string[];
-  /** Messenger thread participant names. */
+  /** Chat thread participant names. */
   participants?: string[];
   /** `@name` handles parsed from free text. */
   mentions?: string[];

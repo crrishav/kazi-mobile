@@ -20,6 +20,8 @@ export interface Session {
   /** RBAC role (reference model). Drives nav filtering + edit gating. */
   appRole: Role;
   jobRole?: string;
+  /** `positions.id` in Postgres — drives the per-position tab bar and dashboard. */
+  positionId?: string;
   permissions?: PermissionOverrides;
   /** Firebase Auth UID — set on the real-auth path, absent under mock-auth. */
   uid?: string;

@@ -5,14 +5,14 @@ import { StyleSheet, View } from 'react-native';
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { useTheme } from '@/theme/theme-provider';
-import { useMarkRead, useMessages, useReadStatus, useSendMessage } from '@/data/messenger/hooks';
-import { PEOPLE, THREADS } from '@/data/messenger/mock';
-import type { MessengerView, ThreadId } from '@/data/messenger/types';
+import { useMarkRead, useMessages, useReadStatus, useSendMessage } from '@/data/chat/hooks';
+import { PEOPLE, THREADS } from '@/data/chat/mock';
+import type { ChatView, ThreadId } from '@/data/chat/types';
 
 import { ThreadListView } from './thread-list-view';
 import { ThreadView } from './thread-view';
 
-export function Messenger() {
+export function Chat() {
   const theme = useTheme();
   const toast = useToast();
   const { can } = useAuth();
@@ -25,7 +25,7 @@ export function Messenger() {
   const sendMessage = useSendMessage();
   const markRead = useMarkRead();
 
-  const [view, setView] = useState<MessengerView>('list');
+  const [view, setView] = useState<ChatView>('list');
   const [activeId, setActiveId] = useState<ThreadId | null>(null);
   const [draft, setDraft] = useState('');
   const [refreshing, setRefreshing] = useState(false);

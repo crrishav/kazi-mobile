@@ -29,7 +29,7 @@ export const GROUPS: SectionGroup[] = [
       { id: 'hr', name: 'Employees & HR', note: 'Roll, contracts, payroll', sensitive: true },
       { id: 'att', name: 'Attendance', note: 'Shifts, leave, overtime' },
       { id: 'dir', name: 'Directors', note: 'Leadership directory' },
-      { id: 'msg', name: 'Messenger', note: 'Threads and broadcasts' },
+      { id: 'msg', name: 'Chat', note: 'Threads and broadcasts' },
       { id: 'mkt', name: 'Marketing', note: 'Brand assets, enquiries' },
     ],
   },

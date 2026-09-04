@@ -11,6 +11,8 @@ import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 
 import { ApprovalsSection } from '../approvals-section';
+import { DashboardClockInCard } from '../clock-in-card';
+import { QuickLinks } from '../quick-links';
 import { DashboardCard, DashboardScroll } from '../dashboard-card';
 import { KpiRow } from '../kpi-tile';
 import { OrdersByStageCard } from '../orders-by-stage-card';
@@ -18,7 +20,11 @@ import { AttendanceCard } from '../attendance-card';
 
 const TASK_COLS: TaskStatus[] = ['blocked', 'progress', 'inactive', 'done'];
 
-/** `nepal_admin` / `super_admin` — the factory-floor operations view. */
+/**
+ * `operations-head` / `operations-intern` ("Operations Manager") — the
+ * factory-floor view. They work a shift like everyone else on the floor, so the
+ * clock-in card sits above the numbers.
+ */
 export function OpsDashboard() {
   const theme = useTheme();
   const { canView } = useAuth();
@@ -29,6 +35,8 @@ export function OpsDashboard() {
 
   return (
     <DashboardScroll isRefetching={isRefetching} onRefresh={refetch} loading={isLoading && nothingYet}>
+      <DashboardClockInCard />
+
       <KpiRow kpis={data.kpis} canView={canView} />
 
       {canView('production') ? (
@@ -88,6 +96,10 @@ export function OpsDashboard() {
       ) : null}
 
       <ApprovalsSection />
+
+      <QuickLinks
+        sections={['quality-control', 'order-management', 'purchases', 'budget-requirements', 'attendance', 'tasks', 'employees-hr', 'customers', 'billing', 'finance', 'marketing', 'accounting', 'sales']}
+      />
     </DashboardScroll>
   );
 }

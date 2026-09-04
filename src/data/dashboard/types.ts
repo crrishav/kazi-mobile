@@ -86,3 +86,42 @@ export interface MyDayDashboard {
   tasksDone: number;
   financeMTD: number;
 }
+
+/** `accountant` — money in, money out. */
+export interface AccountantDashboard {
+  kpis: DashKpi[];
+  invoices: { paidNPR: number; outstandingNPR: number; overdueNPR: number };
+  invoiceCounts: { paid: number; partial: number; overdue: number; draft: number };
+  financeMTD: number;
+}
+
+/** `fashion-designer` — own work, the floor, and what the floor is short of. */
+export interface DesignerDashboard {
+  kpis: DashKpi[];
+  myTasks: MyDayTask[];
+  myOpenCount: number;
+  stages: StageDatum[];
+  activeOrdersTotal: number;
+  lowStock: LowStockRow[];
+}
+
+/** One dated item on the marketing / content calendar. */
+export interface CalendarItem {
+  id: string;
+  title: string;
+  kind: string;
+  person: string;
+  /** `YYYY-MM-DD`, already AD. */
+  date: string;
+  /** Days from today; negative is in the past. */
+  inDays: number;
+}
+
+/** `marketing-coordinator` / `content-coordinator` — the calendar and own tasks. */
+export interface MarketingDashboard {
+  kpis: DashKpi[];
+  myTasks: MyDayTask[];
+  myOpenCount: number;
+  upcoming: CalendarItem[];
+  thisMonthCount: number;
+}

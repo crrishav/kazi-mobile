@@ -15,10 +15,15 @@ export function Icon({ name, size = 20, color }: IconProps) {
 }
 
 export {
+  BillingIcon,
+  ChatIcon,
   DashboardIcon,
   FinanceIcon,
   InventoryIcon,
+  MarketingIcon,
   MoreIcon,
+  OrdersIcon,
+  ProductionIcon,
   TasksIcon,
   type NavIconProps,
 } from './nav-icons';

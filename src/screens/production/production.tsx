@@ -8,6 +8,7 @@ import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { useIsOwnTab } from '@/components/tab-bar/use-own-tab';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { StatusPill, type StatusKind } from '@/components/ui/status-pill';
 import { useTheme } from '@/theme/theme-provider';
@@ -47,6 +48,9 @@ export function Production() {
   const toast = useToast();
   const { can } = useAuth();
   const canEdit = can('production');
+  // A tab for this position means this screen is a root destination, so the
+  // header's back chevron would have nothing to go back to.
+  const isOwnTab = useIsOwnTab('production');
 
   const batchesQuery = useBatches();
   const { data: batches } = batchesQuery;
@@ -220,7 +224,12 @@ export function Production() {
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <ScreenHeader title="Production" subtitle={`${activeCount} active batches`} rightSlot={<HeaderAccount />} />
+      <ScreenHeader
+        title="Production"
+        subtitle={`${activeCount} active batches`}
+        showBack={!isOwnTab}
+        rightSlot={<HeaderAccount />}
+      />
       <BoardTabs view={view} onList={() => setView('list')} onCalendar={() => setView('calendar')} />
 
       <ScrollView contentContainerStyle={styles.content}>

@@ -3,7 +3,7 @@ import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import type { Message, Person, ThreadMeta } from '@/data/messenger/types';
+import type { Message, Person, ThreadMeta } from '@/data/chat/types';
 
 import { Composer } from './composer';
 import { MessageBubble } from './message-bubble';

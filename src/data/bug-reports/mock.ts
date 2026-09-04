@@ -37,7 +37,7 @@ export const BUG_AREAS = [
   'Sales',
   'Attendance',
   'Employees & HR',
-  'Messenger',
+  'Chat',
   'Other',
 ] as const;
 
@@ -102,8 +102,8 @@ export const seedBugReports: BugReport[] = [
   {
     id: 'b5',
     ref: 'BUG-005',
-    title: 'Messenger unread badge lags one message behind',
-    area: 'Messenger',
+    title: 'Chat unread badge lags one message behind',
+    area: 'Chat',
     severity: 'low',
     steps: 'Receive a message while on the thread list. Badge only updates after pull-to-refresh.',
     status: 'resolved',

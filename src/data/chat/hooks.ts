@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { notify } from '@/data/notifications/notify';
 
-import { messengerKeys } from './keys';
+import { chatKeys } from './keys';
 import { PEOPLE } from './mock';
 import * as api from './mock-api';
 import type { Message, ThreadId } from './types';
@@ -11,7 +11,7 @@ const parseMentions = (text: string): string[] =>
   [...text.matchAll(/@([\p{L}][\p{L}\d._-]*)/gu)].map((m) => m[1]);
 
 export function useMessages() {
-  return useQuery({ queryKey: messengerKeys.messages(), queryFn: api.fetchMessages });
+  return useQuery({ queryKey: chatKeys.messages(), queryFn: api.fetchMessages });
 }
 
 export function useSendMessage() {
@@ -19,17 +19,17 @@ export function useSendMessage() {
   return useMutation({
     mutationFn: ({ threadId, text }: { threadId: ThreadId; text: string }) => api.sendMessage(threadId, text),
     onMutate: async ({ threadId, text }) => {
-      await queryClient.cancelQueries({ queryKey: messengerKeys.messages() });
-      const previous = queryClient.getQueryData<Partial<Record<ThreadId, Message[]>>>(messengerKeys.messages());
+      await queryClient.cancelQueries({ queryKey: chatKeys.messages() });
+      const previous = queryClient.getQueryData<Partial<Record<ThreadId, Message[]>>>(chatKeys.messages());
       const existing = previous?.[threadId] ?? [];
-      queryClient.setQueryData(messengerKeys.messages(), {
+      queryClient.setQueryData(chatKeys.messages(), {
         ...previous,
         [threadId]: [...existing, { from: 'me', text, meta: 'Just now · Sent' }],
       });
       return { previous };
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(messengerKeys.messages(), context.previous);
+      if (context?.previous) queryClient.setQueryData(chatKeys.messages(), context.previous);
     },
     onSuccess: (_data, { threadId, text }) => {
       const who = PEOPLE[threadId]?.name;
@@ -48,7 +48,7 @@ export function useSendMessage() {
 }
 
 export function useReadStatus() {
-  return useQuery({ queryKey: messengerKeys.readStatus(), queryFn: api.fetchReadStatus });
+  return useQuery({ queryKey: chatKeys.readStatus(), queryFn: api.fetchReadStatus });
 }
 
 export function useMarkRead() {
@@ -56,13 +56,13 @@ export function useMarkRead() {
   return useMutation({
     mutationFn: (threadId: ThreadId) => api.markRead(threadId),
     onMutate: async (threadId) => {
-      await queryClient.cancelQueries({ queryKey: messengerKeys.readStatus() });
-      const previous = queryClient.getQueryData<Partial<Record<ThreadId, boolean>>>(messengerKeys.readStatus());
-      queryClient.setQueryData(messengerKeys.readStatus(), { ...previous, [threadId]: true });
+      await queryClient.cancelQueries({ queryKey: chatKeys.readStatus() });
+      const previous = queryClient.getQueryData<Partial<Record<ThreadId, boolean>>>(chatKeys.readStatus());
+      queryClient.setQueryData(chatKeys.readStatus(), { ...previous, [threadId]: true });
       return { previous };
     },
     onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(messengerKeys.readStatus(), context.previous);
+      if (context?.previous) queryClient.setQueryData(chatKeys.readStatus(), context.previous);
     },
   });
 }

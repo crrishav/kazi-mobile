@@ -7,8 +7,8 @@ import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import { PEOPLE } from '@/data/messenger/mock';
-import type { Message, ThreadId, ThreadMeta } from '@/data/messenger/types';
+import { PEOPLE } from '@/data/chat/mock';
+import type { Message, ThreadId, ThreadMeta } from '@/data/chat/types';
 
 import { ThreadRow } from './thread-row';
 
@@ -61,8 +61,9 @@ export function ThreadListView({ threads, messages, readStatus, pulledAt, refres
   return (
     <View style={styles.flex}>
       <ScreenHeader
-        title="Messages"
+        title="Chat"
         subtitle={unreadSummary}
+        showBack={false}
         rightSlot={
           <View style={styles.headerActions}>
             <Pressable

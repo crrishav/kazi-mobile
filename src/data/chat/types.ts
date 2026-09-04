@@ -31,4 +31,4 @@ export interface ThreadMeta {
 
 export type PullState = 'idle' | 'loading' | 'done';
 
-export type MessengerView = 'list' | 'thread';
+export type ChatView = 'list' | 'thread';
