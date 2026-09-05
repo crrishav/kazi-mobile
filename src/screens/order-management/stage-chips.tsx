@@ -2,15 +2,16 @@ import { ScrollView, Pressable, StyleSheet, Text } from 'react-native';
 
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import type { ProductionFilter } from '@/data/production/types';
+import type { OrdersFilter } from '@/data/sales/types';
 
-export interface FilterChipsProps {
-  filters: { id: ProductionFilter; label: string; count: number }[];
-  active: ProductionFilter;
-  onChange: (f: ProductionFilter) => void;
+export interface StageChipsProps {
+  filters: { id: OrdersFilter; label: string; count: number }[];
+  active: OrdersFilter;
+  onChange: (f: OrdersFilter) => void;
 }
 
-export function FilterChips({ filters, active, onChange }: FilterChipsProps) {
+/** Horizontal stage filter rail — the pipeline's primary navigation. */
+export function StageChips({ filters, active, onChange }: StageChipsProps) {
   const theme = useTheme();
 
   return (
@@ -21,7 +22,13 @@ export function FilterChips({ filters, active, onChange }: FilterChipsProps) {
           <Pressable
             key={f.id}
             onPress={() => onChange(f.id)}
-            style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+            style={[
+              styles.chip,
+              {
+                backgroundColor: on ? theme.surfaceInverted : theme.surface,
+                borderColor: on ? theme.surfaceInverted : theme.border,
+              },
+            ]}
           >
             <Text style={[styles.label, { color: on ? theme.onDark.text : theme.textPrimary }]}>{f.label}</Text>
             <Text style={[styles.count, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{f.count}</Text>

@@ -1,10 +1,12 @@
 /**
  * Live `orders` writers — the reference ERP's own collection, shared by Sales
- * (read-only) and Order Management.
+ * (read-only) and the Production pipeline screen.
  *
- * The mobile 5-stage chain maps onto reference stage names the reader recognises
- * by keyword. `stageHistory` is not appended on a move — the reader back-fills a
- * full history from the current stage, so patching `stage` alone is enough.
+ * Every stage and status goes back as the verbatim string the website matches
+ * on, so a move made on the phone reads correctly in the browser and vice
+ * versa. The stage mutations mirror `Production.jsx`: advancing onto Delivered
+ * also completes the order, and a backwards move reactivates it and records a
+ * "↩ Reverted to X" history entry, exactly as the web app writes it.
  */
 
 import { arrayUnion } from '@/lib/supabase/firestore-compat';
@@ -12,19 +14,20 @@ import { arrayUnion } from '@/lib/supabase/firestore-compat';
 import { createDocument, patchDocument, removeDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
-import type { Order, OrderNote, OrderPriority, StageId } from './types';
+import { stageById } from './mock';
+import type { Embellishment, Order, OrderNote, OrderStatus, StageId } from './types';
 
 const COLLECTION = 'orders';
 
-// Exact `stage_config` doc names in the live project (sampled 2026-08) — the
-// website matches orders to stages by this string, so it must be verbatim.
-const STAGE_TO_LIVE: Record<StageId, string> = {
-  sourcing: 'Fabric Sourcing',
-  cutting: 'Cutting',
-  finishing: 'Stitching',
-  packing: 'Packing',
-  delivered: 'Delivered',
+const STATUS_TO_LIVE: Record<OrderStatus, string> = {
+  active: 'Active',
+  'on-hold': 'On Hold',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
 };
+
+const today = () => new Date().toISOString().slice(0, 10);
+const actor = () => getActor()?.name ?? 'kazi-mobile';
 
 function toLive(o: Partial<Order>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -33,25 +36,29 @@ function toLive(o: Partial<Order>): Record<string, unknown> {
   if (o.product !== undefined) out.styleName = o.product;
   if (o.qty !== undefined) out.quantity = o.qty;
   if (o.value !== undefined) out.totalValueNPR = o.value;
-  if (o.stage !== undefined) out.stage = STAGE_TO_LIVE[o.stage];
-  if (o.priority !== undefined) out.priority = o.priority === 'high' ? 'High' : 'Normal';
-  if (o.status !== undefined) out.status = o.status === 'cancelled' ? 'Cancelled' : 'Active';
+  if (o.pricePerPc !== undefined) out.pricePerPcNPR = o.pricePerPc;
+  if (o.stage !== undefined) out.stage = stageById(o.stage).label;
+  if (o.status !== undefined) out.status = STATUS_TO_LIVE[o.status];
+  if (o.orderDate !== undefined) out.date = o.orderDate;
+  if (o.deliveryDate !== undefined) out.deliveryDate = o.deliveryDate;
+  if (o.fabricType !== undefined) out.fabricType = o.fabricType;
+  if (o.colorway !== undefined) out.colorway = o.colorway;
+  if (o.fabricGramsUsed !== undefined) out.fabricGramsUsed = o.fabricGramsUsed;
+  if (o.fabricCostPerPc !== undefined) out.fabricCostPerPcNPR = o.fabricCostPerPc;
+  if (o.sampleName !== undefined) out.sampleName = o.sampleName;
+  if (o.embellishments !== undefined) out.embellishments = o.embellishments;
   if (o.assignedTo !== undefined) out.assignedTo = o.assignedTo;
-  if (o.po !== undefined) out.invoiceRef = o.po;
+  if (o.invoiceRef !== undefined) out.invoiceRef = o.invoiceRef;
   return out;
 }
 
 export async function addOrder(order: Order): Promise<void> {
   await createDocument(COLLECTION, {
     ...toLive(order),
-    pricePerPcNPR: order.qty > 0 ? Math.round(order.value / order.qty) : 0,
-    date: new Date().toISOString().slice(0, 10),
-    deliveryDate: '',
-    colorway: '',
     notes: '',
     notesList: order.notes ?? [],
     stageHistory: order.stageHistory ?? [],
-    createdBy: getActor()?.name ?? 'kazi-mobile',
+    createdBy: actor(),
   });
 }
 
@@ -60,17 +67,26 @@ export async function updateOrder(id: string, updates: Partial<Order>): Promise<
   if (Object.keys(fields).length > 0) await patchDocument(COLLECTION, id, fields);
 }
 
-export async function setOrderStage(id: string, stage: StageId): Promise<void> {
-  const liveStage = STAGE_TO_LIVE[stage];
+/**
+ * A stage move. `reverted` marks a backwards step, which the reference records
+ * with an arrow-prefixed history entry and always leaves the order Active.
+ */
+export async function setOrderStage(id: string, stage: StageId, reverted = false): Promise<void> {
+  const label = stageById(stage).label;
   await patchDocument(COLLECTION, id, {
-    stage: liveStage,
-    status: stage === 'delivered' ? 'Completed' : 'Active',
-    stageHistory: arrayUnion({ stage: liveStage, at: new Date().toISOString(), by: getActor()?.name ?? 'kazi-mobile' }),
+    stage: label,
+    status: reverted ? 'Active' : stage === 'delivered' ? 'Completed' : 'Active',
+    stageHistory: arrayUnion({
+      stage: reverted ? `↩ Reverted to ${label}` : label,
+      at: new Date().toISOString(),
+      date: today(),
+      by: actor(),
+    }),
   });
 }
 
-export async function setOrderPriority(id: string, priority: OrderPriority): Promise<void> {
-  await patchDocument(COLLECTION, id, { priority: priority === 'high' ? 'High' : 'Normal' });
+export async function setOrderEmbellishments(id: string, embellishments: Embellishment[]): Promise<void> {
+  await patchDocument(COLLECTION, id, { embellishments });
 }
 
 export async function addOrderNote(id: string, note: OrderNote): Promise<void> {
@@ -80,8 +96,12 @@ export async function addOrderNote(id: string, note: OrderNote): Promise<void> {
   });
 }
 
-export async function setOrderStatus(id: string, status: Order['status']): Promise<void> {
-  await patchDocument(COLLECTION, id, { status: status === 'cancelled' ? 'Cancelled' : 'Active' });
+export async function setOrderStatus(id: string, status: OrderStatus): Promise<void> {
+  await patchDocument(COLLECTION, id, { status: STATUS_TO_LIVE[status] });
+}
+
+export async function deleteOrder(id: string): Promise<void> {
+  await removeDocument(COLLECTION, id);
 }
 
 /** Snapshot restore (undo) — not reversed in Firestore this pass. */

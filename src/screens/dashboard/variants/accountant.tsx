@@ -63,7 +63,6 @@ export function AccountantDashboard() {
           'attendance',
           'tasks',
           'inventory',
-          'production',
         ]}
       />
     </DashboardScroll>

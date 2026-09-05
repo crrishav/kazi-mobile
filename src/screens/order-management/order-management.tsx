@@ -4,55 +4,88 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
+import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { CollapsedSection } from '@/components/ui/collapsed-section';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useIsOwnTab } from '@/components/tab-bar/use-own-tab';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { Button } from '@/components/ui/button';
+import { StatusPill, type StatusKind } from '@/components/ui/status-pill';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import {
   useAddOrder,
   useAddOrderNote,
+  useDeleteOrder,
   useOrders,
-  useRestoreOrders,
-  useSetOrderPriority,
+  useSetOrderEmbellishments,
   useSetOrderStage,
   useSetOrderStatus,
   useUpdateOrder,
 } from '@/data/sales/hooks';
-import { STAGES, STAGE_IDS, nextOrderRef } from '@/data/sales/mock';
-import type { Order, OrderDraft, OrderManagementView, StageId } from '@/data/sales/types';
+import { STAGES, STAGE_IDS, nextOrderRef, shipDays, shipLabel, stageById } from '@/data/sales/mock';
+import type { Embellishment, Order, OrderDraft, OrderStatus, OrdersFilter, StageId } from '@/data/sales/types';
+import { groupOf, isOpen, priorityOf } from '@/data/sales/utils';
 
-import { BoardColumn } from './board-column';
-import { DetailSheet } from './detail-sheet';
+import { OrderDetail } from './order-detail';
 import { OrderListRow } from './order-list-row';
 import { OrderSheet } from './order-sheet';
+import { PipelineSummary } from './pipeline-summary';
+import { StageChips } from './stage-chips';
 
 const toNum = (s: string) => parseInt(s.replace(/[^0-9]/g, ''), 10) || 0;
+const today = () => new Date().toISOString().slice(0, 10);
+
+const STATUS_PILL: Record<OrderStatus, { kind: StatusKind; label: string }> = {
+  active: { kind: 'on-track', label: 'Active' },
+  'on-hold': { kind: 'at-risk', label: 'On Hold' },
+  completed: { kind: 'shipped', label: 'Completed' },
+  cancelled: { kind: 'blocked', label: 'Cancelled' },
+};
 
 function draftFrom(order: Order): OrderDraft {
   return {
     id: order.id,
     ref: order.ref,
+    orderDate: order.orderDate,
+    deliveryDate: order.deliveryDate,
     customer: order.customer,
-    city: order.city,
     product: order.product,
+    fabricType: order.fabricType,
+    colorway: order.colorway,
+    sampleName: order.sampleName,
     qty: String(order.qty),
-    value: String(order.value),
-    po: order.po,
-    channel: order.channel,
-    terms: order.terms,
-    stage: order.stage,
-    priority: order.priority,
+    pricePerPc: String(order.pricePerPc),
+    fabricGramsUsed: order.fabricGramsUsed ? String(order.fabricGramsUsed) : '',
+    fabricCostPerPc: order.fabricCostPerPc ? String(order.fabricCostPerPc) : '',
+    invoiceRef: order.invoiceRef,
     assignedTo: order.assignedTo,
+    stage: order.stage,
+    status: order.status,
   };
 }
 
 function emptyDraft(): OrderDraft {
-  return { id: null, ref: '', customer: '', city: '', product: '', qty: '', value: '', po: '', channel: 'Wholesale', terms: '30 days', stage: 'sourcing', priority: 'normal', assignedTo: '' };
+  return {
+    id: null, ref: '', orderDate: today(), deliveryDate: '', customer: '', product: '',
+    fabricType: 'Terry Cotton', colorway: '', sampleName: '', qty: '', pricePerPc: '',
+    fabricGramsUsed: '', fabricCostPerPc: '', invoiceRef: '', assignedTo: '',
+    stage: 'received', status: 'active',
+  };
 }
 
+/**
+ * The production pipeline: every order, filtered by the stage it sits at,
+ * with a full-screen detail per order.
+ *
+ * The stage chain, the statuses, the edit form and the move/hold/delete
+ * actions all mirror the reference web app's `Production.jsx` — that page, not
+ * the unreachable `OrderManagement.jsx`, is the one the business actually uses,
+ * and it owns the ten-stage model. The route and the permission stay
+ * `order-management`, because `orders` is the table RLS gates on.
+ */
 export function OrderManagement() {
   const theme = useTheme();
   const toast = useToast();
@@ -67,25 +100,28 @@ export function OrderManagement() {
   const addOrder = useAddOrder();
   const updateOrder = useUpdateOrder();
   const setStage = useSetOrderStage();
-  const setPriority = useSetOrderPriority();
+  const setEmbellishments = useSetOrderEmbellishments();
   const addNote = useAddOrderNote();
   const setStatus = useSetOrderStatus();
-  const restoreOrders = useRestoreOrders();
+  const deleteOrder = useDeleteOrder();
 
-  const [view, setView] = useState<OrderManagementView>('board');
+  const [filter, setFilter] = useState<OrdersFilter>('all');
   const [sheetMode, setSheetMode] = useState<'new' | 'edit' | null>(null);
   const [draft, setDraft] = useState<OrderDraft | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (isBlocked(ordersQuery) || !orders) return <ScreenGate queries={[ordersQuery]} />;
 
   const selected = orders.find((o) => o.id === selectedId) ?? null;
-  const activeCount = orders.filter((o) => o.status === 'active' && o.stage !== 'delivered').length;
-  const listRows = orders
-    .slice()
-    .sort((a, b) => STAGE_IDS.indexOf(a.stage) - STAGE_IDS.indexOf(b.stage) || Number(b.priority === 'high') - Number(a.priority === 'high'));
+  const openCount = orders.filter(isOpen).length;
 
   const patchDraft = (patch: Partial<OrderDraft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
+
+  const openOrder = (id: string) => {
+    setConfirmDelete(false);
+    setSelectedId(id);
+  };
 
   const openNew = () => {
     setDraft(emptyDraft());
@@ -103,146 +139,219 @@ export function OrderManagement() {
   const handleSave = () => {
     if (!draft) return;
     const qty = toNum(draft.qty);
-    const value = toNum(draft.value);
+    const pricePerPc = toNum(draft.pricePerPc);
+    const shared = {
+      customer: draft.customer.trim(),
+      product: draft.product.trim(),
+      qty,
+      pricePerPc,
+      value: qty * pricePerPc,
+      orderDate: draft.orderDate.trim(),
+      deliveryDate: draft.deliveryDate.trim(),
+      ship: shipLabel(draft.deliveryDate.trim()),
+      shipDays: shipDays(draft.deliveryDate.trim()),
+      fabricType: draft.fabricType.trim(),
+      colorway: draft.colorway.trim(),
+      fabricGramsUsed: toNum(draft.fabricGramsUsed),
+      fabricCostPerPc: toNum(draft.fabricCostPerPc),
+      invoiceRef: draft.invoiceRef.trim(),
+      sampleName: draft.sampleName.trim(),
+      assignedTo: draft.assignedTo.trim() || 'Unassigned',
+      stage: draft.stage,
+      status: draft.status,
+    };
+
     if (draft.id) {
-      updateOrder.mutate({
-        id: draft.id,
-        updates: {
-          customer: draft.customer.trim(),
-          city: draft.city.trim(),
-          product: draft.product.trim(),
-          qty,
-          value,
-          po: draft.po.trim(),
-          channel: draft.channel.trim(),
-          terms: draft.terms.trim(),
-          stage: draft.stage,
-          priority: draft.priority,
-          assignedTo: draft.assignedTo.trim() || 'Unassigned',
-        },
-      });
+      updateOrder.mutate({ id: draft.id, updates: shared });
       toast.show({ message: `${draft.ref} updated`, tone: 'ok' });
     } else {
       const ref = nextOrderRef(orders);
-      const nowISO = new Date().toISOString();
       const order: Order = {
+        ...shared,
         id: `o${Date.now()}`,
         ref,
-        customer: draft.customer.trim(),
-        city: draft.city.trim() || '—',
-        product: draft.product.trim(),
-        qty,
-        stage: draft.stage,
-        ship: '—',
-        shipDays: 30,
-        value,
-        po: draft.po.trim() || '—',
-        channel: draft.channel.trim() || 'Wholesale',
-        terms: draft.terms.trim() || '30 days',
-        sizes: [],
-        priority: draft.priority,
-        status: 'active',
-        assignedTo: draft.assignedTo.trim() || 'Unassigned',
-        stageHistory: [{ stage: draft.stage, at: nowISO }],
+        embellishments: [],
+        stageHistory: [{ stage: draft.stage, at: new Date().toISOString() }],
         notes: [],
       };
       addOrder.mutate(order);
+      setSelectedId(order.id);
       toast.show({ message: `${ref} created`, tone: 'ok' });
     }
     closeSheet();
   };
 
+  /**
+   * Advancing onto Delivered also completes the order (reference `advanceStage`).
+   *
+   * Undo is a real inverse write, not a cache rewind — `restoreOrders` never
+   * touches Postgres, so a snapshot-based undo would revert on screen and then
+   * snap back on the next refetch.
+   */
   const moveOrder = (order: Order, dir: -1 | 1) => {
     const idx = STAGE_IDS.indexOf(order.stage);
     const next = STAGE_IDS[idx + dir] as StageId | undefined;
     if (!next) return;
-    const before = orders;
-    setStage.mutate({ id: order.id, stage: next });
+    const from = order.stage;
+    setStage.mutate({ id: order.id, stage: next, reverted: dir === -1 });
     toast.show({
-      message: `${order.ref} → ${STAGES[idx + dir].label}`,
+      message: dir === 1 ? `${order.ref} → ${stageById(next).label}` : `${order.ref} back to ${stageById(next).label}`,
       tone: 'ok',
-      action: { label: 'Undo', onPress: () => restoreOrders.mutate(before) },
+      action: {
+        label: 'Undo',
+        onPress: () => setStage.mutate({ id: order.id, stage: from, reverted: dir === 1 }),
+      },
     });
   };
 
-  const togglePriority = () => {
-    if (!selected) return;
-    const next = selected.priority === 'high' ? 'normal' : 'high';
-    setPriority.mutate({ id: selected.id, priority: next });
-    toast.show({ message: `${selected.ref} priority: ${next}`, tone: 'ok' });
+  const changeStatus = (order: Order, status: OrderStatus, message: string) => {
+    const from = order.status;
+    setStatus.mutate({ id: order.id, status });
+    toast.show({
+      message,
+      tone: status === 'cancelled' ? 'bad' : 'ok',
+      action: { label: 'Undo', onPress: () => setStatus.mutate({ id: order.id, status: from }) },
+    });
   };
 
-  const addOrderNote = (body: string) => {
-    if (!selected) return;
+  // No Undo here, unlike the other mutations: `restoreOrders` only rewinds the
+  // local cache, and the row is already gone from Postgres. Offering the button
+  // would be a lie. The detail screen asks for confirmation instead.
+  const handleDelete = (order: Order) => {
+    deleteOrder.mutate(order.id);
+    setConfirmDelete(false);
+    setSelectedId(null);
+    toast.show({ message: `${order.ref} deleted`, tone: 'bad' });
+  };
+
+  const addOrderNote = (order: Order, body: string) => {
     addNote.mutate({
-      id: selected.id,
+      id: order.id,
       note: { id: `n${Date.now()}`, body, at: new Date().toISOString(), who: 'You' },
     });
   };
 
-  const cancelOrder = () => {
-    if (!selected) return;
-    const before = orders;
-    setStatus.mutate({ id: selected.id, status: 'cancelled' });
-    toast.show({
-      message: `${selected.ref} cancelled`,
-      tone: 'bad',
-      action: { label: 'Undo', onPress: () => restoreOrders.mutate(before) },
-    });
-  };
+  // ---- Detail ------------------------------------------------------------
 
-  const restoreOrder = () => {
-    if (!selected) return;
-    setStatus.mutate({ id: selected.id, status: 'active' });
-    toast.show({ message: `${selected.ref} restored`, tone: 'ok' });
-  };
+  if (selected) {
+    const pill = STATUS_PILL[selected.status];
+    return (
+      <View style={[styles.flex, { backgroundColor: theme.background }]}>
+        <ScreenHeader
+          title={selected.customer}
+          subtitle={`${selected.ref} · ${selected.product}`}
+          onBack={() => {
+            setConfirmDelete(false);
+            setSelectedId(null);
+          }}
+          rightSlot={<StatusPill status={pill.kind} label={pill.label} />}
+        />
+        <ScrollView contentContainerStyle={styles.detailContent}>
+          <PermissionNotice section="order-management" />
+          <OrderDetail
+            order={selected}
+            canEdit={canEdit}
+            onAdvance={() => moveOrder(selected, 1)}
+            onReverse={() => moveOrder(selected, -1)}
+            onHold={() => changeStatus(selected, 'on-hold', `${selected.ref} on hold`)}
+            onResume={() => changeStatus(selected, 'active', `${selected.ref} resumed`)}
+            onEmbellishments={(next: Embellishment[]) =>
+              setEmbellishments.mutate({ id: selected.id, embellishments: next })
+            }
+            onAddNote={(body) => addOrderNote(selected, body)}
+          />
+        </ScrollView>
+
+        {/* Two buttons, always reachable. Moving the order lives up in the
+            "Now at" card; this bar is only for acting on the record. */}
+        {canEdit ? (
+          <View
+            style={[
+              styles.footerBar,
+              { backgroundColor: theme.surface, borderTopColor: theme.border },
+            ]}
+          >
+            {confirmDelete ? (
+              <>
+                <Button label="Keep it" variant="secondary" onPress={() => setConfirmDelete(false)} style={styles.flex1} />
+                <Button label="Delete for good" variant="danger" onPress={() => handleDelete(selected)} style={styles.flex1} />
+              </>
+            ) : (
+              <>
+                <Button label="Edit order" variant="secondary" onPress={() => openEdit(selected)} style={styles.flex1} />
+                <Button label="Delete" variant="dangerOutline" onPress={() => setConfirmDelete(true)} style={styles.flex1} />
+              </>
+            )}
+          </View>
+        ) : null}
+
+        <OrderSheet visible={!!sheetMode} mode={sheetMode} draft={draft} onClose={closeSheet} onChange={patchDraft} onSave={handleSave} />
+      </View>
+    );
+  }
+
+  // ---- List --------------------------------------------------------------
+
+  // Chip counts include closed orders, so a chip's number always equals what
+  // the working list and the two sections under it add up to.
+  const filters: { id: OrdersFilter; label: string; count: number }[] = [
+    { id: 'all', label: 'All', count: orders.length },
+    ...STAGES.map((s) => ({
+      id: s.id as OrdersFilter,
+      label: s.short,
+      count: orders.filter((o) => o.stage === s.id).length,
+    })),
+  ];
+
+  const PRIORITY_RANK = { urgent: 0, high: 1, normal: 2 } as const;
+
+  // Most urgent first, then furthest along — the order a floor lead reads in.
+  const matching = orders
+    .filter((o) => filter === 'all' || o.stage === filter)
+    .sort(
+      (a, b) =>
+        PRIORITY_RANK[priorityOf(a)] - PRIORITY_RANK[priorityOf(b)] ||
+        STAGE_IDS.indexOf(b.stage) - STAGE_IDS.indexOf(a.stage),
+    );
+
+  // Finished and cancelled orders stay on the books but out of the working
+  // list — they collapse into their own sections at the bottom, the same way
+  // Billing treats cancelled invoices.
+  const visible = matching.filter((o) => groupOf(o) === 'open');
+  const completed = matching.filter((o) => groupOf(o) === 'completed');
+  const cancelled = matching.filter((o) => groupOf(o) === 'cancelled');
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <ScreenHeader
-        title="Order Management"
-        subtitle={`${activeCount} in production · ${orders.length} total`}
+        title="Production"
+        subtitle={`${openCount} order${openCount === 1 ? '' : 's'} in the pipeline`}
         showBack={!isOwnTab}
-        rightSlot={
-          <View style={[styles.viewTabs, { backgroundColor: theme.draftWash, borderColor: theme.border }]}>
-            <Pressable onPress={() => setView('board')} style={[styles.viewTab, { backgroundColor: view === 'board' ? theme.surface : 'transparent' }]}>
-              <Text style={[styles.viewTabLabel, { color: view === 'board' ? theme.textPrimary : theme.textSecondary }]}>Board</Text>
-            </Pressable>
-            <Pressable onPress={() => setView('list')} style={[styles.viewTab, { backgroundColor: view === 'list' ? theme.surface : 'transparent' }]}>
-              <Text style={[styles.viewTabLabel, { color: view === 'list' ? theme.textPrimary : theme.textSecondary }]}>List</Text>
-            </Pressable>
-          </View>
-        }
+        rightSlot={<HeaderAccount />}
       />
 
-      {!canEdit ? (
-        <View style={styles.noticeWrap}>
-          <PermissionNotice section="order-management" />
-        </View>
-      ) : null}
+      <ScrollView contentContainerStyle={styles.content}>
+        <PermissionNotice section="order-management" />
+        <PipelineSummary orders={orders} />
+        <StageChips filters={filters} active={filter} onChange={setFilter} />
+        {visible.length === 0 && completed.length === 0 && cancelled.length === 0 ? (
+          <EmptyState icon="inbox" title="Nothing here" message="No orders sitting at this stage right now." />
+        ) : (
+          visible.map((o, i) => <OrderListRow key={o.id} order={o} index={i} onPress={() => openOrder(o.id)} />)
+        )}
 
-      {view === 'board' ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.boardScroll} contentContainerStyle={styles.board}>
-          {STAGES.map((s) => (
-            <BoardColumn
-              key={s.id}
-              stage={s}
-              orders={listRows.filter((o) => o.stage === s.id)}
-              canEdit={canEdit}
-              onOpen={(o) => setSelectedId(o.id)}
-              onMove={moveOrder}
-            />
+        <CollapsedSection label="Completed orders" count={completed.length} tone="muted">
+          {completed.map((o, i) => (
+            <OrderListRow key={o.id} order={o} index={i} onPress={() => openOrder(o.id)} />
           ))}
-        </ScrollView>
-      ) : (
-        <ScrollView contentContainerStyle={styles.list}>
-          {listRows.length === 0 ? (
-            <EmptyState icon="grid" title="No orders" message="Create the first order with the + button." />
-          ) : (
-            listRows.map((o, i) => <OrderListRow key={o.id} order={o} index={i} onPress={() => setSelectedId(o.id)} />)
-          )}
-        </ScrollView>
-      )}
+        </CollapsedSection>
+
+        <CollapsedSection label="Cancelled orders" count={cancelled.length}>
+          {cancelled.map((o, i) => (
+            <OrderListRow key={o.id} order={o} index={i} onPress={() => openOrder(o.id)} />
+          ))}
+        </CollapsedSection>
+      </ScrollView>
 
       {canEdit ? (
         <Pressable
@@ -255,35 +364,28 @@ export function OrderManagement() {
       ) : null}
 
       <OrderSheet visible={!!sheetMode} mode={sheetMode} draft={draft} onClose={closeSheet} onChange={patchDraft} onSave={handleSave} />
-
-      <DetailSheet
-        order={selected}
-        canEdit={canEdit}
-        onClose={() => setSelectedId(null)}
-        onEdit={() => {
-          if (selected) openEdit(selected);
-          setSelectedId(null);
-        }}
-        onMove={(dir) => selected && moveOrder(selected, dir)}
-        onTogglePriority={togglePriority}
-        onAddNote={addOrderNote}
-        onCancelOrder={cancelOrder}
-        onRestoreOrder={restoreOrder}
-      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  noticeWrap: { paddingHorizontal: 20, paddingTop: 12 },
-  boardScroll: { flex: 1 },
-  board: { padding: 16, gap: 12 },
-  list: { padding: 20, paddingTop: 12, paddingBottom: 110, gap: 12 },
-  viewTabs: { flexDirection: 'row', padding: 3, borderRadius: 13, borderWidth: 1, gap: 2 },
-  viewTab: { height: 30, paddingHorizontal: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  viewTabLabel: { fontFamily: fontFamily.semibold, fontSize: 12 },
+  flex1: { flex: 1 },
+  content: { padding: 20, paddingTop: 12, paddingBottom: 110, gap: 12 },
+  // Clears the sticky footer so the last card isn't trapped underneath it.
+  detailContent: { padding: 20, paddingTop: 12, paddingBottom: 120, gap: 12 },
+  footerBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   fab: {
     position: 'absolute',
     right: 20,

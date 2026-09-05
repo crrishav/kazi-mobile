@@ -37,8 +37,8 @@ export function OwnerDashboard() {
 
       {canView('billing') ? <InvoicesCard counts={c} /> : null}
 
-      {canView('production') ? (
-        <Pressable onPress={() => router.push('/production')} style={pressStyle}>
+      {canView('order-management') ? (
+        <Pressable onPress={() => router.push('/order-management')} style={pressStyle}>
           <OrdersByStageCard stages={data.stages} total={data.activeOrdersTotal} />
         </Pressable>
       ) : null}
@@ -53,7 +53,7 @@ export function OwnerDashboard() {
 
       <QuickLinks
         sections={[
-          'production',
+          'order-management',
           'employees-hr',
           'sales',
           'customers',

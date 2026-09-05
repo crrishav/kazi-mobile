@@ -135,8 +135,8 @@ export function deriveOps(input: {
       id: 'active-orders',
       label: 'Active orders',
       value: `${activeTotal}`,
-      route: '/production',
-      section: 'production',
+      route: '/order-management',
+      section: 'order-management',
     },
     {
       id: 'open-tasks',
@@ -214,8 +214,8 @@ export function deriveDirector(input: {
       id: 'active-orders',
       label: 'Active orders',
       value: `${activeTotal}`,
-      route: '/production',
-      section: 'production',
+      route: '/order-management',
+      section: 'order-management',
     },
     {
       id: 'staff-today',
@@ -374,8 +374,8 @@ export function deriveDesigner(input: {
       id: 'active-orders',
       label: 'Active orders',
       value: `${activeTotal}`,
-      route: '/production',
-      section: 'production',
+      route: '/order-management',
+      section: 'order-management',
     },
     {
       id: 'low-stock',

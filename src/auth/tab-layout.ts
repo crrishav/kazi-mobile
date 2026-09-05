@@ -33,8 +33,10 @@ const SLOTS = {
   tasks: { name: 'tasks', section: 'tasks' },
   inventory: { name: 'inventory', section: 'inventory' },
   finance: { name: 'finance', section: 'finance' },
-  production: { name: 'production', section: 'production' },
-  orders: { name: 'order-management', section: 'order-management' },
+  // One screen, two names: the floor calls it Production, the directors call
+  // it the order book. It is the `order-management` route either way, because
+  // `orders` is the table RLS gates the read on.
+  production: { name: 'order-management', section: 'order-management' },
   billing: { name: 'billing', section: 'billing' },
   marketing: { name: 'marketing', section: 'marketing' },
 } satisfies Record<string, TabSlot>;
@@ -49,22 +51,21 @@ export const MORE_SLOT = { name: 'more', section: 'dashboard' } as const;
  */
 const BY_POSITION: Record<string, TabSlot[]> = {
   // Tier 4 — the owners and the admins. Overview, not floor work: the order
-  // book on one side, the money on the other. Production reaches them through
-  // the dashboard's own orders-by-stage card instead of a button.
-  director: [SLOTS.dashboard, SLOTS.orders, SLOTS.chat, SLOTS.finance],
-  developer: [SLOTS.dashboard, SLOTS.orders, SLOTS.chat, SLOTS.finance],
-  'system-admin': [SLOTS.dashboard, SLOTS.orders, SLOTS.chat, SLOTS.finance],
+  // book on one side, the money on the other.
+  director: [SLOTS.dashboard, SLOTS.production, SLOTS.chat, SLOTS.finance],
+  developer: [SLOTS.dashboard, SLOTS.production, SLOTS.chat, SLOTS.finance],
+  'system-admin': [SLOTS.dashboard, SLOTS.production, SLOTS.chat, SLOTS.finance],
 
   // The floor: production and what feeds it.
   'operations-head': [SLOTS.dashboard, SLOTS.production, SLOTS.chat, SLOTS.inventory],
-  // `operations-intern` is labelled "Operations Manager" live — Anmol. He has
-  // no orders/sales grant, so production + inventory is the honest pair.
+  // `operations-intern` is labelled "Operations Manager" live — Anmol.
   'operations-intern': [SLOTS.dashboard, SLOTS.production, SLOTS.chat, SLOTS.inventory],
   'fashion-designer': [SLOTS.dashboard, SLOTS.production, SLOTS.chat, SLOTS.inventory],
 
-  // Marketing Co-ordinator / Client Service — she is the only person outside
-  // the content coordinators who edits Marketing, so it takes the slot the
-  // floor roles give to Inventory.
+  // Marketing Co-ordinator / Client Service — the only person outside the
+  // content coordinators who edits Marketing, so it takes the slot the floor
+  // roles give to Inventory. She holds no `orders` grant, so since the merge
+  // the Production slot drops out of her bar — see `tabLayoutFor`.
   'marketing-coordinator': [SLOTS.dashboard, SLOTS.production, SLOTS.chat, SLOTS.marketing],
 
   // Money in, money out.
@@ -82,7 +83,7 @@ const BY_POSITION: Record<string, TabSlot[]> = {
 function byRole(role: Role | null): TabSlot[] {
   if (!role) return [SLOTS.dashboard, SLOTS.chat];
   if (ROLE_RANK[role] >= ROLE_RANK.uk_admin) {
-    return [SLOTS.dashboard, SLOTS.orders, SLOTS.chat, SLOTS.finance];
+    return [SLOTS.dashboard, SLOTS.production, SLOTS.chat, SLOTS.finance];
   }
   if (role === 'nepal_admin') return [SLOTS.dashboard, SLOTS.production, SLOTS.chat, SLOTS.inventory];
   return [SLOTS.dashboard, SLOTS.tasks, SLOTS.chat];
@@ -91,6 +92,12 @@ function byRole(role: Role | null): TabSlot[] {
 /**
  * The bar for this person, More appended. Callers still have to drop any slot
  * the profile can't view — see `custom-tab-bar`.
+ *
+ * Since Production and the order book merged onto one `order-management`
+ * screen, a position holding `production` but not `orders` (fashion-designer,
+ * marketing-coordinator, content-coordinator in the live matrix) loses that
+ * button with nothing in its place — RLS would refuse the `orders` read
+ * anyway. Granting those positions the `orders` section restores it.
  */
 export function tabLayoutFor(positionId: string | undefined, role: Role | null): TabSlot[] {
   const slots = (positionId && BY_POSITION[positionId]) || byRole(role);

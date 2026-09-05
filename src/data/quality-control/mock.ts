@@ -1,5 +1,6 @@
-import { seedBatches } from '../production/mock';
-import type { Batch } from '../production/types';
+import { seedOrders } from '../sales/mock';
+import type { StageId } from '../sales/types';
+import { priorityOf } from '../sales/utils';
 import type { QcLog, QcPoint, QueueItem, QueuePriority } from './types';
 
 const daysAgoISO = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
@@ -22,30 +23,36 @@ export const PRIORITY: Record<QueuePriority, { label: string; dot: string; bg: s
   watch: { label: 'Re-check', dot: '#B98514', bg: '#F7EEDA', fg: '#7A5709' },
 };
 
-/** QC gates a batch at each stage transition. */
-const QC_STAGES: Batch['stage'][] = ['cutting', 'finishing', 'packing'];
-const GATE_LABEL: Record<'cutting' | 'finishing' | 'packing', string> = {
+type QcStage = 'cutting' | 'finishing' | 'packing';
+
+/** QC gates a job at each stage transition. */
+const QC_STAGES: StageId[] = ['cutting', 'finishing', 'packing'];
+const GATE_LABEL: Record<QcStage, string> = {
   cutting: 'Cutting → Finishing',
   finishing: 'Finishing → Packing',
   packing: 'Packing → Dispatch',
 };
 
-/** Item 24: the QC queue is derived from live `production` batches, not an invented list. */
-export const seedQueue: QueueItem[] = seedBatches
-  .filter((b) => QC_STAGES.includes(b.stage) && (b.status === 'active' || b.status === 'hold'))
-  .map((b, i) => {
-    const n = parseInt(b.qty.replace(/[^0-9]/g, ''), 10) || 0;
-    const stage = b.stage as 'cutting' | 'finishing' | 'packing';
+/**
+ * The QC queue is derived from the orders sitting at a gate stage, not an
+ * invented list. It used to derive off `production` batches; that module was
+ * merged into the order pipeline, and `orders.stage` is what carries the gate
+ * now. Seed-only — there is no live queue collection (see `api.ts`).
+ */
+export const seedQueue: QueueItem[] = seedOrders
+  .filter((o) => QC_STAGES.includes(o.stage) && o.status === 'active')
+  .map((o, i) => {
+    const stage = o.stage as QcStage;
     return {
-      id: `q_${b.id}`,
-      batchId: b.id,
-      product: b.product,
-      code: b.code,
-      qty: b.qty,
-      sample: String(Math.max(80, Math.round(n * 0.05))),
+      id: `q_${o.id}`,
+      batchId: o.id,
+      product: o.product,
+      code: o.ref,
+      qty: `${o.qty.toLocaleString('en-US')} pcs`,
+      sample: String(Math.max(80, Math.round(o.qty * 0.05))),
       gate: GATE_LABEL[stage],
-      priority: b.status === 'hold' ? 'high' : stage === 'packing' ? 'watch' : i === 0 ? 'high' : 'normal',
-      waiting: `due ${b.due}`,
+      priority: priorityOf(o) === 'urgent' ? 'high' : stage === 'packing' ? 'watch' : i === 0 ? 'high' : 'normal',
+      waiting: o.ship ? `due ${o.ship}` : 'no delivery date',
     };
   });
 

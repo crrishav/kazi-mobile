@@ -5,9 +5,9 @@ import { Avatar } from '@/components/ui/avatar';
 import { SegmentedProportionBar } from '@/components/ui/segmented-proportion-bar';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { AVATAR_TINTS, STAGES } from '@/data/sales/mock';
+import { AVATAR_TINTS, STAGES, stageById, stageIndex } from '@/data/sales/mock';
 import type { Order } from '@/data/sales/types';
-import { initials, lakh } from '@/data/sales/utils';
+import { initials, lakh, priorityOf } from '@/data/sales/utils';
 
 export interface OrderListRowProps {
   order: Order;
@@ -15,19 +15,32 @@ export interface OrderListRowProps {
   onPress: () => void;
 }
 
+const STATUS_LABEL: Record<Order['status'], string> = {
+  active: 'Active',
+  'on-hold': 'On Hold',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
+
 export function OrderListRow({ order, index, onPress }: OrderListRowProps) {
   const theme = useTheme();
-  const stageIdx = STAGES.findIndex((s) => s.id === order.stage);
-  const stage = STAGES[stageIdx];
+  const idx = stageIndex(order.stage);
+  const stage = stageById(order.stage);
   const tint = AVATAR_TINTS[index % AVATAR_TINTS.length];
-  const cancelled = order.status === 'cancelled';
-  const segments = STAGES.map((_, i) => ({ weight: 1, color: i <= stageIdx ? stage.bar : theme.draftWash }));
+  const dimmed = order.status === 'cancelled' || order.status === 'completed';
+  const priority = priorityOf(order);
+  const segments = STAGES.map((_, i) => ({ weight: 1, color: i <= idx ? stage.bar : theme.draftWash }));
+
+  const prioPalette =
+    priority === 'urgent'
+      ? { bg: theme.dangerWash, fg: theme.dangerWashText }
+      : { bg: theme.warningWash, fg: theme.warningWashText };
 
   return (
     <Animated.View entering={FadeInUp.delay(Math.min(index, 6) * 30).duration(220)}>
       <Pressable
         onPress={onPress}
-        style={[styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card, opacity: cancelled ? 0.55 : 1 }]}
+        style={[styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card, opacity: dimmed ? 0.6 : 1 }]}
       >
         <View style={styles.topRow}>
           <Avatar initials={initials(order.customer)} tint={tint} size="md" />
@@ -40,7 +53,7 @@ export function OrderListRow({ order, index, onPress }: OrderListRowProps) {
             </Text>
           </View>
           <View style={styles.qtyCol}>
-            <Text style={[styles.qty, tabularNums, { color: theme.textPrimary }]}>{order.qty.toLocaleString()} pcs</Text>
+            <Text style={[styles.qty, tabularNums, { color: theme.textPrimary }]}>{order.qty.toLocaleString('en-US')} pcs</Text>
             <Text style={[styles.value, tabularNums, { color: theme.textSecondary }]}>{lakh(order.value)}</Text>
           </View>
         </View>
@@ -50,16 +63,21 @@ export function OrderListRow({ order, index, onPress }: OrderListRowProps) {
         <View style={styles.bottomRow}>
           <View style={[styles.pill, { backgroundColor: stage.bg }]}>
             <View style={[styles.pillDot, { backgroundColor: stage.dot }]} />
-            <Text style={[styles.pillLabel, { color: stage.fg }]}>{cancelled ? 'Cancelled' : stage.label}</Text>
+            <Text style={[styles.pillLabel, { color: stage.fg }]}>{stage.short}</Text>
           </View>
-          {order.priority === 'high' ? (
-            <View style={[styles.prioTag, { backgroundColor: theme.warningWash }]}>
-              <Text style={[styles.prioText, { color: theme.warningWashText }]}>High priority</Text>
+          {order.status !== 'active' ? (
+            <View style={[styles.tag, { backgroundColor: theme.draftWash }]}>
+              <Text style={[styles.tagText, { color: theme.draftWashText }]}>{STATUS_LABEL[order.status]}</Text>
+            </View>
+          ) : null}
+          {priority !== 'normal' && order.status === 'active' ? (
+            <View style={[styles.tag, { backgroundColor: prioPalette.bg }]}>
+              <Text style={[styles.tagText, { color: prioPalette.fg }]}>{priority}</Text>
             </View>
           ) : null}
           <View style={styles.flex1} />
           <Text style={[styles.assignee, tabularNums, { color: theme.textSecondary }]} numberOfLines={1}>
-            {order.assignedTo}
+            {order.ship ? `due ${order.ship}` : order.assignedTo || '—'}
           </Text>
         </View>
       </Pressable>
@@ -80,8 +98,8 @@ const styles = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 26, paddingHorizontal: 10, borderRadius: 999 },
   pillDot: { width: 6, height: 6, borderRadius: 99 },
   pillLabel: { fontSize: 12, fontWeight: '600' },
-  prioTag: { height: 22, paddingHorizontal: 8, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
-  prioText: { fontFamily: fontFamily.mono, fontSize: 9, letterSpacing: 0.08 * 9, textTransform: 'uppercase' },
+  tag: { height: 22, paddingHorizontal: 8, borderRadius: 7, alignItems: 'center', justifyContent: 'center' },
+  tagText: { fontFamily: fontFamily.mono, fontSize: 9, letterSpacing: 0.08 * 9, textTransform: 'uppercase' },
   flex1: { flex: 1 },
   assignee: { fontFamily: fontFamily.mono, fontSize: 10 },
 });

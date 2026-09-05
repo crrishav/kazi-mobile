@@ -18,11 +18,10 @@ export interface ModuleEntry {
 // from a dashboard quick link.
 export const MORE_MODULES: ModuleEntry[] = [
   { id: 'sales', label: 'Sales', route: '/sales', icon: 'trending-up', blurb: 'Pipeline overview' },
-  { id: 'order-management', label: 'Order Management', route: '/order-management', icon: 'grid', blurb: 'Order board, stages, priority' },
+  { id: 'order-management', label: 'Production', route: '/order-management', icon: 'tool', blurb: 'Order pipeline, stages, priority' },
   { id: 'customers', label: 'Customers', route: '/customers', icon: 'users', blurb: 'Accounts and contacts' },
   { id: 'billing', label: 'Billing', route: '/billing', icon: 'file-text', blurb: 'Invoices, challans, payments' },
   { id: 'purchases', label: 'Purchases', route: '/purchases', icon: 'shopping-cart', blurb: 'Purchase orders, suppliers' },
-  { id: 'production', label: 'Production', route: '/production', icon: 'tool', blurb: 'Job orders, batches, output' },
   { id: 'quality-control', label: 'Quality Control', route: '/quality-control', icon: 'check-circle', blurb: 'Batch inspections' },
   { id: 'accounting', label: 'Accounting', route: '/accounting', icon: 'book-open', blurb: 'Journal entries, VAT' },
   { id: 'budget-requirements', label: 'Budget & Requirements', route: '/budget-requirements', icon: 'briefcase', blurb: 'Requests and approvals' },

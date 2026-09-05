@@ -39,8 +39,8 @@ export function OpsDashboard() {
 
       <KpiRow kpis={data.kpis} canView={canView} />
 
-      {canView('production') ? (
-        <Pressable onPress={() => router.push('/production')} style={pressStyle}>
+      {canView('order-management') ? (
+        <Pressable onPress={() => router.push('/order-management')} style={pressStyle}>
           <OrdersByStageCard stages={data.stages} total={data.activeOrdersTotal} />
         </Pressable>
       ) : null}

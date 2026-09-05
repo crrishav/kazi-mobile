@@ -1,59 +1,65 @@
 /**
- * Live `orders` reader (Track B, read-only). The `orders` collection is the
- * single source of truth for Sales (overview) and Order Management (board).
- * Writes still go through `mock-api.ts` (in-memory only this pass).
+ * Live `orders` reader. The `orders` collection is the single source of truth
+ * for Sales (overview) and the Production pipeline screen.
  *
- * Live shape (field list sampled 2026-08-30):
- *   { orderId, customerName, styleName, quantity, stage (from stage_config, ~8),
- *     status, priority?, date, deliveryDate, assignedTo, pricePerPcNPR,
- *     totalValueNPR, colorway, sampleId/Name, invoiceRef, notes, stageHistory,
- *     createdBy, createdAt }
+ * Live shape (field list sampled 2026-09-05 off the `fs_orders` compat view):
+ *   { orderId, customerName, styleName, fabricType, colorway, quantity,
+ *     stage (one of the ten `stage_config` names), status, date, deliveryDate,
+ *     assignedTo, pricePerPcNPR, totalValueNPR, fabricGramsUsed,
+ *     fabricCostPerPcNPR, embellishments, sampleId/Name, invoiceRef, notes,
+ *     notesList, stageHistory, createdBy, createdAt }
  *
- * Gaps handled locally (see plan §Batch 1):
- *   - 8-stage `stage`      → mapped to the mobile 5-stage chain
+ * There is no `priority` column — it is derived from `deliveryDate`, exactly as
+ * the reference app does it (`utils.ts` → `priorityOf`).
+ *
+ * Gaps handled locally:
  *   - `notes`/`stageHistory` come back as JSON string OR array → `parseMaybeJson`
- *   - no `city/channel/terms/po/sizes` → defaults; `ship*` derived from deliveryDate
+ *   - `ship`/`shipDays` derived from `deliveryDate`, which most rows leave null
  */
 
 import { num, parseMaybeJson, str, tsToISO } from '@/lib/firestore/normalise';
 import { readCollection, type DocData } from '@/lib/supabase/read';
 
-import { STAGE_IDS, stageIndex } from './mock';
-import type { Order, OrderNote, OrderPriority, StageHistoryEntry, StageId } from './types';
+import { STAGES, STAGE_IDS, shipDays, shipLabel, stageIndex } from './mock';
+import { EMBELLISHMENT_TYPES } from './types';
+import type { Embellishment, Order, OrderNote, OrderStatus, StageHistoryEntry, StageId } from './types';
 
-/** Reference `stage_config` chain (~8 stages) → the mobile 5-stage chain, by keyword. */
+/** Verbatim `stage_config` name → stage id; keyword-matched only as a fallback. */
+const BY_LABEL = new Map<string, StageId>(STAGES.map((s) => [s.label.toLowerCase(), s.id]));
+
 function mapStage(raw: unknown): StageId {
   const s = str(raw).trim().toLowerCase();
+  const exact = BY_LABEL.get(s);
+  if (exact) return exact;
+  // Older rows and the web app's own legacy kanban use shorter names.
+  if (/(deliver)/.test(s)) return 'delivered';
+  if (/(ship|dispatch)/.test(s)) return 'shipped';
+  if (/(pack)/.test(s)) return 'packing';
+  if (/(qc|quality|inspect)/.test(s)) return 'quality-check';
+  if (/(embellish|embroider|print|dtf|button)/.test(s)) return 'embellishment';
+  if (/(finish|press)/.test(s)) return 'finishing';
+  if (/(stitch|sew)/.test(s)) return 'stitching';
   if (/(cut)/.test(s)) return 'cutting';
-  if (/(sew|stitch|print|finish|press|assembl)/.test(s)) return 'finishing';
-  if (/(qc|quality|pack|ship|dispatch)/.test(s)) return 'packing';
-  if (/(deliver|complete|done|closed)/.test(s)) return 'delivered';
-  return 'sourcing';
+  if (/(fabric|sourc|material)/.test(s)) return 'sourcing';
+  return 'received';
 }
 
-function mapPriority(raw: unknown): OrderPriority {
-  return str(raw).trim().toLowerCase() === 'high' ? 'high' : 'normal';
+/** Reference `ORDER_STATUSES`; anything unrecognised is treated as Active. */
+function mapStatus(raw: unknown): OrderStatus {
+  const s = str(raw).trim().toLowerCase();
+  if (/cancel/.test(s)) return 'cancelled';
+  if (/hold/.test(s)) return 'on-hold';
+  if (/(complete|done|closed)/.test(s)) return 'completed';
+  return 'active';
 }
 
-function mapStatus(raw: unknown): Order['status'] {
-  return /cancel/i.test(str(raw)) ? 'cancelled' : 'active';
-}
-
-/** "2026-09-08" → "08 Sep"; empty/invalid → "". */
-function shipLabel(iso: string): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${String(d.getDate()).padStart(2, '0')} ${d.toLocaleString('en-GB', { month: 'short' })}`;
-}
-
-function shipDays(iso: string): number {
-  if (!iso) return 0;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return 0;
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  return Math.round((d.getTime() - start.getTime()) / 86_400_000);
+function mapEmbellishments(raw: unknown): Embellishment[] {
+  const parsed = parseMaybeJson<unknown>(raw, null);
+  const list = Array.isArray(parsed) ? parsed : Array.isArray(raw) ? raw : [];
+  return list
+    .map((e) => str(e).trim().toLowerCase())
+    .map((e) => EMBELLISHMENT_TYPES.find((t) => t.toLowerCase() === e))
+    .filter((e): e is Embellishment => !!e);
 }
 
 /** Back-fill a full history up to `stage` when the live one is missing/unparseable. */
@@ -72,9 +78,13 @@ function mapHistory(raw: unknown, stage: StageId, fallbackISO: string): StageHis
     const rows = parsed
       .map((e) => {
         const entry = (e ?? {}) as DocData;
+        const label = str(entry.stage ?? entry.to ?? entry.name);
         return {
-          stage: mapStage(entry.stage ?? entry.to ?? entry.name),
+          // The reference writes a backwards move as "↩ Reverted to <stage>".
+          reverted: /reverted/i.test(label),
+          stage: mapStage(label.replace(/^.*reverted to\s*/i, '')),
           at: tsToISO(entry.at ?? entry.date ?? entry.timestamp) || fallbackISO,
+          by: str(entry.by ?? entry.who) || undefined,
         };
       })
       .filter((r) => r.at);
@@ -102,13 +112,15 @@ function mapNotes(raw: unknown, fallbackISO: string, who: string): OrderNote[] {
 
 function mapOrderDoc(id: string, d: DocData): Order | null {
   const customer = str(d.customerName).trim();
-  const ref = str(d.orderId).trim() || `SO-${id.slice(0, 5).toUpperCase()}`;
+  const ref = str(d.orderId).trim() || `ORD-${id.slice(0, 5).toUpperCase()}`;
   if (!customer && !str(d.styleName).trim()) return null;
 
   const stage = mapStage(d.stage);
   const qty = num(d.quantity);
-  const value = num(d.totalValueNPR) || qty * num(d.pricePerPcNPR);
-  const deliveryISO = tsToISO(d.deliveryDate);
+  const pricePerPc = num(d.pricePerPcNPR);
+  const value = num(d.totalValueNPR) || qty * pricePerPc;
+  const deliveryISO = tsToISO(d.deliveryDate).slice(0, 10);
+  const orderISO = tsToISO(d.date).slice(0, 10);
   const createdISO = tsToISO(d.createdAt) || tsToISO(d.date) || new Date().toISOString();
   const who = str(d.createdBy) || str(d.assignedTo) || 'Team';
 
@@ -116,19 +128,23 @@ function mapOrderDoc(id: string, d: DocData): Order | null {
     id,
     ref,
     customer: customer || '—',
-    city: '',
     product: str(d.styleName).trim() || str(d.sampleName).trim() || '—',
     qty,
     stage,
+    status: mapStatus(d.status),
+    orderDate: orderISO,
+    deliveryDate: deliveryISO,
     ship: shipLabel(deliveryISO),
     shipDays: shipDays(deliveryISO),
     value,
-    po: str(d.invoiceRef).trim(),
-    channel: '',
-    terms: '',
-    sizes: [],
-    priority: mapPriority(d.priority),
-    status: mapStatus(d.status),
+    pricePerPc: pricePerPc || (qty > 0 ? Math.round(value / qty) : 0),
+    fabricType: str(d.fabricType).trim(),
+    colorway: str(d.colorway).trim(),
+    fabricGramsUsed: num(d.fabricGramsUsed),
+    fabricCostPerPc: num(d.fabricCostPerPcNPR),
+    invoiceRef: str(d.invoiceRef).trim(),
+    sampleName: str(d.sampleName).trim(),
+    embellishments: mapEmbellishments(d.embellishments),
     assignedTo: str(d.assignedTo).trim(),
     stageHistory: mapHistory(d.stageHistory, stage, createdISO),
     // live docs carry the free-text notes on `notes` OR a JSON-string `notesList`

@@ -4,7 +4,7 @@ import { notify } from '@/data/notifications/notify';
 
 import { salesKeys } from './keys';
 import * as api from './api';
-import type { Order, OrderNote, OrderPriority, StageId } from './types';
+import type { Embellishment, Order, OrderNote, OrderStatus, StageId } from './types';
 
 const ORDERS_SECTION = 'order-management' as const;
 
@@ -58,9 +58,6 @@ export function useUpdateOrder() {
       if (updates.assignedTo && updates.assignedTo !== prev?.assignedTo) {
         notify({ eventType: 'order.assigned', section: ORDERS_SECTION, targetRef: ref, payload: { assignee: updates.assignedTo } });
       }
-      if (updates.priority === 'high' && prev?.priority !== 'high') {
-        notify({ eventType: 'order.priority_raised', section: ORDERS_SECTION, targetRef: ref, payload: { assignee: prev?.assignedTo, priority: 'High' } });
-      }
       if (updates.status === 'cancelled' && prev?.status !== 'cancelled') {
         notify({ eventType: 'order.cancelled', section: ORDERS_SECTION, targetRef: ref, payload: { assignee: prev?.assignedTo } });
       }
@@ -70,15 +67,22 @@ export function useUpdateOrder() {
 
 export function useSetOrderStage() {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, { id: string; stage: StageId }, UpdateContext>({
-    mutationFn: ({ id, stage }) => api.setOrderStage(id, stage),
-    onMutate: async ({ id, stage }) => {
+  return useMutation<void, Error, { id: string; stage: StageId; reverted?: boolean }, UpdateContext>({
+    mutationFn: ({ id, stage, reverted }) => api.setOrderStage(id, stage, reverted),
+    onMutate: async ({ id, stage, reverted }) => {
       await queryClient.cancelQueries({ queryKey: salesKeys.list() });
       const previous = queryClient.getQueryData<Order[]>(salesKeys.list());
       patchList(queryClient, (orders) =>
         orders.map((o) =>
           o.id === id && o.stage !== stage
-            ? { ...o, stage, status: 'active', stageHistory: [...o.stageHistory, { stage, at: new Date().toISOString() }] }
+            ? {
+                ...o,
+                stage,
+                // Landing on Delivered completes the order; stepping back always
+                // reopens it (reference `advanceStage` / `reverseStage`).
+                status: reverted ? 'active' : stage === 'delivered' ? 'completed' : 'active',
+                stageHistory: [...o.stageHistory, { stage, at: new Date().toISOString(), reverted }],
+              }
             : o,
         ),
       );
@@ -108,29 +112,18 @@ export function useSetOrderStage() {
   });
 }
 
-export function useSetOrderPriority() {
+export function useSetOrderEmbellishments() {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, { id: string; priority: OrderPriority }, UpdateContext>({
-    mutationFn: ({ id, priority }) => api.setOrderPriority(id, priority),
-    onMutate: async ({ id, priority }) => {
+  return useMutation<void, Error, { id: string; embellishments: Embellishment[] }, UpdateContext>({
+    mutationFn: ({ id, embellishments }) => api.setOrderEmbellishments(id, embellishments),
+    onMutate: async ({ id, embellishments }) => {
       await queryClient.cancelQueries({ queryKey: salesKeys.list() });
       const previous = queryClient.getQueryData<Order[]>(salesKeys.list());
-      patchList(queryClient, (orders) => orders.map((o) => (o.id === id ? { ...o, priority } : o)));
+      patchList(queryClient, (orders) => orders.map((o) => (o.id === id ? { ...o, embellishments } : o)));
       return { previous };
     },
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(salesKeys.list(), context.previous);
-    },
-    onSuccess: (_data, { id, priority }, context) => {
-      if (priority !== 'high') return;
-      const prev = context?.previous?.find((o) => o.id === id);
-      if (prev?.priority === 'high') return;
-      notify({
-        eventType: 'order.priority_raised',
-        section: ORDERS_SECTION,
-        targetRef: prev?.ref,
-        payload: { assignee: prev?.assignedTo, priority: 'High' },
-      });
     },
   });
 }
@@ -153,7 +146,7 @@ export function useAddOrderNote() {
 
 export function useSetOrderStatus() {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, { id: string; status: Order['status'] }, UpdateContext>({
+  return useMutation<void, Error, { id: string; status: OrderStatus }, UpdateContext>({
     mutationFn: ({ id, status }) => api.setOrderStatus(id, status),
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({ queryKey: salesKeys.list() });
@@ -174,6 +167,22 @@ export function useSetOrderStatus() {
         targetRef: prev?.ref,
         payload: { assignee: prev?.assignedTo },
       });
+    },
+  });
+}
+
+export function useDeleteOrder() {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, string, UpdateContext>({
+    mutationFn: (id) => api.deleteOrder(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: salesKeys.list() });
+      const previous = queryClient.getQueryData<Order[]>(salesKeys.list());
+      patchList(queryClient, (orders) => orders.filter((o) => o.id !== id));
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) queryClient.setQueryData(salesKeys.list(), context.previous);
     },
   });
 }

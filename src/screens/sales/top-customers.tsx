@@ -14,7 +14,7 @@ export interface TopCustomersProps {
 
 interface CustomerRoll {
   customer: string;
-  city: string;
+  units: number;
   orders: number;
   value: number;
 }
@@ -25,8 +25,9 @@ export function TopCustomers({ orders }: TopCustomersProps) {
 
   const byCustomer = new Map<string, CustomerRoll>();
   for (const o of orders) {
-    const roll = byCustomer.get(o.customer) ?? { customer: o.customer, city: o.city, orders: 0, value: 0 };
+    const roll = byCustomer.get(o.customer) ?? { customer: o.customer, units: 0, orders: 0, value: 0 };
     roll.orders += 1;
+    roll.units += o.qty;
     roll.value += o.value;
     byCustomer.set(o.customer, roll);
   }
@@ -48,7 +49,7 @@ export function TopCustomers({ orders }: TopCustomersProps) {
                 {r.customer}
               </Text>
               <Text style={[styles.sub, tabularNums, { color: theme.textSecondary }]} numberOfLines={1}>
-                {r.orders} {r.orders === 1 ? 'order' : 'orders'} · {r.city}
+                {r.orders} {r.orders === 1 ? 'order' : 'orders'} · {r.units.toLocaleString('en-US')} pcs
               </Text>
               <View style={[styles.track, { backgroundColor: theme.draftWash }]}>
                 <View style={[styles.fill, { width: `${Math.round((r.value / top) * 100)}%`, backgroundColor: theme.accentWash }]} />

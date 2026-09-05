@@ -17,7 +17,7 @@ const SECTION_ROUTE: Record<SectionId, string> = {
   customers: '/customers',
   billing: '/billing',
   purchases: '/purchases',
-  production: '/production',
+  production: '/order-management',
   'quality-control': '/quality-control',
   accounting: '/accounting',
   'budget-requirements': '/budget-requirements',

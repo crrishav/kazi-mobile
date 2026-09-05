@@ -4,9 +4,9 @@ import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
-import { fontFamily } from '@/theme';
-import { STAGES } from '@/data/sales/mock';
-import type { OrderDraft, OrderPriority, StageId } from '@/data/sales/types';
+import { fontFamily, tabularNums } from '@/theme';
+import { FABRIC_TYPES, STAGES } from '@/data/sales/mock';
+import type { OrderDraft, OrderStatus, StageId } from '@/data/sales/types';
 
 export interface OrderSheetProps {
   visible: boolean;
@@ -17,41 +17,116 @@ export interface OrderSheetProps {
   onSave: () => void;
 }
 
+const toNum = (s: string) => parseInt(s.replace(/[^0-9]/g, ''), 10) || 0;
+
+const STATUSES: { id: OrderStatus; label: string }[] = [
+  { id: 'active', label: 'Active' },
+  { id: 'on-hold', label: 'On Hold' },
+  { id: 'completed', label: 'Completed' },
+  { id: 'cancelled', label: 'Cancelled' },
+];
+
+/**
+ * Field-for-field the reference web app's order form (`Production.jsx` →
+ * `emptyOrderForm`), minus the two things a phone has no business doing:
+ * issuing an invoice inline, and picking a region.
+ */
 export function OrderSheet({ visible, mode, draft, onClose, onChange, onSave }: OrderSheetProps) {
   const theme = useTheme();
   if (!draft) return null;
 
-  const canSave = draft.customer.trim().length > 1 && draft.product.trim().length > 0;
+  const canSave = draft.customer.trim().length > 1 && draft.product.trim().length > 0 && toNum(draft.qty) > 0;
+
+  const qty = toNum(draft.qty);
+  const price = toNum(draft.pricePerPc);
+  const fabricCost = toNum(draft.fabricCostPerPc);
 
   return (
     <BottomSheet visible={visible} onClose={onClose} title={mode === 'new' ? 'New order' : `Edit ${draft.ref}`}>
-      <TextField label="Customer" value={draft.customer} onChangeText={(v) => onChange({ customer: v })} placeholder="Buyer / account name" autoCapitalize="words" />
-      <TextField label="Destination" value={draft.city} onChangeText={(v) => onChange({ city: v })} placeholder="City, country" autoCapitalize="words" />
-      <TextField label="Product" value={draft.product} onChangeText={(v) => onChange({ product: v })} placeholder="Style / description" autoCapitalize="sentences" />
+      <View style={styles.pairRow}>
+        <View style={styles.pairCell}>
+          <TextField label="Order date" value={draft.orderDate} onChangeText={(v) => onChange({ orderDate: v })} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation" />
+        </View>
+        <View style={styles.pairCell}>
+          <TextField label="Delivery date" value={draft.deliveryDate} onChangeText={(v) => onChange({ deliveryDate: v })} placeholder="YYYY-MM-DD" keyboardType="numbers-and-punctuation" />
+        </View>
+      </View>
+
+      <TextField label="Customer name" value={draft.customer} onChangeText={(v) => onChange({ customer: v })} placeholder="e.g. RetailCorp UK" autoCapitalize="words" />
+      <TextField label="Style / item name" value={draft.product} onChangeText={(v) => onChange({ product: v })} placeholder="e.g. Men's Hoodie" autoCapitalize="sentences" />
+
+      <View style={styles.group}>
+        <Text style={[styles.label, { color: theme.textSecondary }]}>Fabric type</Text>
+        <View style={styles.chipWrap}>
+          {FABRIC_TYPES.map((f) => {
+            const on = draft.fabricType === f;
+            return (
+              <Pressable
+                key={f}
+                onPress={() => onChange({ fabricType: f })}
+                style={[styles.chip, { backgroundColor: on ? theme.accentWash : theme.surface, borderColor: on ? theme.accentWashText : theme.border }]}
+              >
+                <Text style={[styles.chipLabel, { color: on ? theme.accentWashText : theme.textPrimary }]}>{f}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.pairRow}>
+        <View style={styles.pairCell}>
+          <TextField label="Colorway" value={draft.colorway} onChangeText={(v) => onChange({ colorway: v })} placeholder="e.g. Black, Navy" autoCapitalize="words" />
+        </View>
+        <View style={styles.pairCell}>
+          <TextField label="Sample" value={draft.sampleName} onChangeText={(v) => onChange({ sampleName: v })} placeholder="Optional" autoCapitalize="words" />
+        </View>
+      </View>
 
       <View style={styles.pairRow}>
         <View style={styles.pairCell}>
           <TextField label="Quantity (pcs)" value={draft.qty} onChangeText={(v) => onChange({ qty: v })} placeholder="0" keyboardType="number-pad" />
         </View>
         <View style={styles.pairCell}>
-          <TextField label="Order value (NPR)" value={draft.value} onChangeText={(v) => onChange({ value: v })} placeholder="0" keyboardType="number-pad" />
+          <TextField label="Price / pc (NPR)" value={draft.pricePerPc} onChangeText={(v) => onChange({ pricePerPc: v })} placeholder="0" keyboardType="number-pad" />
         </View>
       </View>
 
       <View style={styles.pairRow}>
         <View style={styles.pairCell}>
-          <TextField label="Customer PO" value={draft.po} onChangeText={(v) => onChange({ po: v })} placeholder="PO ref" autoCapitalize="characters" />
+          <TextField label="Fabric used (g / pc)" value={draft.fabricGramsUsed} onChangeText={(v) => onChange({ fabricGramsUsed: v })} placeholder="e.g. 900" keyboardType="number-pad" />
         </View>
         <View style={styles.pairCell}>
-          <TextField label="Channel" value={draft.channel} onChangeText={(v) => onChange({ channel: v })} placeholder="Wholesale / DTC…" autoCapitalize="words" />
+          <TextField label="Fabric cost / pc" value={draft.fabricCostPerPc} onChangeText={(v) => onChange({ fabricCostPerPc: v })} placeholder="0" keyboardType="number-pad" />
         </View>
       </View>
 
-      <TextField label="Payment terms" value={draft.terms} onChangeText={(v) => onChange({ terms: v })} placeholder="30 days / Prepaid…" autoCapitalize="sentences" />
-      <TextField label="Assigned to" value={draft.assignedTo} onChangeText={(v) => onChange({ assignedTo: v })} placeholder="Owner" autoCapitalize="words" />
+      {qty > 0 && price > 0 ? (
+        <View style={[styles.totalBox, { backgroundColor: theme.draftWash, borderColor: theme.border }]}>
+          <Text style={[styles.totalLine, tabularNums, { color: theme.textPrimary }]}>
+            Order value: रु {(qty * price).toLocaleString('en-US')}
+          </Text>
+          <Text style={[styles.totalMeta, tabularNums, { color: theme.textSecondary }]}>
+            {qty.toLocaleString('en-US')} pcs × रु {price.toLocaleString('en-US')}
+          </Text>
+          {fabricCost > 0 ? (
+            <Text style={[styles.totalMeta, tabularNums, { color: theme.textSecondary }]}>
+              Material cost: रु {(qty * fabricCost).toLocaleString('en-US')}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      <View style={styles.pairRow}>
+        <View style={styles.pairCell}>
+          <TextField label="Invoice / challan ref" value={draft.invoiceRef} onChangeText={(v) => onChange({ invoiceRef: v })} placeholder="INV001 / CH-001" autoCapitalize="characters" />
+        </View>
+        <View style={styles.pairCell}>
+          <TextField label="Assigned to" value={draft.assignedTo} onChangeText={(v) => onChange({ assignedTo: v })} placeholder="Owner" autoCapitalize="words" />
+        </View>
+      </View>
 
       <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Stage</Text>
+        <Text style={[styles.label, { color: theme.textSecondary }]}>{mode === 'new' ? 'Initial stage' : 'Stage'}</Text>
         <View style={styles.chipWrap}>
           {STAGES.map((s) => {
             const on = draft.stage === s.id;
@@ -70,19 +145,17 @@ export function OrderSheet({ visible, mode, draft, onClose, onChange, onSave }: 
       </View>
 
       <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Priority</Text>
-        <View style={styles.prioRow}>
-          {(['normal', 'high'] as OrderPriority[]).map((p) => {
-            const on = draft.priority === p;
+        <Text style={[styles.label, { color: theme.textSecondary }]}>Status</Text>
+        <View style={styles.chipWrap}>
+          {STATUSES.map((st) => {
+            const on = draft.status === st.id;
             return (
               <Pressable
-                key={p}
-                onPress={() => onChange({ priority: p })}
-                style={[styles.prioBtn, { backgroundColor: on ? (p === 'high' ? theme.warningWash : theme.surfaceInverted) : theme.surface, borderColor: on ? (p === 'high' ? theme.warning : theme.surfaceInverted) : theme.border }]}
+                key={st.id}
+                onPress={() => onChange({ status: st.id })}
+                style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
               >
-                <Text style={[styles.prioLabel, { color: on ? (p === 'high' ? theme.warningWashText : theme.onDark.text) : theme.textSecondary }]}>
-                  {p === 'high' ? 'High' : 'Normal'}
-                </Text>
+                <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{st.label}</Text>
               </Pressable>
             );
           })}
@@ -105,9 +178,9 @@ const styles = StyleSheet.create({
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 11, borderRadius: 999, borderWidth: 1 },
   chipDot: { width: 6, height: 6, borderRadius: 99 },
   chipLabel: { fontFamily: fontFamily.medium, fontSize: 12.5 },
-  prioRow: { flexDirection: 'row', gap: 8 },
-  prioBtn: { flex: 1, height: 40, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  prioLabel: { fontFamily: fontFamily.semibold, fontSize: 13 },
+  totalBox: { borderRadius: 12, borderWidth: 1, padding: 12, gap: 3 },
+  totalLine: { fontFamily: fontFamily.semibold, fontSize: 14 },
+  totalMeta: { fontFamily: fontFamily.mono, fontSize: 10.5 },
   footer: { paddingTop: 4 },
   save: { height: 54 },
 });

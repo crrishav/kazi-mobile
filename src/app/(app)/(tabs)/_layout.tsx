@@ -8,7 +8,7 @@ import { useTheme } from '@/theme/theme-provider';
  * that person's five out of the list (see `auth/tab-layout.ts`). A screen with
  * no button for you is still routable: More and the dashboard cards link
  * straight to it, and because `(tabs)` is a route group the paths are unchanged
- * (`/production`, `/billing`, …), so every existing deep link still resolves.
+ * (`/order-management`, `/billing`, …), so every existing deep link still resolves.
  */
 export default function TabsLayout() {
   const theme = useTheme();
@@ -22,7 +22,6 @@ export default function TabsLayout() {
       <Tabs.Screen name="tasks" />
       <Tabs.Screen name="inventory" />
       <Tabs.Screen name="finance" />
-      <Tabs.Screen name="production" />
       <Tabs.Screen name="order-management" />
       <Tabs.Screen name="billing" />
       <Tabs.Screen name="marketing" />

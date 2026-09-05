@@ -84,7 +84,7 @@ export function MarketingDashboard() {
       {canView('tasks') ? <MyTasksCard tasks={data.myTasks} openCount={data.myOpenCount} /> : null}
 
       <QuickLinks
-        sections={['customers', 'inventory', 'production', 'attendance', 'tasks', 'quality-control', 'marketing']}
+        sections={['customers', 'inventory', 'order-management', 'attendance', 'tasks', 'quality-control', 'marketing']}
       />
     </DashboardScroll>
   );

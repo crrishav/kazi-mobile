@@ -10,7 +10,7 @@ export interface QcPoint {
 
 export interface QueueItem {
   id: string;
-  /** The `production` batch this QC entry is for (item 24). */
+  /** The order this QC entry gates (`orders.id`). */
   batchId: string;
   product: string;
   code: string;

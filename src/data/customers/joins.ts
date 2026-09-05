@@ -14,9 +14,25 @@ import { toGBP } from '@/lib/currency';
 
 import type { CustomerInvoice, CustomerOrder, InvoiceStatus, OrderStageId } from './types';
 
-/** Sales stages that map onto the customer card's 4-stage chip set; 'delivered' collapses to 'packing'. */
+/**
+ * The order pipeline's ten stages collapsed onto the customer card's 4-stage
+ * chip set — a customer only needs to know roughly where their goods are.
+ */
+const TO_CUSTOMER_STAGE: Record<Order['stage'], OrderStageId> = {
+  received: 'sourcing',
+  sourcing: 'sourcing',
+  cutting: 'cutting',
+  stitching: 'finishing',
+  finishing: 'finishing',
+  embellishment: 'finishing',
+  'quality-check': 'packing',
+  packing: 'packing',
+  shipped: 'packing',
+  delivered: 'packing',
+};
+
 function toCustomerStage(stage: Order['stage']): OrderStageId {
-  return stage === 'delivered' ? 'packing' : stage;
+  return TO_CUSTOMER_STAGE[stage];
 }
 
 /** Open Sales orders for a customer, in the customer-card display shape. */
