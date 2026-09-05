@@ -140,11 +140,12 @@ export interface SaveScheduleInput {
 /** Write a staffer's shift back to their `employees` doc (Employee Directory → Work Schedule). */
 export async function saveSchedule({ employeeDocId, schedule }: SaveScheduleInput): Promise<void> {
   if (!employeeDocId) throw new Error('saveSchedule: no employees doc for this staffer');
+  // No `updatedBy` — `people` has no such column, and sending one rejected
+  // the whole statement, so every schedule save used to fail silently.
   await patchDocument(EMPLOYEES, employeeDocId, {
     scheduleStart: schedule.start,
     scheduleEnd: schedule.end,
     scheduleWorkingDays: schedule.workingDays,
     updatedAt: serverTimestamp(),
-    updatedBy: getActor()?.name ?? 'kazi-mobile',
   });
 }

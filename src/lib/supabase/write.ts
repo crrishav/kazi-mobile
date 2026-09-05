@@ -98,8 +98,11 @@ const SPECS: Record<string, Spec> = {
   clock_ins: { table: 'clock_ins', skip: ['staffName', 'role'] },
   employees: {
     table: 'people',
-    cols: { name: 'full_name', role: 'position_id' },
-    skip: ['uid', 'positionId'],
+    // `role` is the position LABEL, joined in by the compat view — the column
+    // is `position_id`, and writing a job title into it violates the FK to
+    // `positions`. `updatedBy` has no column here at all.
+    cols: { name: 'full_name', positionId: 'position_id' },
+    skip: ['uid', 'role', 'updatedBy', 'createdBy'],
   },
   // ---- tables added by the web-app session; mapped here so the mobile
   // ---- writers reach the same rows rather than a parallel set.
