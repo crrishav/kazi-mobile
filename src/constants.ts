@@ -28,7 +28,7 @@ export const MORE_MODULES: ModuleEntry[] = [
   { id: 'employees-hr', label: 'Employees & HR', route: '/employees-hr', icon: 'clipboard', blurb: 'Staff registry, roles' },
   { id: 'attendance', label: 'Attendance', route: '/attendance', icon: 'clock', blurb: 'Daily shift records' },
   { id: 'marketing', label: 'Marketing', route: '/marketing', icon: 'send', blurb: 'Campaigns and leads' },
-  { id: 'directors', label: 'Directors', route: '/directors', icon: 'award', blurb: 'Executive summary' },
+  { id: 'directors', label: 'Roles', route: '/directors', icon: 'award', blurb: 'Every role, and who holds it' },
   { id: 'admin-panel', label: 'Admin Panel', route: '/admin-panel', icon: 'shield', blurb: 'Access and roles' },
   { id: 'changelog', label: 'Changelog', route: '/changelog', icon: 'list', blurb: "What's new" },
   { id: 'bug-report', label: 'Bug Report', route: '/bug-report', icon: 'alert-triangle', blurb: 'Log an issue you hit' },

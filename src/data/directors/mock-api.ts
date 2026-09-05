@@ -1,8 +1,8 @@
 import { simulateLatency } from '../mock/delay';
-import { PEOPLE } from './mock';
-import type { Director } from './types';
+import { ROLE_DIRECTORY } from './mock';
+import type { RoleDirectory } from './types';
 
-export async function fetchDirectors(): Promise<Director[]> {
+export async function fetchRoleDirectory(): Promise<RoleDirectory> {
   await simulateLatency();
-  return [...PEOPLE];
+  return ROLE_DIRECTORY;
 }
