@@ -83,17 +83,9 @@ export function CustomTabBar({ state, navigation, insets }: CustomTabBarProps) {
     >
       {slots.map(({ name, route }) => {
         const isFocused = name === activeName;
-        // Chat is the team's main channel and sits in the middle of every
-        // layout, so it reads as the primary action rather than one of five
-        // equals — filled pill, accent ground, always.
-        const isChat = name === 'chat';
         const IconComponent = TAB_ICONS[name] ?? MoreIcon;
         const label = TAB_LABELS[name] ?? name;
-        const color = isChat
-          ? theme.accentText
-          : isFocused
-            ? theme.accentWashText
-            : theme.textSecondary;
+        const color = isFocused ? theme.accentWashText : theme.textSecondary;
 
         const onPress = () => {
           const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
@@ -110,16 +102,15 @@ export function CustomTabBar({ state, navigation, insets }: CustomTabBarProps) {
             accessibilityState={{ selected: isFocused }}
             style={({ pressed }) => [
               styles.cell,
-              isChat && [styles.chatCell, { backgroundColor: theme.accent }],
-              !isChat && isFocused && { backgroundColor: theme.accentWash },
+              isFocused && { backgroundColor: theme.accentWash },
               pressed && styles.pressed,
             ]}
           >
-            <IconComponent size={isChat ? 23 : 22} color={color} />
+            <IconComponent size={22} color={color} />
             <Text
               style={[
                 styles.label,
-                { color, fontFamily: isFocused || isChat ? fontFamily.semibold : fontFamily.medium },
+                { color, fontFamily: isFocused ? fontFamily.semibold : fontFamily.medium },
               ]}
             >
               {label}
@@ -146,10 +137,6 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 8,
     borderRadius: radii.md,
-  },
-  chatCell: {
-    paddingVertical: 10,
-    borderRadius: radii.lg,
   },
   pressed: {
     opacity: 0.85,
