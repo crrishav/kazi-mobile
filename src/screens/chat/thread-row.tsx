@@ -2,42 +2,53 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
 import { Avatar } from '@/components/ui/avatar';
+import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import type { Person } from '@/data/chat/types';
+import type { Message, Thread } from '@/data/chat/types';
+import { listTime, previewOf, threadInitials, threadOnline, threadRole, threadTint, threadTitle } from '@/data/chat/utils';
 
 export interface ThreadRowProps {
-  person: Person;
-  preview: string;
+  thread: Thread;
+  last?: Message;
   unread: number;
-  time: string;
   index: number;
   onPress: () => void;
+  /** Opens the thread actions sheet — mark read/unread, pin, mute, delete. */
+  onLongPress: () => void;
 }
 
-export function ThreadRow({ person, preview, unread, time, index, onPress }: ThreadRowProps) {
+export function ThreadRow({ thread, last, unread, index, onPress, onLongPress }: ThreadRowProps) {
   const theme = useTheme();
+  const stamp = thread.previewTime ?? (last ? listTime(last.at) : thread.createdAt ? listTime(thread.createdAt) : '');
 
   return (
-    <Animated.View entering={FadeInUp.delay(index * 30).duration(220)}>
-      <Pressable onPress={onPress} style={[styles.row, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }]}>
+    <Animated.View entering={FadeInUp.delay(Math.min(index, 6) * 30).duration(220)}>
+      <Pressable
+        onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={280}
+        style={({ pressed }) => [styles.row, { backgroundColor: pressed ? theme.surfaceRaised : theme.surface, boxShadow: theme.shadows.card }]}
+      >
         <View style={styles.avatarWrap}>
-          <Avatar initials={person.initials} tint={person.avatarTint} size="lg" />
+          <Avatar initials={threadInitials(thread)} tint={threadTint(thread)} size="lg" />
           <View
             style={[
               styles.presenceDot,
-              { backgroundColor: person.online ? theme.accent : theme.draftDot, borderColor: theme.surface },
+              { backgroundColor: threadOnline(thread) ? theme.accent : theme.draftDot, borderColor: theme.surface },
             ]}
           />
         </View>
 
         <View style={styles.textWrap}>
           <View style={styles.nameRow}>
+            {thread.pinned ? <Icon name="bookmark" size={11} color={theme.accentDeep} /> : null}
             <Text style={[styles.name, { color: theme.textPrimary }]} numberOfLines={1}>
-              {person.name}
+              {threadTitle(thread)}
             </Text>
+            {thread.muted ? <Icon name="bell-off" size={11} color={theme.textSecondary} /> : null}
             <Text style={[styles.role, { color: theme.textSecondary }]} numberOfLines={1}>
-              {person.role}
+              {threadRole(thread)}
             </Text>
           </View>
           <Text
@@ -47,17 +58,17 @@ export function ThreadRow({ person, preview, unread, time, index, onPress }: Thr
             ]}
             numberOfLines={1}
           >
-            {preview}
+            {previewOf(thread, last)}
           </Text>
         </View>
 
         <View style={styles.metaWrap}>
           <Text style={[styles.time, { color: theme.textSecondary }]} numberOfLines={1}>
-            {time}
+            {stamp}
           </Text>
           {unread > 0 ? (
-            <View style={[styles.badge, { backgroundColor: theme.accent }]}>
-              <Text style={[styles.badgeLabel, { color: theme.accentText }]}>{unread}</Text>
+            <View style={[styles.badge, { backgroundColor: thread.muted ? theme.draftWash : theme.accent }]}>
+              <Text style={[styles.badgeLabel, { color: thread.muted ? theme.draftWashText : theme.accentText }]}>{unread}</Text>
             </View>
           ) : (
             <View style={styles.badgeSpacer} />
@@ -95,8 +106,8 @@ const styles = StyleSheet.create({
   },
   nameRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
+    alignItems: 'center',
+    gap: 6,
   },
   name: {
     fontFamily: fontFamily.semibold,

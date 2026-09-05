@@ -1,14 +1,27 @@
-import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
+import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useTheme } from '@/theme/theme-provider';
-import { useMarkRead, useMessages, useReadStatus, useSendMessage } from '@/data/chat/hooks';
-import { PEOPLE, THREADS } from '@/data/chat/mock';
-import type { ChatView, ThreadId } from '@/data/chat/types';
+import {
+  useCreateThread,
+  useDeleteMessages,
+  useDeleteThread,
+  useMessages,
+  useSendMessage,
+  useSetThreadFlag,
+  useSetThreadRead,
+  useThreads,
+  useToggleReaction,
+  useUnread,
+} from '@/data/chat/hooks';
+import { TYPING_IN } from '@/data/chat/mock';
+import type { ChatView, Message, MessageId, PersonId, ThreadId } from '@/data/chat/types';
+import { sortThreads, threadTitle } from '@/data/chat/utils';
 
+import { NewChatSheet } from './new-chat-sheet';
 import { ThreadListView } from './thread-list-view';
 import { ThreadView } from './thread-view';
 
@@ -18,71 +31,136 @@ export function Chat() {
   const { can } = useAuth();
   const canPost = can('messenger');
 
+  const threadsQuery = useThreads();
   const messagesQuery = useMessages();
+  const unreadQuery = useUnread();
+  const { data: threads } = threadsQuery;
   const { data: messages, refetch: refetchMessages } = messagesQuery;
-  const readStatusQuery = useReadStatus();
-  const { data: readStatus, refetch: refetchReadStatus } = readStatusQuery;
+  const { data: unread, refetch: refetchUnread } = unreadQuery;
+
   const sendMessage = useSendMessage();
-  const markRead = useMarkRead();
+  const toggleReaction = useToggleReaction();
+  const deleteMessages = useDeleteMessages();
+  const setThreadRead = useSetThreadRead();
+  const setThreadFlag = useSetThreadFlag();
+  const deleteThread = useDeleteThread();
+  const createThread = useCreateThread();
 
   const [view, setView] = useState<ChatView>('list');
   const [activeId, setActiveId] = useState<ThreadId | null>(null);
-  const [draft, setDraft] = useState('');
+  const [composing, setComposing] = useState(false);
+  /** Bumped on every open so `NewChatSheet` remounts with fresh state instead of resetting it in an effect. */
+  const [composeSession, setComposeSession] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [pulledAt, setPulledAt] = useState('07:44');
 
-  if (isBlocked(messagesQuery, readStatusQuery) || !messages || !readStatus) return <ScreenGate queries={[messagesQuery, readStatusQuery]} />;
+  /** Last message per thread — drives both the preview and the list's recency order. */
+  const lastByThread = useMemo(() => {
+    const out: Record<ThreadId, Message | undefined> = {};
+    for (const [id, list] of Object.entries(messages ?? {})) out[id] = list[list.length - 1];
+    return out;
+  }, [messages]);
 
-  function handleOpen(id: ThreadId) {
+  const ordered = useMemo(() => {
+    const lastAt: Record<ThreadId, number> = {};
+    for (const [id, m] of Object.entries(lastByThread)) lastAt[id] = m?.at ?? 0;
+    return sortThreads(threads ?? [], lastAt);
+  }, [threads, lastByThread]);
+
+  if (isBlocked(threadsQuery, messagesQuery, unreadQuery) || !threads || !messages || !unread) {
+    return <ScreenGate queries={[threadsQuery, messagesQuery, unreadQuery]} />;
+  }
+
+  function openThread(id: ThreadId) {
     setActiveId(id);
-    setDraft('');
     setView('thread');
-    if (!readStatus?.[id]) markRead.mutate(id);
+    if ((unread?.[id] ?? 0) > 0) setThreadRead.mutate({ threadId: id, read: true });
   }
 
   function handleBack() {
     setView('list');
     setActiveId(null);
-    setDraft('');
   }
 
-  function handleCompose() {
+  /** Shared by the list's FAB and the deleted-thread screen's "Start a new message". */
+  function openCompose() {
     if (!canPost) return;
-    toast.show({ message: 'Pick someone on shift to message', tone: 'ok' });
+    setComposeSession((n) => n + 1);
+    setComposing(true);
   }
 
-  function handleSend() {
-    const text = draft.trim();
-    if (!text || !activeId || !canPost) return;
-    sendMessage.mutate({ threadId: activeId, text });
-    setDraft('');
+  /** Both compose paths — pick a person, or "reply privately" from a group message. */
+  function startDm(personId: PersonId) {
+    setComposing(false);
+    createThread.mutate({ kind: 'dm', personId }, { onSuccess: (thread) => openThread(thread.id) });
+  }
+
+  function createGroup(name: string, memberIds: PersonId[]) {
+    setComposing(false);
+    createThread.mutate(
+      { kind: 'group', name, memberIds },
+      {
+        onSuccess: (thread) => {
+          openThread(thread.id);
+          toast.show({ message: `${thread.name} created with ${memberIds.length} others`, tone: 'ok' });
+        },
+      },
+    );
+  }
+
+  function handleDeleteThread(threadId: ThreadId) {
+    const gone = threads?.find((t) => t.id === threadId);
+    deleteThread.mutate(threadId);
+    if (activeId === threadId) handleBack();
+    if (gone) toast.show({ message: `${threadTitle(gone)} deleted`, tone: 'ok' });
   }
 
   async function handleRefresh() {
     setRefreshing(true);
-    await Promise.all([refetchMessages(), refetchReadStatus()]);
+    await Promise.all([threadsQuery.refetch(), refetchMessages(), refetchUnread()]);
     setPulledAt('just now');
     setRefreshing(false);
   }
 
-  if (view === 'thread' && activeId) {
-    const thread = THREADS.find((t) => t.id === activeId)!;
-    const person = PEOPLE[activeId];
-    const typing = !thread.missing && activeId === 'ak';
+  const activeThread = activeId ? threads.find((t) => t.id === activeId) : undefined;
 
+  const composeSheet = (
+    <NewChatSheet
+      key={composeSession}
+      visible={composing}
+      busy={createThread.isPending}
+      onClose={() => setComposing(false)}
+      onStartDm={startDm}
+      onCreateGroup={createGroup}
+    />
+  );
+
+  if (view === 'thread' && activeThread) {
     return (
       <View style={[styles.flex, { backgroundColor: theme.background }]}>
         <ThreadView
-          thread={thread}
-          person={person}
-          messages={messages[activeId] ?? []}
-          typing={typing}
-          draft={draft}
-          onChangeDraft={setDraft}
-          onSend={handleSend}
+          // Keyed by thread so the draft, reply and selection reset when you
+          // move between conversations rather than leaking across them.
+          key={activeThread.id}
+          thread={activeThread}
+          messages={messages[activeThread.id] ?? []}
+          typingId={activeThread.missing ? undefined : TYPING_IN[activeThread.id]}
+          canPost={canPost}
+          unread={unread[activeThread.id] ?? 0}
           onBack={handleBack}
-          onCompose={handleCompose}
+          onSend={(text, replyTo) => sendMessage.mutate({ threadId: activeThread.id, text, replyTo, thread: activeThread })}
+          onToggleReaction={(messageId, emoji) => toggleReaction.mutate({ threadId: activeThread.id, messageId, emoji })}
+          onDeleteMessages={(ids: MessageId[]) => deleteMessages.mutate({ threadId: activeThread.id, ids })}
+          onSetRead={(read) => setThreadRead.mutate({ threadId: activeThread.id, read })}
+          onSetFlag={(flag, value) => setThreadFlag.mutate({ threadId: activeThread.id, flag, value })}
+          onDeleteThread={() => handleDeleteThread(activeThread.id)}
+          onReplyPrivately={startDm}
+          onCompose={() => {
+            handleBack();
+            openCompose();
+          }}
         />
+        {composeSheet}
       </View>
     );
   }
@@ -90,21 +168,24 @@ export function Chat() {
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <ThreadListView
-        threads={THREADS}
-        messages={messages}
-        readStatus={readStatus}
+        threads={ordered}
+        lastByThread={lastByThread}
+        unread={unread}
         pulledAt={pulledAt}
         refreshing={refreshing}
         onRefresh={handleRefresh}
-        onOpen={handleOpen}
-        onCompose={handleCompose}
+        onOpen={openThread}
         canCompose={canPost}
+        onCompose={openCompose}
+        onSetRead={(threadId, read) => setThreadRead.mutate({ threadId, read })}
+        onSetFlag={(threadId, flag, value) => setThreadFlag.mutate({ threadId, flag, value })}
+        onDeleteThread={handleDeleteThread}
       />
+      {composeSheet}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

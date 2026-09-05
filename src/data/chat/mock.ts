@@ -1,49 +1,99 @@
-import type { Message, Person, ThreadId, ThreadMeta } from './types';
+import { ME, type Message, type Person, type PersonId, type Thread, type ThreadId } from './types';
 
-export const PEOPLE: Record<ThreadId, Person> = {
+const DAY = 86_400_000;
+
+/**
+ * Seed timestamps are anchored to *today*, not to a fixed date, so the day
+ * separators ("Today" / "Yesterday") and relative times stay truthful however
+ * long the mock lives.
+ */
+function at(hour: number, minute: number, daysAgo = 0): number {
+  const d = new Date();
+  d.setHours(hour, minute, 0, 0);
+  return d.getTime() - daysAgo * DAY;
+}
+
+export const PEOPLE: Record<PersonId, Person> = {
   ak: { id: 'ak', name: 'Anil Karki', role: 'Cutting lead', initials: 'AK', avatarTint: 'mint', online: true, status: 'On shift · Line 2' },
   pt: { id: 'pt', name: 'Pramila Thapa', role: 'QC', initials: 'PT', avatarTint: 'clay', online: true, status: 'On shift · QC bay' },
   rb: { id: 'rb', name: 'Rabin Bhandari', role: 'Stores', initials: 'RB', avatarTint: 'draft', online: false, status: 'Off shift · back 14:00' },
   mk: { id: 'mk', name: 'Manisha KC', role: 'Packing', initials: 'MK', avatarTint: 'amber', online: true, status: 'On shift · Packing' },
-  dm: { id: 'dm', name: 'Line 3 leads', role: 'Group · 6', initials: 'L3', avatarTint: 'dark', online: true, status: '6 members · 4 on shift' },
   jw: { id: 'jw', name: 'David Mott', role: 'London', initials: 'DM', avatarTint: 'draft', online: false, status: 'Off shift · GMT+1' },
+  su: { id: 'su', name: 'Sunita Rai', role: 'Line 3 lead', initials: 'SU', avatarTint: 'mint', online: true, status: 'On shift · Line 3' },
+  bk: { id: 'bk', name: 'Bikash Gurung', role: 'Sewing', initials: 'BG', avatarTint: 'amber', online: true, status: 'On shift · Line 3' },
+  nm: { id: 'nm', name: 'Nirmala Shrestha', role: 'HR', initials: 'NS', avatarTint: 'clay', online: false, status: 'Off shift · back 13:00' },
+  kd: { id: 'kd', name: 'Kiran Dahal', role: 'Maintenance', initials: 'KD', avatarTint: 'draft', online: true, status: 'On shift · Floor' },
 };
 
-export const THREADS: ThreadMeta[] = [
-  { id: 'ak', time: 'Just now', unread: 2 },
-  { id: 'pt', time: 'Just now', unread: 1 },
-  { id: 'rb', time: '08:20', unread: 0, missing: true, preview: 'Zip stock — checking the back shelf now', ref: 'THR-0418 · deleted 08:52' },
-  { id: 'mk', time: '08:02', unread: 0 },
-  { id: 'dm', time: '07:20', unread: 3 },
-  { id: 'jw', time: 'Yesterday', unread: 0 },
+/** The signed-in user. Not in `PEOPLE` — nothing should ever offer "message yourself". */
+export const CURRENT_USER: Person = {
+  id: ME,
+  name: 'You',
+  role: 'Floor manager',
+  initials: 'SR',
+  avatarTint: 'dark',
+  online: true,
+  status: 'On shift',
+};
+
+export const SEED_THREADS: Thread[] = [
+  { id: 't-l3', kind: 'group', name: 'Line 3 leads', avatarTint: 'dark', memberIds: ['ak', 'su', 'bk', 'nm', 'mk', 'pt'], pinned: true },
+  { id: 't-ak', kind: 'dm', memberIds: ['ak'] },
+  { id: 't-pt', kind: 'dm', memberIds: ['pt'] },
+  { id: 't-floor', kind: 'group', name: 'Floor supervisors', avatarTint: 'mint', memberIds: ['su', 'kd', 'mk'], muted: true },
+  { id: 't-rb', kind: 'dm', memberIds: ['rb'], missing: true, preview: 'Zip stock — checking the back shelf now', previewTime: '08:20', ref: 'THR-0418 · deleted 08:52' },
+  { id: 't-mk', kind: 'dm', memberIds: ['mk'] },
+  { id: 't-jw', kind: 'dm', memberIds: ['jw'] },
 ];
 
-/** No seed thread for 'rb' — it's the deleted/missing thread and never had messages loaded. */
-export const SEED_MESSAGES: Partial<Record<ThreadId, Message[]>> = {
-  ak: [
-    { from: 'them', text: "Fabric for PO-2288 still hasn't cleared the gate. Should I start the chino run instead?", meta: '09:12' },
-    { from: 'me', text: 'Yes — swap to chino, keep the hoodie table set up.', meta: '09:14 · Read' },
-    { from: 'them', text: "Table's laid. Moving 6 cutters over now.", meta: 'Just now' },
+export const SEED_UNREAD: Record<ThreadId, number> = {
+  't-l3': 3,
+  't-ak': 2,
+  't-pt': 1,
+  't-floor': 0,
+  't-rb': 0,
+  't-mk': 0,
+  't-jw': 0,
+};
+
+/** No seed thread for `t-rb` — it's the deleted/missing thread and never had messages loaded. */
+export const SEED_MESSAGES: Record<ThreadId, Message[]> = {
+  't-ak': [
+    { id: 'm-ak-1', threadId: 't-ak', authorId: 'ak', text: "Fabric for PO-2288 still hasn't cleared the gate. Should I start the chino run instead?", at: at(9, 12), reactions: [] },
+    { id: 'm-ak-2', threadId: 't-ak', authorId: ME, text: 'Yes — swap to chino, keep the hoodie table set up.', at: at(9, 14), reactions: [{ emoji: '👍', by: ['ak'] }], read: true },
+    { id: 'm-ak-3', threadId: 't-ak', authorId: 'ak', text: "Table's laid. Moving 6 cutters over now.", at: at(9, 31), reactions: [] },
   ],
-  pt: [
-    { from: 'them', text: 'AQL sample on the tee run failed twice — mostly seam slippage.', meta: '08:41' },
-    { from: 'me', text: "Photograph them and log against QC-113. I'll look before lunch.", meta: '08:44 · Read' },
-    { from: 'them', text: 'Photos are up. 11 units flagged.', meta: 'Just now' },
+  't-pt': [
+    { id: 'm-pt-1', threadId: 't-pt', authorId: 'pt', text: 'AQL sample on the tee run failed twice — mostly seam slippage.', at: at(8, 41), reactions: [] },
+    { id: 'm-pt-2', threadId: 't-pt', authorId: ME, text: "Photograph them and log against QC-113. I'll look before lunch.", at: at(8, 44), replyTo: 'm-pt-1', reactions: [], read: true },
+    { id: 'm-pt-3', threadId: 't-pt', authorId: 'pt', text: 'Photos are up. 11 units flagged.', at: at(9, 5), reactions: [{ emoji: '✅', by: [ME] }] },
   ],
-  mk: [
-    { from: 'them', text: 'Trims count is short by 400 zips for the packing line.', meta: '07:58' },
-    { from: 'me', text: "Rabin's checking stores. Pack what you can in the meantime.", meta: '08:02 · Read' },
+  't-mk': [
+    { id: 'm-mk-1', threadId: 't-mk', authorId: 'mk', text: 'Trims count is short by 400 zips for the packing line.', at: at(7, 58), reactions: [] },
+    { id: 'm-mk-2', threadId: 't-mk', authorId: ME, text: "Rabin's checking stores. Pack what you can in the meantime.", at: at(8, 2), reactions: [], read: true },
   ],
-  dm: [
-    { from: 'them', text: 'Overtime sheet for tonight needs two more names.', meta: 'Yesterday 18:30' },
-    { from: 'me', text: 'Add Sunita and Bikash. 42 staff total.', meta: 'Yesterday 18:35 · Read' },
-    { from: 'them', text: "Done. Sheet's with HR.", meta: '07:20' },
+  't-l3': [
+    { id: 'm-l3-1', threadId: 't-l3', authorId: 'nm', text: 'Overtime sheet for tonight needs two more names.', at: at(18, 30, 1), reactions: [] },
+    { id: 'm-l3-2', threadId: 't-l3', authorId: ME, text: 'Add Sunita and Bikash. 42 staff total.', at: at(18, 35, 1), replyTo: 'm-l3-1', reactions: [{ emoji: '👍', by: ['nm', 'su'] }], read: true },
+    { id: 'm-l3-3', threadId: 't-l3', authorId: 'nm', text: "Done. Sheet's with HR.", at: at(18, 41, 1), reactions: [] },
+    { id: 'm-l3-4', threadId: 't-l3', authorId: 'su', text: 'Line 3 started 07:05. Two machines still down from last night.', at: at(7, 6), reactions: [] },
+    { id: 'm-l3-5', threadId: 't-l3', authorId: 'bk', text: 'Both are the overlockers. Kiran said he can look at them after the break.', at: at(7, 14), replyTo: 'm-l3-4', reactions: [{ emoji: '🙏', by: ['su'] }] },
+    { id: 'm-l3-6', threadId: 't-l3', authorId: 'ak', text: "Cutting can hold the feed until 09:30, so we're not blocked yet.", at: at(7, 20), reactions: [] },
   ],
-  jw: [
-    { from: 'them', text: 'Buyer wants the shipped figure by 17:00 London.', meta: 'Yesterday 09:10' },
-    { from: 'me', text: '7,940 as of this morning. Sending the pack now.', meta: 'Yesterday 09:22 · Read' },
+  't-floor': [
+    { id: 'm-fl-1', threadId: 't-floor', authorId: 'kd', text: 'Compressor serviced. Pressure back to 6.2 bar.', at: at(6, 50), reactions: [{ emoji: '🎉', by: ['su', 'mk', ME] }] },
+    { id: 'm-fl-2', threadId: 't-floor', authorId: 'su', text: 'Good. Line 3 was struggling on the pressers all week.', at: at(6, 58), reactions: [] },
+    { id: 'm-fl-3', threadId: 't-floor', authorId: ME, text: "Log the service against MTN-084 so it's on the record.", at: at(7, 2), reactions: [], read: true },
+    { id: 'm-fl-4', threadId: 't-floor', authorId: 'mk', text: 'Packing is clear until the 11:00 pickup.', at: at(8, 25), reactions: [] },
+  ],
+  't-jw': [
+    { id: 'm-jw-1', threadId: 't-jw', authorId: 'jw', text: 'Buyer wants the shipped figure by 17:00 London.', at: at(9, 10, 1), reactions: [] },
+    { id: 'm-jw-2', threadId: 't-jw', authorId: ME, text: '7,940 as of this morning. Sending the pack now.', at: at(9, 22, 1), reactions: [], read: true },
   ],
 };
 
-/** The signed-in user — hardcoded like every other module's "current user" until real auth lands. */
-export const CURRENT_USER = { initials: 'SR' };
+/** Threads where the other side is mid-message. Drives the typing bubble instead of a hardcoded thread id. */
+export const TYPING_IN: Record<ThreadId, PersonId> = {
+  't-ak': 'ak',
+  't-l3': 'su',
+};
