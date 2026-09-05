@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,13 +14,38 @@ export interface BottomSheetProps {
   title: string;
   children: ReactNode;
   maxHeight?: number;
+  /**
+   * Called before every dismissal — the backdrop, the X and the Android back
+   * button alike. Return `true` to swallow it and hold the sheet open, which
+   * is how an editor with unsaved changes refuses to be walked away from.
+   *
+   * A blocked close also scrolls the content to the bottom, because whatever
+   * blocked it is conventionally pinned there: refusing to close while the
+   * explanation sits off-screen is just a sheet that looks broken.
+   */
+  blockClose?: () => boolean;
+  /** Shown in the sticky header beside the title — e.g. an "unsaved" pill. */
+  headerAccessory?: ReactNode;
+  /** Hands the content ScrollView back, so the caller can scroll it too. */
+  scrollRef?: RefObject<ScrollView | null>;
 }
 
 const OFF_SCREEN = 640;
 
 /** Backdrop fade + sheet slide-up (`kazi-sheet`), driven manually so the exit animation plays before the Modal unmounts. */
-export function BottomSheet({ visible, onClose, title, children, maxHeight = 660 }: BottomSheetProps) {
+export function BottomSheet({
+  visible,
+  onClose,
+  title,
+  children,
+  maxHeight = 660,
+  blockClose,
+  headerAccessory,
+  scrollRef,
+}: BottomSheetProps) {
   const theme = useTheme();
+  const ownScrollRef = useRef<ScrollView | null>(null);
+  const scroll = scrollRef ?? ownScrollRef;
   const insets = useSafeAreaInsets();
   const [mounted, setMounted] = useState(visible);
   const progress = useSharedValue(0);
@@ -37,16 +62,24 @@ export function BottomSheet({ visible, onClose, title, children, maxHeight = 660
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
+  const requestClose = () => {
+    if (blockClose?.()) {
+      scroll.current?.scrollToEnd({ animated: true });
+      return;
+    }
+    onClose();
+  };
+
   const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: (1 - progress.value) * OFF_SCREEN }] }));
 
   if (!mounted) return null;
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
+    <Modal visible transparent animationType="none" onRequestClose={requestClose} statusBarTranslucent>
       <View style={styles.root}>
         <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]}>
-          <Pressable style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={onClose} />
+          <Pressable style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={requestClose} />
         </Animated.View>
 
         <Animated.View
@@ -59,16 +92,19 @@ export function BottomSheet({ visible, onClose, title, children, maxHeight = 660
           <View style={[styles.header, { backgroundColor: theme.surfaceRaised, borderBottomColor: theme.border }]}>
             <View style={[styles.grabber, { backgroundColor: theme.border }]} />
             <View style={styles.headerRow}>
-              <Text style={[styles.title, { color: theme.textPrimary }]}>{title}</Text>
+              <Text style={[styles.title, { color: theme.textPrimary }]} numberOfLines={1}>
+                {title}
+              </Text>
+              {headerAccessory ? <View style={styles.headerAccessory}>{headerAccessory}</View> : null}
               <Pressable
-                onPress={onClose}
+                onPress={requestClose}
                 style={[styles.closeButton, { backgroundColor: theme.surface, borderColor: theme.border }]}
               >
                 <Icon name="x" size={16} color={theme.textPrimary} />
               </Pressable>
             </View>
           </View>
-          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <ScrollView ref={scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             {children}
           </ScrollView>
         </Animated.View>
@@ -106,9 +142,14 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
+  },
+  headerAccessory: {
+    flexShrink: 0,
+    marginLeft: 'auto',
   },
   title: {
+    flexShrink: 1,
     fontFamily: fontFamily.semibold,
     fontSize: 18,
     letterSpacing: -0.015 * 18,
