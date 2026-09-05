@@ -64,7 +64,7 @@ export function MyDayDashboard() {
         </DashboardCard>
       ) : null}
 
-      <QuickLinks sections={['tasks', 'attendance', 'inventory', 'quality-control', 'budget-requirements', 'customers', 'marketing', 'order-management']} />
+      <QuickLinks sections={['tasks', 'attendance', 'inventory', 'budget-requirements', 'customers', 'marketing', 'order-management']} />
     </DashboardScroll>
   );
 }

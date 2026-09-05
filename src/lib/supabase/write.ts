@@ -88,7 +88,6 @@ const SPECS: Record<string, Spec> = {
   processes: { table: 'processes' },
   inventory: { table: 'inventory_items', cols: { itemId: 'item_ref' } },
   production: { table: 'production_batches', cols: { batchId: 'batch_ref' }, dateCol: 'batch_date' },
-  qc_logs: { table: 'qc_logs', cols: { qcId: 'qc_ref', batchId: 'batch_ref' }, dateCol: 'log_date' },
   stage_config: { table: 'stage_config', cols: { order: 'sort_order' } },
   task_columns: { table: 'task_columns', cols: { order: 'sort_order' } },
   content_calendar: { table: 'content_calendar' },

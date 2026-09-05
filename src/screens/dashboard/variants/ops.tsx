@@ -98,7 +98,7 @@ export function OpsDashboard() {
       <ApprovalsSection />
 
       <QuickLinks
-        sections={['quality-control', 'order-management', 'purchases', 'budget-requirements', 'attendance', 'tasks', 'employees-hr', 'customers', 'billing', 'finance', 'marketing', 'accounting', 'sales']}
+        sections={['order-management', 'finance', 'budget-requirements', 'attendance', 'tasks', 'employees-hr', 'customers', 'billing', 'marketing', 'sales']}
       />
     </DashboardScroll>
   );

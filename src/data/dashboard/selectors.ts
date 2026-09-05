@@ -8,7 +8,6 @@ import { paid as invoicePaid, balance as invoiceBalance, isOverdue, nprOf, statu
 import type { Invoice } from '@/data/billing/types';
 import type { Expense } from '@/data/finance/types';
 import type { StockItem } from '@/data/inventory/types';
-import type { QcLog } from '@/data/quality-control/types';
 import { STAGES } from '@/data/sales/mock';
 import type { Order } from '@/data/sales/types';
 import type { Task } from '@/data/tasks/types';
@@ -74,13 +73,6 @@ function orderStages(orders: Order[] | undefined): { stages: StageDatum[]; activ
   return { stages, activeTotal: active.length };
 }
 
-function qcPassRate(logs: QcLog[] | undefined): number {
-  const list = logs ?? [];
-  const checked = list.reduce((n, l) => n + (l.checkedCount || 0), 0);
-  const passed = list.reduce((n, l) => n + (l.passedCount || 0), 0);
-  return checked ? (passed / checked) * 100 : 0;
-}
-
 function lowStockRows(stock: StockItem[] | undefined): LowStockRow[] {
   return (stock ?? [])
     .filter((i) => i.qty <= i.threshold)
@@ -111,7 +103,6 @@ export function deriveOps(input: {
   orders?: Order[];
   tasks?: Task[];
   roster?: TeamMember[];
-  qcLogs?: QcLog[];
   stock?: StockItem[];
   expenses?: Expense[];
   canViewFinance: boolean;
@@ -120,7 +111,6 @@ export function deriveOps(input: {
   const { stages, activeTotal } = orderStages(input.orders);
   const { counts, openTotal } = taskBoardCounts(input.tasks);
   const low = lowStockRows(input.stock);
-  const rate = qcPassRate(input.qcLogs);
   const mtd = financeMTD(input.expenses);
 
   const kpis: DashKpi[] = [
@@ -145,13 +135,6 @@ export function deriveOps(input: {
       delta: counts.blocked ? { tone: 'bad', text: `${counts.blocked} blocked` } : undefined,
       route: '/tasks',
       section: 'tasks',
-    },
-    {
-      id: 'qc-rate',
-      label: 'QC pass rate',
-      value: `${rate.toFixed(1)}%`,
-      route: '/quality-control',
-      section: 'quality-control',
     },
   ];
   if (input.canViewFinance) {

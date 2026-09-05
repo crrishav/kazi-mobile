@@ -26,7 +26,6 @@ const SECTION_TO_MOBILE: Record<string, SectionId> = {
   tasks: 'tasks',
   attendance: 'attendance',
   production: 'production',
-  quality_control: 'quality-control',
   inventory: 'inventory',
   orders: 'order-management',
   sales: 'sales',
@@ -44,8 +43,12 @@ const SECTION_TO_MOBILE: Record<string, SectionId> = {
   changelog: 'changelog',
   bug_report: 'bug-report',
   // `library` and `content` exist in Postgres for the web app; the mobile app
-  // has no screen for them, so they are intentionally dropped. (`payroll` is a
-  // finance *tab*, mapped in TAB_TO_MOBILE below.)
+  // has no screen for them, so they are intentionally dropped, and
+  // `quality_control` joined them when the QC module was retired: `qc_logs`
+  // held four rows ever — two written by the migration's own seed, and one real
+  // inspection saved twice by a double-tap. The rows stay in `sections` /
+  // `position_permissions` for the web app; mobile just ignores the grant.
+  // (`payroll` is a finance *tab*, mapped in TAB_TO_MOBILE below.)
 };
 
 const TAB_TO_MOBILE: Record<string, FinanceTabId> = {

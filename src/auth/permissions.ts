@@ -28,7 +28,6 @@ export type SectionId =
   | 'billing'
   | 'purchases'
   | 'production'
-  | 'quality-control'
   | 'accounting'
   | 'budget-requirements'
   | 'employees-hr'
@@ -94,7 +93,7 @@ export interface Profile {
 
 export const ALL_SECTIONS: SectionId[] = [
   'dashboard', 'tasks', 'inventory', 'finance', 'sales', 'order-management', 'customers', 'billing',
-  'purchases', 'production', 'quality-control', 'accounting', 'budget-requirements',
+  'purchases', 'production', 'accounting', 'budget-requirements',
   'employees-hr', 'attendance', 'marketing', 'messenger', 'directors', 'admin-panel', 'changelog',
   'bug-report',
 ];
@@ -105,11 +104,11 @@ export const NAV_BY_ROLE: Record<Role, SectionId[]> = {
   uk_admin: ALL_SECTIONS.filter((s) => s !== 'admin-panel'),
   nepal_admin: [
     'dashboard', 'tasks', 'inventory', 'finance', 'sales', 'order-management', 'customers', 'billing',
-    'purchases', 'production', 'quality-control', 'accounting', 'budget-requirements',
+    'purchases', 'production', 'accounting', 'budget-requirements',
     'employees-hr', 'attendance', 'marketing', 'messenger', 'changelog', 'bug-report',
   ],
   nepal_staff: [
-    'dashboard', 'tasks', 'inventory', 'production', 'quality-control',
+    'dashboard', 'tasks', 'inventory', 'production',
     'budget-requirements', 'attendance', 'marketing', 'messenger',
     'customers', 'sales', 'order-management', 'changelog', 'bug-report',
   ],
@@ -121,7 +120,7 @@ const EDIT_BY_ROLE: Record<Role, SectionId[] | '*'> = {
   super_admin: '*',
   uk_admin: '*',
   nepal_admin: '*',
-  nepal_staff: ['tasks', 'attendance', 'messenger', 'production', 'quality-control', 'inventory', 'budget-requirements', 'marketing', 'order-management', 'bug-report'],
+  nepal_staff: ['tasks', 'attendance', 'messenger', 'production', 'inventory', 'budget-requirements', 'marketing', 'order-management', 'bug-report'],
   employee: ['tasks', 'attendance', 'messenger', 'budget-requirements', 'bug-report'],
 };
 

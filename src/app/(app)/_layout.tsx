@@ -19,7 +19,6 @@ export default function AppLayout() {
       <Stack.Screen name="sales" />
       <Stack.Screen name="customers" />
       <Stack.Screen name="purchases" />
-      <Stack.Screen name="quality-control" />
       <Stack.Screen name="accounting" />
       <Stack.Screen name="budget-requirements" />
       <Stack.Screen name="employees-hr" />

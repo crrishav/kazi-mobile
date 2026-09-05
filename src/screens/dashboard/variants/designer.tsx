@@ -68,7 +68,7 @@ export function DesignerDashboard() {
       ) : null}
 
       <QuickLinks
-        sections={['quality-control', 'customers', 'attendance', 'tasks', 'order-management', 'marketing']}
+        sections={['customers', 'attendance', 'tasks', 'order-management', 'marketing']}
       />
     </DashboardScroll>
   );

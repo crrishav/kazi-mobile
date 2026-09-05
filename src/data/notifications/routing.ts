@@ -105,11 +105,9 @@ const RULES: Record<string, Rule[]> = {
   // Production
   'production.batch_created': [
     { type: 'info', reason: 'You work in Production', when: and(VIEW('production'), LOC('nepal')) },
-    { type: 'info', reason: 'You handle Quality Control', when: VIEW('quality-control') },
   ],
   'production.output_logged': [
     { type: 'info', reason: 'You work in Production', when: and(VIEW('production'), LOC('nepal')) },
-    { type: 'info', reason: 'You handle Quality Control', when: VIEW('quality-control') },
   ],
   'production.batch_blocked': [
     { type: 'action', reason: 'You manage Nepal operations', when: ROLE('nepal_admin', 'super_admin') },
@@ -120,15 +118,6 @@ const RULES: Record<string, Rule[]> = {
     { type: 'info', reason: 'You created this order', when: ID('createdBy') },
   ],
 
-  // Quality Control
-  'qc.failed': [
-    { type: 'action', reason: 'You manage Nepal operations', when: ROLE('nepal_admin', 'super_admin') },
-    { type: 'action', reason: 'You logged this batch', when: ID('loggedBy') },
-  ],
-  'qc.passed': [
-    { type: 'info', reason: 'You own this order', when: ID('owner') },
-    { type: 'info', reason: 'You manage Nepal operations', when: ROLE('nepal_admin') },
-  ],
 
   // Orders / Sales
   'order.created': [

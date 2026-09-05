@@ -14,7 +14,6 @@ import { useInvoices } from '@/data/billing/hooks';
 import { useExpenses } from '@/data/finance/hooks';
 import { useStock } from '@/data/inventory/hooks';
 import { useEntries } from '@/data/marketing/hooks';
-import { useQcLogs } from '@/data/quality-control/hooks';
 import { useOrders } from '@/data/sales/hooks';
 import { useTasks } from '@/data/tasks/hooks';
 
@@ -59,7 +58,6 @@ export function useOpsDashboard() {
   const orders = useOrders();
   const tasks = useTasks();
   const roster = useTeamRoster();
-  const qc = useQcLogs();
   const stock = useStock();
   const expenses = useExpenses();
   const canViewFinance = canView('finance');
@@ -70,15 +68,14 @@ export function useOpsDashboard() {
         orders: orders.data,
         tasks: tasks.data,
         roster: roster.data,
-        qcLogs: qc.data,
         stock: stock.data,
         expenses: expenses.data,
         canViewFinance,
       }),
-    [orders.data, tasks.data, roster.data, qc.data, stock.data, expenses.data, canViewFinance],
+    [orders.data, tasks.data, roster.data, stock.data, expenses.data, canViewFinance],
   );
 
-  return { data, ...combine([orders, tasks, roster, qc, stock, expenses]) };
+  return { data, ...combine([orders, tasks, roster, stock, expenses]) };
 }
 
 export function useDirectorDashboard() {

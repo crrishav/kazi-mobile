@@ -53,8 +53,6 @@ export function AccountantDashboard() {
 
       <QuickLinks
         sections={[
-          'accounting',
-          'purchases',
           'budget-requirements',
           'employees-hr',
           'sales',

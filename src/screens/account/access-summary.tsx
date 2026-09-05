@@ -17,7 +17,6 @@ const SECTION_LABEL: Record<SectionId, string> = {
   billing: 'Billing',
   purchases: 'Purchases',
   production: 'Production',
-  'quality-control': 'Quality Control',
   accounting: 'Accounting',
   'budget-requirements': 'Budget & Requirements',
   'employees-hr': 'Employees & HR',

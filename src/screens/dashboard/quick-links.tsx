@@ -22,11 +22,10 @@ import { fontFamily } from '@/theme';
  * More still holds the full grid — this is the shortcut, not the index.
  */
 
-/** The four tab modules have no `MORE_MODULES` card, so name them here. */
+/** Tasks and Inventory have no `MORE_MODULES` card, so name them here. */
 const TAB_MODULE_LINKS: Partial<Record<SectionId, { label: string; route: string; icon: IconName }>> = {
   tasks: { label: 'Tasks', route: '/tasks', icon: 'check-square' },
   inventory: { label: 'Inventory', route: '/inventory', icon: 'package' },
-  finance: { label: 'Finance', route: '/finance', icon: 'dollar-sign' },
 };
 
 /**

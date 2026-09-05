@@ -56,7 +56,6 @@ const VIEW_BY_COLLECTION: Record<string, string> = {
   processes: 'fs_processes',
   product_costs: 'fs_product_costs',
   production: 'fs_production',
-  qc_logs: 'fs_qc_logs',
   quotations: 'fs_quotations',
   stage_config: 'fs_stage_config',
   task_columns: 'fs_task_columns',

@@ -18,7 +18,6 @@ const SECTION_ROUTE: Record<SectionId, string> = {
   billing: '/billing',
   purchases: '/purchases',
   production: '/order-management',
-  'quality-control': '/quality-control',
   accounting: '/accounting',
   'budget-requirements': '/budget-requirements',
   'employees-hr': '/employees-hr',
@@ -60,9 +59,6 @@ const CATALOG: Record<string, Describe> = {
   'production.output_logged': (ev, a) => ({ title: `Output logged${ref(ev)}`, body: `${a} logged production output.` }),
   'production.batch_blocked': (ev, a) => ({ title: `Batch${ref(ev)} blocked`, body: `${a} flagged this batch as blocked.` }),
   'production.stage_advanced': (ev, a) => ({ title: `Order${ref(ev)} moved stage`, body: `${a} advanced this order to ${p(ev).status ?? 'the next stage'}.` }),
-
-  'qc.failed': (ev, a) => ({ title: `QC failure${ref(ev)}`, body: `${a} logged rejects on this batch.` }),
-  'qc.passed': (ev, a) => ({ title: `QC passed${ref(ev)}`, body: `${a} cleared this batch.` }),
 
   'order.created': (ev, a) => ({ title: `New order${ref(ev)}`, body: `${a} created this order.` }),
   'order.assigned': (ev, a) => ({ title: `Order${ref(ev)} assigned to you`, body: `${a} assigned this order to you.` }),

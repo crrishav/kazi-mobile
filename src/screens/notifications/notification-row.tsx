@@ -19,7 +19,6 @@ const SECTION_ICON: Record<SectionId, IconName> = {
   billing: 'file-text',
   purchases: 'shopping-cart',
   production: 'tool',
-  'quality-control': 'check-circle',
   accounting: 'book-open',
   'budget-requirements': 'briefcase',
   'employees-hr': 'clipboard',
