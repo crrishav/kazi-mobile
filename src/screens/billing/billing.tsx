@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { CollapsedSection } from '@/components/ui/collapsed-section';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useIsOwnTab } from '@/components/tab-bar/use-own-tab';
 import { ScreenHeader } from '@/components/ui/screen-header';
@@ -52,7 +53,6 @@ import type {
 } from '@/data/billing/types';
 import { appliesVAT, balance, clientNameOf, money, n0, nextDocNumber, npr, nprOf, paid, statusFull, total, vat } from '@/data/billing/utils';
 
-import { CancelledSection } from './cancelled-section';
 import { ChallansSheet } from './challans-sheet';
 import { DocList } from './doc-list';
 import { DocSheet, draftFromDoc, emptyDocDraft, type DocDraft } from './doc-sheet';
@@ -751,11 +751,11 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
           shown.map((v, i) => <InvoiceRow key={v.id} invoice={v} index={i} showFx={SHOW_FX} onPress={() => openDetail(v.id)} />)
         )}
 
-        <CancelledSection label="Cancelled invoices" count={cancelledShown.length}>
+        <CollapsedSection label="Cancelled invoices" count={cancelledShown.length}>
           {cancelledShown.map((v, i) => (
             <InvoiceRow key={v.id} invoice={v} index={i} showFx={SHOW_FX} onPress={() => openDetail(v.id)} />
           ))}
-        </CancelledSection>
+        </CollapsedSection>
         </>
         )}
       </ScrollView>

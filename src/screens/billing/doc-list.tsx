@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
+import { CollapsedSection } from '@/components/ui/collapsed-section';
 import { Avatar } from '@/components/ui/avatar';
 import { DualDate } from '@/components/ui/dual-date';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -11,7 +12,6 @@ import { CHALLAN_STATUSES, DOC_STATUS_PILL, QUOTATION_STATUSES } from '@/data/bi
 import type { Challan, Quotation } from '@/data/billing/types';
 import { calcTotals, money, n0 } from '@/data/billing/utils';
 
-import { CancelledSection } from './cancelled-section';
 
 type DocKind = 'challan' | 'quotation';
 type AnyDoc = Challan | Quotation;
@@ -139,9 +139,9 @@ export function DocList({ kind, docs, statusFilter, onStatusFilter, onOpen }: Do
         rows.map(renderCard)
       )}
 
-      <CancelledSection label={`Cancelled ${kind === 'challan' ? 'challans' : 'quotations'}`} count={cancelled.length}>
+      <CollapsedSection label={`Cancelled ${kind === 'challan' ? 'challans' : 'quotations'}`} count={cancelled.length}>
         {cancelled.map(renderCard)}
-      </CancelledSection>
+      </CollapsedSection>
     </View>
   );
 }
