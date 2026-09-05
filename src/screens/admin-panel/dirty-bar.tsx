@@ -8,13 +8,22 @@ import { fontFamily, radii } from '@/theme';
 
 export interface DirtyBarProps {
   count: number;
+  roleLabel: string;
   peopleCount: number;
   onDiscard: () => void;
   onReview: () => void;
 }
 
-/** Persistent floating bar (not a toast) while edits are staged — mirrors the design's own bottom:104 pending-changes bar, which sits at the same spot the toast uses since the two are never meant to be read at once. */
-export function DirtyBar({ count, peopleCount, onDiscard, onReview }: DirtyBarProps) {
+/**
+ * Nothing on the matrix is written as it is tapped: edits collect in a draft
+ * and this bar appears until the whole batch goes up together, so a half-made
+ * change is never live and there is a single "put it back" rather than the
+ * hope that you remember what you touched.
+ *
+ * A persistent floating bar, not a toast — it sits where the toast would, since
+ * the two are never meant to be read at once.
+ */
+export function DirtyBar({ count, roleLabel, peopleCount, onDiscard, onReview }: DirtyBarProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -27,10 +36,10 @@ export function DirtyBar({ count, peopleCount, onDiscard, onReview }: DirtyBarPr
       <View style={[styles.bar, { backgroundColor: theme.surfaceInverted, boxShadow: theme.shadows.floating }]}>
         <View style={styles.textWrap}>
           <Text style={[styles.title, { color: theme.onDark.text }]} numberOfLines={1}>
-            {count === 1 ? '1 change pending' : `${count} changes pending`}
+            {count === 1 ? '1 unsaved change' : `${count} unsaved changes`}
           </Text>
           <Text style={[styles.meta, { color: theme.onDark.textMuted }]} numberOfLines={1}>
-            Not applied · {peopleCount} people affected
+            {roleLabel} · {peopleCount} {peopleCount === 1 ? 'person' : 'people'} affected
           </Text>
         </View>
         <Pressable

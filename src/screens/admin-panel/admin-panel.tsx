@@ -1,206 +1,654 @@
-import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { HeaderAccount } from '@/components/ui/header-account';
+import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii } from '@/theme';
-import { useApplyRoleChanges, usePermissionMatrix } from '@/data/admin-panel/hooks';
-import { GROUPS, ROLES } from '@/data/admin-panel/mock';
-import type { AccessLevel, DiffRow, RoleKey, SectionDef, SectionId } from '@/data/admin-panel/types';
+import {
+  useAdminMatrix,
+  useCreateRole,
+  useDeleteRole,
+  useSaveRoleDraft,
+  useSetPersonRole,
+  useUpdateRole,
+} from '@/data/admin-panel/hooks';
+import {
+  EMPTY_DRAFT,
+  type AccessLevel,
+  type DiffRow,
+  type PersonRow,
+  type RoleDraft,
+  type RoleFields,
+  type SectionRow,
+} from '@/data/admin-panel/types';
+import { countLevels, isDowngrade, isSuperTier, LEVEL_LABEL } from '@/data/admin-panel/utils';
 
+import { ConfirmSheet } from './confirm-sheet';
 import { DirtyBar } from './dirty-bar';
+import { FinanceTabsCard } from './finance-tabs-card';
+import { PagesCard } from './pages-card';
+import { PeopleSheet } from './people-sheet';
 import { ReviewSheet } from './review-sheet';
-import { RoleChipsBar } from './role-chips-bar';
-import { SectionGroupCard } from './section-group-card';
-import { SummaryCard } from './summary-card';
+import { RoleEditorSheet } from './role-editor-sheet';
+import { RoleList } from './role-list';
+import { RoleSummaryCard } from './role-summary-card';
 
+interface PendingConfirm {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  tone?: 'danger' | 'primary';
+  run: () => void;
+  /**
+   * Which sheet raised this. Two modals on screen at once is unreliable on
+   * iOS, so the sheet that asked steps aside and comes back afterwards —
+   * whichever way the question is answered.
+   */
+  restore?: 'review' | 'people' | 'editor';
+}
+
+const messageOf = (err: unknown): string => (err instanceof Error ? err.message : String(err ?? 'Unknown error'));
+
+/**
+ * Roles & permissions.
+ *
+ * Access is a property of the job, not the person: a role is edited here and
+ * everybody holding it moves together. Every switch is a row in
+ * `position_permissions` — the same table the database reads when it decides
+ * whether a query may return a row — so what this screen shows is what is
+ * actually enforced, not a mobile-side copy of it.
+ *
+ * The web page puts the roles rail and the matrix side by side; a phone picks a
+ * role first and opens its pages on their own. Everything else is the same
+ * page: nothing is written as it is tapped, edits collect in a draft, the whole
+ * batch goes up together, and the screen refuses to be walked away from while
+ * that draft exists.
+ */
 export function AdminPanel() {
   const theme = useTheme();
   const toast = useToast();
   const { can } = useAuth();
-  const canEdit = can('admin-panel');
-  const matrixQuery = usePermissionMatrix();
+
+  const canAdminister = can('admin-panel');
+  // Moving somebody between roles writes to `people`, which RLS gates on
+  // employees-edit — not on admin. Someone can be allowed to shape a role
+  // without being allowed to decide who holds it.
+  const canManagePeople = can('employees-hr');
+
+  const matrixQuery = useAdminMatrix();
   const { data: matrix } = matrixQuery;
-  const applyMutation = useApplyRoleChanges();
+  const saveDraft = useSaveRoleDraft();
+  const createRole = useCreateRole();
+  const updateRole = useUpdateRole();
+  const deleteRole = useDeleteRole();
+  const setPersonRole = useSetPersonRole();
 
-  const [role, setRole] = useState<RoleKey>('sup');
-  const [pending, setPending] = useState<Partial<Record<SectionId, AccessLevel>>>({});
-  const [sheetOpen, setSheetOpen] = useState(false);
-
-  const sectionIndex = useMemo(() => {
-    const idx: Partial<Record<SectionId, { name: string; group: string }>> = {};
-    GROUPS.forEach((g) => g.items.forEach((it) => { idx[it.id] = { name: it.name, group: g.title }; }));
-    return idx;
-  }, []);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<RoleDraft>(EMPTY_DRAFT);
+  const [roleQuery, setRoleQuery] = useState('');
+  const [pageQuery, setPageQuery] = useState('');
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(false);
+  const [editor, setEditor] = useState<'new' | 'edit' | null>(null);
+  const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
+  const [busyPersonId, setBusyPersonId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   if (isBlocked(matrixQuery) || !matrix) return <ScreenGate queries={[matrixQuery]} />;
 
-  const roleObj = ROLES.find((r) => r.key === role)!;
-  const base = matrix[role];
-  const dirty = Object.keys(pending).length > 0;
+  const { roles, sections, financeTabs, perms, tabPerms, people } = matrix;
+  const activePeople = people.filter((p) => p.active);
+  const selectedRole = roles.find((r) => r.id === selectedId) ?? null;
 
-  function levelOf(id: SectionId): AccessLevel {
-    const p = pending[id];
-    return p !== undefined ? p : base[id];
-  }
+  const changeCount =
+    Object.keys(draft.levels).length +
+    Object.keys(draft.tabs).length +
+    Object.keys(draft.personal).length +
+    (draft.superAdmin !== null ? 1 : 0);
+  const dirty = changeCount > 0;
 
-  function setLevel(id: SectionId, v: AccessLevel) {
-    if (!canEdit) return;
-    setPending((p) => {
-      const next = { ...p };
-      if (base[id] === v) delete next[id];
-      else next[id] = v;
+  const savedSuper = isSuperTier(selectedRole?.tier ?? 0);
+  const isSuperAdmin = draft.superAdmin ?? savedSuper;
+  const locked = !canAdminister || isSuperAdmin;
+
+  const holdersOf = (roleId: string) => activePeople.filter((p) => p.positionId === roleId);
+  const holders = selectedRole ? holdersOf(selectedRole.id) : [];
+  const labelOfRole = (positionId: string | null) => roles.find((r) => r.id === positionId)?.label ?? '';
+
+  const savedLevel = (sectionId: string): AccessLevel => perms[selectedId ?? '']?.[sectionId] ?? 'none';
+  const savedTabLevel = (tabId: string): AccessLevel => tabPerms[selectedId ?? '']?.[tabId] ?? 'none';
+  const levelFor = (sectionId: string): AccessLevel =>
+    isSuperAdmin ? 'edit' : draft.levels[sectionId] ?? savedLevel(sectionId);
+  const tabLevelFor = (tabId: string): AccessLevel =>
+    isSuperAdmin ? 'edit' : draft.tabs[tabId] ?? savedTabLevel(tabId);
+  const personalFor = (section: SectionRow): boolean => draft.personal[section.id] ?? section.isPersonal;
+
+  const resetDraft = () => setDraft(EMPTY_DRAFT);
+
+  /** Flash at someone trying to walk away mid-edit. */
+  const nudge = () => toast.show({ message: 'Save or discard your changes first', tone: 'warn' });
+
+  /** Wrap anything that would throw the draft away. */
+  const guard = (fn: () => void) => () => {
+    if (dirty) {
+      nudge();
+      return;
+    }
+    fn();
+  };
+
+  /** Stage one edit, or drop it again if it lands back on the saved value. */
+  function stage<K extends 'levels' | 'tabs' | 'personal'>(
+    bucket: K,
+    key: string,
+    value: RoleDraft[K][string],
+    saved: RoleDraft[K][string],
+  ) {
+    setError(null);
+    setDraft((d) => {
+      const next = { ...d, [bucket]: { ...d[bucket] } } as RoleDraft;
+      if (value === saved) delete next[bucket][key];
+      else next[bucket][key] = value;
       return next;
     });
   }
 
-  function lockOf(item: SectionDef): string | null {
-    if (item.lock) return item.lock;
-    if (item.sensitive && role !== 'hr') return 'HR roles only';
-    return null;
-  }
+  const setSectionLevel = (sectionId: string, level: AccessLevel) => {
+    if (locked) return;
+    stage('levels', sectionId, level, savedLevel(sectionId));
+  };
 
-  function pickRole(next: RoleKey) {
-    if (next === role) return;
-    if (dirty) {
-      toast.show({ message: 'Review or discard your changes first', tone: 'warn' });
-      return;
-    }
-    setRole(next);
-    setPending({});
-    setSheetOpen(false);
-  }
+  const setTabLevel = (tabId: string, level: AccessLevel) => {
+    if (locked) return;
+    stage('tabs', tabId, level, savedTabLevel(tabId));
+  };
 
-  function handleToggle(item: SectionDef, lock: string | null) {
-    if (lock) {
-      toast.show({ message: `${item.name} is locked — ${lock}`, tone: 'bad' });
-      return;
-    }
-    setLevel(item.id, levelOf(item.id) > 0 ? 0 : 1);
-  }
+  const setPersonal = (section: SectionRow, value: boolean) => {
+    if (!canAdminister) return;
+    stage('personal', section.id, value, section.isPersonal);
+  };
 
-  function handleLevel(item: SectionDef, lock: string | null) {
-    if (lock) {
-      toast.show({ message: `${item.name} is locked — ${lock}`, tone: 'bad' });
-      return;
-    }
-    const lv = levelOf(item.id);
-    if (lv === 0) {
-      toast.show({ message: `Turn ${item.name} on first`, tone: 'warn' });
-      return;
-    }
-    setLevel(item.id, lv === 2 ? 1 : 2);
-  }
+  /** Every page at once — still only staged. */
+  const setAll = (level: AccessLevel) => {
+    if (locked) return;
+    setDraft((d) => {
+      const levels = { ...d.levels };
+      for (const s of sections) {
+        if (savedLevel(s.id) === level) delete levels[s.id];
+        else levels[s.id] = level;
+      }
+      return { ...d, levels };
+    });
+  };
 
-  function handleDiscard() {
-    setPending({});
-    setSheetOpen(false);
-    toast.show({ message: 'Changes discarded', tone: 'bad' });
-  }
+  /**
+   * Super admin, as a switch at the end of the matrix. It is a tier, not a
+   * permission row: tier 4 is what the database treats as unreducible, and a
+   * trigger fills in every page and finance tab the moment a role reaches it.
+   */
+  const setSuperAdmin = (on: boolean) => {
+    if (!canAdminister) return;
+    setError(null);
+    setDraft((d) => {
+      const next: RoleDraft = { ...d, superAdmin: on === savedSuper ? null : on };
+      // With super admin on, every page is granted whatever the switches say,
+      // and the database would refuse a staged reduction outright. Drop them
+      // rather than carry a pending change that cannot land.
+      if (on) {
+        next.levels = {};
+        next.tabs = {};
+      }
+      return next;
+    });
+  };
 
-  function handleApply() {
-    if (!canEdit) return;
-    applyMutation.mutate(
-      { role, changes: pending },
+  // ---- The draft, as something to read -------------------------------------
+
+  const diffs: DiffRow[] = [
+    ...Object.entries(draft.levels).map(([id, to]) => {
+      const from = savedLevel(id);
+      return {
+        key: `page:${id}`,
+        kind: 'page' as const,
+        name: sections.find((s) => s.id === id)?.label ?? id,
+        group: 'Page access',
+        from: LEVEL_LABEL[from],
+        to: LEVEL_LABEL[to],
+        removal: isDowngrade(from, to),
+      };
+    }),
+    ...Object.entries(draft.tabs).map(([id, to]) => {
+      const from = savedTabLevel(id);
+      return {
+        key: `tab:${id}`,
+        kind: 'tab' as const,
+        name: financeTabs.find((t) => t.id === id)?.label ?? id,
+        group: 'Finance tab',
+        from: LEVEL_LABEL[from],
+        to: LEVEL_LABEL[to],
+        removal: isDowngrade(from, to),
+      };
+    }),
+    ...Object.entries(draft.personal).map(([id, to]) => ({
+      key: `personal:${id}`,
+      kind: 'personal' as const,
+      name: sections.find((s) => s.id === id)?.label ?? id,
+      group: 'Own records only',
+      from: to ? 'off' : 'on',
+      to: to ? 'on' : 'off',
+      removal: to,
+    })),
+    ...(draft.superAdmin !== null
+      ? [
+          {
+            key: 'super',
+            kind: 'super' as const,
+            name: 'Super admin',
+            group: 'Tier',
+            from: draft.superAdmin ? 'off' : 'on',
+            to: draft.superAdmin ? 'on' : 'off',
+            removal: !draft.superAdmin,
+          },
+        ]
+      : []),
+  ];
+
+  const draftCounts = countLevels(sections, levelFor, isSuperAdmin);
+
+  // ---- Committing ----------------------------------------------------------
+
+  const handleApply = () => {
+    if (!selectedRole || !canAdminister || !dirty) return;
+    setError(null);
+    saveDraft.mutate(
+      {
+        roleId: selectedRole.id,
+        draft,
+        roleLabel: selectedRole.label,
+        holders: holders.map((h) => h.name),
+        changeCount,
+      },
       {
         onSuccess: () => {
-          toast.show({ message: `Access updated for ${roleObj.label.toLowerCase()} · logged`, tone: 'ok' });
+          resetDraft();
+          setReviewOpen(false);
+          toast.show({ message: `Access updated for ${selectedRole.label}`, tone: 'ok' });
         },
-      }
+        // The draft stays put, so nothing is lost and the save can be retried.
+        onError: (err) => setError(messageOf(err)),
+      },
     );
-    setPending({});
-    setSheetOpen(false);
+  };
+
+  const askApply = () => {
+    // Dropping super admin is destructive in a way worth stopping on, and it
+    // cannot un-grant what tier 4 already handed out.
+    if (draft.superAdmin === false && selectedRole) {
+      setReviewOpen(false);
+      setConfirm({
+        title: `Remove super admin from ${selectedRole.label}?`,
+        body: 'It keeps edit on every page it was given — those switches simply become editable again, so turn off whatever it shouldn’t have. Its record scope drops to own records.',
+        confirmLabel: 'Remove',
+        run: handleApply,
+        restore: 'review',
+      });
+      return;
+    }
+    handleApply();
+  };
+
+  const handleDiscard = () => {
+    resetDraft();
+    setReviewOpen(false);
+    setError(null);
+    toast.show({ message: 'Changes discarded', tone: 'bad' });
+  };
+
+  // ---- The role itself -----------------------------------------------------
+
+  const submitRole = (fields: RoleFields) => {
+    setError(null);
+    const mutation = editor === 'edit' ? updateRole : createRole;
+    mutation.mutate(fields, {
+      onSuccess: () => {
+        setEditor(null);
+        if (editor === 'new') setSelectedId(fields.id);
+        toast.show({ message: editor === 'edit' ? 'Role saved' : `${fields.label} created`, tone: 'ok' });
+      },
+      onError: (err) => setError(messageOf(err)),
+    });
+  };
+
+  const askDeleteRole = () => {
+    if (!selectedRole) return;
+    setEditor(null);
+    setConfirm({
+      title: `Delete ${selectedRole.label}?`,
+      body: 'Its permissions go with it. Anyone who held it would hold no role at all.',
+      confirmLabel: 'Delete',
+      restore: 'editor',
+      run: () => {
+        deleteRole.mutate(selectedRole.id, {
+          onSuccess: () => {
+            setEditor(null);
+            setSelectedId(null);
+            toast.show({ message: `${selectedRole.label} deleted`, tone: 'bad' });
+          },
+          onError: (err) => setError(messageOf(err)),
+        });
+      },
+    });
+  };
+
+  // ---- People, written as you go -------------------------------------------
+
+  const movePerson = (person: PersonRow, positionId: string | null, done: string) => {
+    setBusyPersonId(person.id);
+    setPersonRole.mutate(
+      { personId: person.id, positionId, personName: person.name },
+      {
+        onSuccess: () => toast.show({ message: done, tone: 'ok' }),
+        onError: (err) => toast.show({ message: messageOf(err), tone: 'bad' }),
+        onSettled: () => setBusyPersonId(null),
+      },
+    );
+  };
+
+  const addPerson = (person: PersonRow) => {
+    if (!selectedRole || !canManagePeople) return;
+    const current = labelOfRole(person.positionId);
+    const apply = () => movePerson(person, selectedRole.id, `${person.name} → ${selectedRole.label}`);
+    if (current) {
+      setPeopleOpen(false);
+      setConfirm({
+        title: `Move ${person.name}?`,
+        body: `They hold “${current}”. Moving them to “${selectedRole.label}” replaces it — a person holds one role.`,
+        confirmLabel: 'Move',
+        tone: 'primary',
+        run: apply,
+        restore: 'people',
+      });
+      return;
+    }
+    apply();
+  };
+
+  const removePerson = (person: PersonRow) => {
+    if (!selectedRole || !canManagePeople) return;
+    setPeopleOpen(false);
+    setConfirm({
+      title: `Take ${person.name} out of ${selectedRole.label}?`,
+      body: 'They will hold no role, which means no access to any screen until you give them one.',
+      confirmLabel: 'Remove',
+      run: () => movePerson(person, null, `${person.name} has no role`),
+      restore: 'people',
+    });
+  };
+
+  /**
+   * Put back whichever sheet stepped aside to ask the question. The role
+   * editor is the exception on the way through: a confirmed delete takes the
+   * role with it, so there is nothing left to edit.
+   */
+  const restoreAfterConfirm = (pending: PendingConfirm | null, cancelled: boolean) => {
+    if (pending?.restore === 'review') setReviewOpen(true);
+    else if (pending?.restore === 'people') setPeopleOpen(true);
+    else if (pending?.restore === 'editor' && cancelled) setEditor('edit');
+  };
+
+  const confirmSheet = (
+    <ConfirmSheet
+      visible={!!confirm}
+      title={confirm?.title ?? ''}
+      body={confirm?.body ?? ''}
+      confirmLabel={confirm?.confirmLabel ?? 'Confirm'}
+      tone={confirm?.tone}
+      busy={saveDraft.isPending || deleteRole.isPending}
+      onCancel={() => {
+        const pending = confirm;
+        setConfirm(null);
+        restoreAfterConfirm(pending, true);
+      }}
+      onConfirm={() => {
+        const pending = confirm;
+        setConfirm(null);
+        pending?.run();
+        // The action is in flight; whatever it does on success (closing the
+        // review sheet, dropping the selected role) lands after this.
+        restoreAfterConfirm(pending, false);
+      }}
+    />
+  );
+
+  // ---- The roles rail ------------------------------------------------------
+
+  if (!selectedRole) {
+    return (
+      <View style={[styles.flex, { backgroundColor: theme.background }]}>
+        <ScreenHeader
+          title="Roles & permissions"
+          subtitle={`${roles.length} roles · ${sections.length} pages`}
+          rightSlot={
+            canAdminister ? (
+              <Pressable
+                onPress={() => {
+                  setError(null);
+                  setEditor('new');
+                }}
+                style={[
+                  styles.addButton,
+                  {
+                    backgroundColor: theme.accent,
+                    boxShadow: theme.scheme === 'light' ? '0 6px 16px -10px rgba(20,122,87,0.9)' : undefined,
+                  },
+                ]}
+              >
+                <Icon name="plus" size={18} color={theme.accentText} />
+              </Pressable>
+            ) : (
+              <HeaderAccount size="sm" />
+            )
+          }
+        />
+        <ScrollView contentContainerStyle={styles.content}>
+          <PermissionNotice
+            section="admin-panel"
+            message="View only — you can see how roles are configured, but only roles with edit access to the Admin Panel can change them."
+          />
+          <Text style={[styles.lede, { color: theme.textSecondary }]}>
+            Access belongs to the role, not the person. Change a role and everyone holding it changes with it.
+          </Text>
+          <RoleList
+            roles={roles}
+            query={roleQuery}
+            onQueryChange={setRoleQuery}
+            countsFor={(r) =>
+              countLevels(sections, (id) => perms[r.id]?.[id] ?? 'none', isSuperTier(r.tier))
+            }
+            holdersFor={(id) => holdersOf(id).length}
+            sectionCount={sections.length}
+            peopleCount={activePeople.filter((p) => p.positionId).length}
+            onPick={(id) => {
+              setSelectedId(id);
+              setPageQuery('');
+              setError(null);
+            }}
+          />
+        </ScrollView>
+
+        <RoleEditorSheet
+          visible={editor === 'new'}
+          onClose={() => setEditor(null)}
+          role={null}
+          existingIds={roles.map((r) => r.id)}
+          holderCount={0}
+          busy={createRole.isPending}
+          error={error}
+          onSubmit={submitRole}
+          onDelete={askDeleteRole}
+        />
+        {confirmSheet}
+      </View>
+    );
   }
 
-  const counts = { 0: 0, 1: 0, 2: 0 } as Record<AccessLevel, number>;
-  GROUPS.forEach((g) => g.items.forEach((it) => { counts[levelOf(it.id)]++; }));
+  // ---- One role's matrix ---------------------------------------------------
 
-  const diffs: DiffRow[] = (Object.keys(pending) as SectionId[]).map((id) => ({
-    id,
-    name: sectionIndex[id]!.name,
-    group: sectionIndex[id]!.group,
-    from: base[id],
-    to: pending[id]!,
-  }));
+  const backToRoles = guard(() => {
+    setSelectedId(null);
+    setPageQuery('');
+    setPeopleOpen(false);
+    setError(null);
+  });
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <ScreenHeader
-        title="Admin panel"
-        subtitle={`${ROLES.length} roles · 20 sections`}
-        rightSlot={<HeaderAccount size="sm" />}
+        title={selectedRole.label}
+        subtitle={`${holders.length} ${holders.length === 1 ? 'person' : 'people'} · ${
+          isSuperAdmin ? 'all pages' : `${draftCounts.edit} edit · ${draftCounts.view} view`
+        }`}
+        onBack={backToRoles}
+        rightSlot={
+          canAdminister && !isSuperAdmin ? (
+            <Pressable
+              onPress={guard(() => {
+                setError(null);
+                setEditor('edit');
+              })}
+              style={[styles.editButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
+            >
+              <Icon name="edit-2" size={13} color={theme.textPrimary} />
+            </Pressable>
+          ) : undefined
+        }
       />
-      <RoleChipsBar roles={ROLES} activeRole={role} onPick={pickRole} />
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <PermissionNotice section="admin-panel" />
-        <SummaryCard role={roleObj} dirty={dirty} pendingCount={Object.keys(pending).length} counts={counts} />
+      <ScrollView contentContainerStyle={[styles.content, dirty ? styles.contentDirty : null]}>
+        <PermissionNotice
+          section="admin-panel"
+          message="View only — you can see how this role is configured, but only roles with edit access to the Admin Panel can change it."
+        />
 
-        {GROUPS.map((group, i) => (
-          <SectionGroupCard
-            key={group.title}
-            group={group}
-            index={i}
-            levelOf={levelOf}
-            lockOf={lockOf}
-            isChanged={(id) => pending[id] !== undefined}
-            onToggle={handleToggle}
-            onLevel={handleLevel}
-          />
-        ))}
+        <RoleSummaryCard
+          role={selectedRole}
+          counts={draftCounts}
+          isSuperAdmin={isSuperAdmin}
+          dirty={dirty}
+          changeCount={changeCount}
+          holders={holders}
+          onOpenPeople={() => setPeopleOpen(true)}
+        />
+
+        <PagesCard
+          sections={sections}
+          query={pageQuery}
+          onQueryChange={setPageQuery}
+          levelFor={levelFor}
+          isChanged={(id) => draft.levels[id] !== undefined}
+          personalFor={personalFor}
+          isPersonalChanged={(id) => draft.personal[id] !== undefined}
+          onLevel={setSectionLevel}
+          onPersonal={canAdminister ? setPersonal : undefined}
+          onSetAll={setAll}
+          locked={locked}
+          isSuperAdmin={isSuperAdmin}
+          superAdminChanged={draft.superAdmin !== null}
+          canToggleSuperAdmin={canAdminister}
+          onSuperAdmin={setSuperAdmin}
+        />
+
+        <FinanceTabsCard
+          tabs={financeTabs}
+          levelFor={tabLevelFor}
+          isChanged={(id) => draft.tabs[id] !== undefined}
+          onLevel={setTabLevel}
+          locked={locked}
+        />
 
         <View style={[styles.noteCard, { backgroundColor: theme.surfaceRaised, borderColor: theme.border }]}>
           <Text style={[styles.noteTitle, { color: theme.textPrimary }]}>How this applies</Text>
           <Text style={[styles.noteBody, { color: theme.textSecondary }]}>
-            Applied changes take effect at next sign-in.{'\n'}Every change is written to the audit log with your name.{'\n'}
-            Individual overrides live on the person&apos;s record.
+            These switches are the rows the database itself reads — a saved change binds on the next request,
+            including for anyone already signed in.{'\n'}
+            The app&apos;s own menus catch up when the person next opens it.{'\n'}
+            A person holds one role; there are no individual overrides.
           </Text>
         </View>
       </ScrollView>
 
       {dirty ? (
         <DirtyBar
-          count={Object.keys(pending).length}
-          peopleCount={roleObj.people}
+          count={changeCount}
+          roleLabel={selectedRole.label}
+          peopleCount={holders.length}
           onDiscard={handleDiscard}
-          onReview={() => setSheetOpen(true)}
+          onReview={() => setReviewOpen(true)}
         />
       ) : null}
 
       <ReviewSheet
-        visible={sheetOpen && dirty}
-        onClose={() => setSheetOpen(false)}
-        role={roleObj}
+        visible={reviewOpen && dirty}
+        onClose={() => setReviewOpen(false)}
+        roleLabel={selectedRole.label}
+        holderCount={holders.length}
         diffs={diffs}
-        applying={applyMutation.isPending}
-        onApply={handleApply}
+        applying={saveDraft.isPending}
+        error={error}
+        onApply={askApply}
       />
+
+      <PeopleSheet
+        visible={peopleOpen}
+        onClose={() => setPeopleOpen(false)}
+        role={selectedRole}
+        holders={holders}
+        candidates={activePeople.filter((p) => p.positionId !== selectedRole.id)}
+        roleLabel={labelOfRole}
+        canManage={canManagePeople}
+        busyPersonId={busyPersonId}
+        onAdd={addPerson}
+        onRemove={removePerson}
+      />
+
+      <RoleEditorSheet
+        visible={editor === 'edit'}
+        onClose={() => setEditor(null)}
+        role={selectedRole}
+        existingIds={roles.map((r) => r.id)}
+        holderCount={holders.length}
+        busy={updateRole.isPending || deleteRole.isPending}
+        error={error}
+        onSubmit={submitRole}
+        onDelete={askDeleteRole}
+      />
+
+      {confirmSheet}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 20, paddingTop: 16, paddingBottom: 110, gap: 18 },
-  noteCard: {
-    borderRadius: radii.lg,
+  content: { padding: 20, paddingTop: 14, paddingBottom: 40, gap: 16 },
+  contentDirty: { paddingBottom: 120 },
+  lede: { fontFamily: fontFamily.regular, fontSize: 13, lineHeight: 13 * 1.55, paddingHorizontal: 2 },
+  addButton: { width: 36, height: 36, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  editButton: {
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: 11,
     borderWidth: 1,
-    padding: 15,
-    gap: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  noteTitle: {
-    fontFamily: fontFamily.semibold,
-    fontSize: 13,
-  },
-  noteBody: {
-    fontFamily: fontFamily.mono,
-    fontSize: 11,
-    lineHeight: 11 * 1.65,
-  },
+  noteCard: { borderRadius: radii.lg, borderWidth: 1, padding: 15, gap: 6 },
+  noteTitle: { fontFamily: fontFamily.semibold, fontSize: 13 },
+  noteBody: { fontFamily: fontFamily.mono, fontSize: 11, lineHeight: 11 * 1.65 },
 });

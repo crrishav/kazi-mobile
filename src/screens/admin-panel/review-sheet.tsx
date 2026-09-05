@@ -7,28 +7,36 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii, type Theme } from '@/theme';
-import { LEVEL_LABEL } from '@/data/admin-panel/mock';
-import type { AccessLevel, DiffRow, Role } from '@/data/admin-panel/types';
+import type { DiffRow } from '@/data/admin-panel/types';
 
 export interface ReviewSheetProps {
   visible: boolean;
   onClose: () => void;
-  role: Role;
+  roleLabel: string;
+  holderCount: number;
   diffs: DiffRow[];
   applying: boolean;
+  error: string | null;
   onApply: () => void;
 }
 
 const OFF_SCREEN = 640;
 
-function toPalette(theme: Theme, to: AccessLevel) {
-  if (to === 0) return { bg: theme.dangerWash, fg: theme.dangerWashText };
-  if (to === 2) return { bg: theme.accentWash, fg: theme.accentWashText };
+function toPalette(theme: Theme, diff: DiffRow) {
+  if (diff.kind === 'super') return { bg: theme.warningWash, fg: theme.warningWashText };
+  if (diff.removal) return { bg: theme.dangerWash, fg: theme.dangerWashText };
+  if (diff.to === 'edit' || diff.to === 'on') return { bg: theme.accentWash, fg: theme.accentWashText };
   return { bg: theme.surfaceRaised, fg: theme.textSecondary };
 }
 
-/** Same richer-than-`BottomSheet` shape as `DirectorSheet` — a header with more than a plain title plus a pinned two-button footer below the scroll area. */
-export function ReviewSheet({ visible, onClose, role, diffs, applying, onApply }: ReviewSheetProps) {
+/**
+ * Nothing is live until this is applied.
+ *
+ * The same richer-than-`BottomSheet` shape as `DirectorSheet` — a header with
+ * more than a plain title plus a pinned footer below the scroll area — because
+ * the whole batch goes up together and the person needs to read it first.
+ */
+export function ReviewSheet({ visible, onClose, roleLabel, holderCount, diffs, applying, error, onApply }: ReviewSheetProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [mounted, setMounted] = useState(visible);
@@ -51,8 +59,8 @@ export function ReviewSheet({ visible, onClose, role, diffs, applying, onApply }
 
   if (!mounted) return null;
 
-  const removals = diffs.filter((d) => d.to < d.from);
-  const hasRemovals = removals.length > 0;
+  const removals = diffs.filter((d) => d.removal);
+  const droppingSuper = diffs.some((d) => d.kind === 'super' && d.to === 'off');
 
   return (
     <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
@@ -61,12 +69,19 @@ export function ReviewSheet({ visible, onClose, role, diffs, applying, onApply }
           <Pressable style={[StyleSheet.absoluteFill, styles.backdrop]} onPress={onClose} />
         </Animated.View>
 
-        <Animated.View style={[sheetStyle, styles.sheet, { backgroundColor: theme.surfaceRaised, paddingBottom: insets.bottom, boxShadow: theme.shadows.sheet }]}>
+        <Animated.View
+          style={[
+            sheetStyle,
+            styles.sheet,
+            { backgroundColor: theme.surfaceRaised, paddingBottom: insets.bottom, boxShadow: theme.shadows.sheet },
+          ]}
+        >
           <View style={[styles.header, { borderBottomColor: theme.border }]}>
             <View style={styles.headerText}>
               <Text style={[styles.title, { color: theme.textPrimary }]}>Review changes</Text>
               <Text style={[styles.meta, { color: theme.textSecondary }]}>
-                {role.label} · {diffs.length === 1 ? '1 change' : `${diffs.length} changes`}
+                {roleLabel} · {diffs.length === 1 ? '1 change' : `${diffs.length} changes`}
+                {holderCount > 0 ? ` · ${holderCount} ${holderCount === 1 ? 'person' : 'people'} affected` : ''}
               </Text>
             </View>
             <Pressable onPress={onClose} style={[styles.closeButton, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -77,10 +92,10 @@ export function ReviewSheet({ visible, onClose, role, diffs, applying, onApply }
           <ScrollView contentContainerStyle={styles.content}>
             <View style={[styles.diffCard, { backgroundColor: theme.surface }]}>
               {diffs.map((d, i) => {
-                const to = toPalette(theme, d.to);
+                const to = toPalette(theme, d);
                 return (
                   <View
-                    key={d.id}
+                    key={d.key}
                     style={[styles.diffRow, i > 0 ? { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border } : null]}
                   >
                     <View style={styles.diffText}>
@@ -91,42 +106,55 @@ export function ReviewSheet({ visible, onClose, role, diffs, applying, onApply }
                         {d.group}
                       </Text>
                     </View>
-                    <Text style={[styles.fromLabel, { color: theme.textSecondary }]}>{LEVEL_LABEL[d.from]}</Text>
+                    <Text style={[styles.fromLabel, { color: theme.textSecondary }]}>{d.from}</Text>
                     <Text style={[styles.arrow, { color: theme.textSecondary }]}>→</Text>
                     <View style={[styles.toPill, { backgroundColor: to.bg }]}>
-                      <Text style={[styles.toLabel, { color: to.fg }]}>{LEVEL_LABEL[d.to]}</Text>
+                      <Text style={[styles.toLabel, { color: to.fg }]}>{d.to}</Text>
                     </View>
                   </View>
                 );
               })}
             </View>
 
-            {hasRemovals ? (
-              <View style={[styles.removalCard, { backgroundColor: theme.dangerWash }]}>
-                <View style={[styles.removalDot, { backgroundColor: theme.dangerWashText }]} />
-                <Text style={[styles.removalText, { color: theme.dangerWashText }]}>
-                  {removals.length === 1 ? '1 section is' : `${removals.length} sections are`} being taken away from{' '}
-                  {role.people} people. Anyone using it right now keeps access until they sign out.
+            {droppingSuper ? (
+              <View style={[styles.warnCard, { backgroundColor: theme.warningWash }]}>
+                <Icon name="alert-triangle" size={15} color={theme.warningWashText} />
+                <Text style={[styles.warnText, { color: theme.warningWashText }]}>
+                  Dropping super admin keeps every page it was already given — those switches simply become editable
+                  again. Its record scope drops to own records.
+                </Text>
+              </View>
+            ) : removals.length > 0 ? (
+              <View style={[styles.warnCard, { backgroundColor: theme.dangerWash }]}>
+                <Icon name="alert-triangle" size={15} color={theme.dangerWashText} />
+                <Text style={[styles.warnText, { color: theme.dangerWashText }]}>
+                  {removals.length === 1 ? '1 change takes access away' : `${removals.length} changes take access away`}.
+                  Anyone holding this role loses it on their next request.
                 </Text>
               </View>
             ) : null}
 
-            <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <InfoRow label="Affected people" value={`${role.people} people`} theme={theme} />
-              <InfoRow label="Takes effect" value="next sign-in" theme={theme} />
-              <InfoRow label="Logged as" value="sarita.lama" theme={theme} mono />
-            </View>
+            {error ? (
+              <View style={[styles.warnCard, { backgroundColor: theme.dangerWash }]}>
+                <Icon name="alert-circle" size={15} color={theme.dangerWashText} />
+                <Text style={[styles.warnText, { color: theme.dangerWashText }]}>
+                  Couldn&apos;t save. {error}
+                </Text>
+              </View>
+            ) : null}
+
+            <Text style={[styles.note, { color: theme.textSecondary }]}>
+              Applies to the role, not to one person — everyone holding it moves together.
+            </Text>
           </ScrollView>
 
-          <View style={[styles.footer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-            <Button label="Keep editing" variant="secondary" onPress={onClose} style={styles.keepButton} />
-            <Button
-              label={`Apply to ${role.people} people`}
-              variant="primary"
-              loading={applying}
-              onPress={onApply}
-              style={styles.applyButton}
-            />
+          <View style={[styles.footer, { borderTopColor: theme.border }]}>
+            <View style={styles.footerButton}>
+              <Button label="Back" variant="secondary" onPress={onClose} />
+            </View>
+            <View style={styles.footerButton}>
+              <Button label={applying ? 'Saving…' : 'Save changes'} variant="primary" loading={applying} onPress={onApply} />
+            </View>
           </View>
         </Animated.View>
       </View>
@@ -134,43 +162,54 @@ export function ReviewSheet({ visible, onClose, role, diffs, applying, onApply }
   );
 }
 
-function InfoRow({ label, value, theme, mono }: { label: string; value: string; theme: Theme; mono?: boolean }) {
-  return (
-    <View style={styles.infoRow}>
-      <Text style={[styles.infoLabel, { color: theme.textSecondary }]}>{label}</Text>
-      <Text style={[mono ? styles.infoValueMono : styles.infoValue, { color: theme.textPrimary }]}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { backgroundColor: 'rgba(10,21,18,0.42)' },
-  sheet: { borderTopLeftRadius: radii.xl + 4, borderTopRightRadius: radii.xl + 4, overflow: 'hidden', maxHeight: '86%' },
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  backdrop: { backgroundColor: 'rgba(12,20,17,0.42)' },
+  sheet: {
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    maxHeight: '82%',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   headerText: { flex: 1, gap: 3, minWidth: 0 },
-  title: { fontFamily: fontFamily.semibold, fontSize: 18, letterSpacing: -0.02 * 18 },
-  meta: { fontFamily: fontFamily.mono, fontSize: 10, letterSpacing: 0.11 * 10, textTransform: 'uppercase' },
-  closeButton: { width: 38, height: 38, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, gap: 12 },
+  title: { fontFamily: fontFamily.semibold, fontSize: 17, letterSpacing: -0.01 * 17 },
+  meta: { fontFamily: fontFamily.mono, fontSize: 10.5 },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: { padding: 20, gap: 12 },
   diffCard: { borderRadius: radii.lg, overflow: 'hidden' },
-  diffRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13, paddingHorizontal: 15 },
-  diffText: { flex: 1, gap: 3, minWidth: 0 },
-  diffName: { fontFamily: fontFamily.semibold, fontSize: 14.5 },
-  diffGroup: { fontFamily: fontFamily.mono, fontSize: 10.5 },
-  fromLabel: { fontFamily: fontFamily.mono, fontSize: 10.5, textDecorationLine: 'line-through', flexShrink: 0 },
-  arrow: { fontSize: 11, flexShrink: 0 },
-  toPill: { height: 26, paddingHorizontal: 10, borderRadius: 999, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  toLabel: { fontFamily: fontFamily.mono, fontSize: 10, letterSpacing: 0.1 * 10, textTransform: 'uppercase' },
-  removalCard: { borderRadius: radii.lg, padding: 14, flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-  removalDot: { width: 7, height: 7, borderRadius: 99, marginTop: 6, flexShrink: 0 },
-  removalText: { flex: 1, fontSize: 13, lineHeight: 13 * 1.5 },
-  infoCard: { borderRadius: radii.lg, borderWidth: 1, padding: 14, gap: 9 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  infoLabel: { flex: 1, fontSize: 13 },
-  infoValue: { fontSize: 13 },
-  infoValueMono: { fontFamily: fontFamily.mono, fontSize: 12.5 },
-  footer: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 20, flexDirection: 'row', gap: 9, borderTopWidth: StyleSheet.hairlineWidth },
-  keepButton: { flex: 1 },
-  applyButton: { flex: 1.25 },
+  diffRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 11, paddingHorizontal: 13 },
+  diffText: { flex: 1, gap: 2, minWidth: 0 },
+  diffName: { fontFamily: fontFamily.semibold, fontSize: 13.5 },
+  diffGroup: { fontFamily: fontFamily.mono, fontSize: 10 },
+  fromLabel: { fontFamily: fontFamily.mono, fontSize: 10.5, textDecorationLine: 'line-through' },
+  arrow: { fontFamily: fontFamily.mono, fontSize: 11 },
+  toPill: { height: 22, paddingHorizontal: 9, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  toLabel: { fontFamily: fontFamily.mono, fontSize: 10 },
+  warnCard: { flexDirection: 'row', gap: 9, borderRadius: radii.md, padding: 13 },
+  warnText: { flex: 1, fontFamily: fontFamily.regular, fontSize: 12.5, lineHeight: 12.5 * 1.5 },
+  note: { fontFamily: fontFamily.mono, fontSize: 10.5, lineHeight: 10.5 * 1.6, paddingHorizontal: 2 },
+  footer: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  footerButton: { flex: 1 },
 });

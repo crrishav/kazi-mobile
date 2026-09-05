@@ -1,74 +1,108 @@
-import type { AccessLevel, PermissionMatrix, Role, SectionGroup } from './types';
+/**
+ * Seed matrix for local development without a `.env`.
+ *
+ * Shaped exactly like the live tables — same section and finance-tab ids, same
+ * `positions` columns — so the screen never has a mock-only notion of access.
+ */
 
-export const GROUPS: SectionGroup[] = [
-  {
-    title: 'Operations',
-    items: [
-      { id: 'dash', name: 'Dashboard', note: 'Line output, shift KPIs' },
-      { id: 'prod', name: 'Production', note: 'Plan, cut & sew progress' },
-      { id: 'qc', name: 'Quality Control', note: 'Holds, defect logs' },
-      { id: 'inv', name: 'Inventory', note: 'Fabric, trim, finished goods' },
-      { id: 'purch', name: 'Purchases', note: 'POs to mills & suppliers' },
-      { id: 'tasks', name: 'Tasks', note: 'Assigned work, checklists' },
-    ],
-  },
-  {
-    title: 'Finance',
-    items: [
-      { id: 'bill', name: 'Billing', note: 'Invoices, FOB documents' },
-      { id: 'acct', name: 'Accounting', note: 'Ledger, VAT returns' },
-      { id: 'fin', name: 'Finance', note: 'Cashflow, margins' },
-      { id: 'budget', name: 'Budget & Reqs', note: 'Requisitions, approvals' },
-      { id: 'sales', name: 'Sales', note: 'Order book, costing' },
-      { id: 'cust', name: 'Customers', note: 'Buyer accounts, terms' },
-    ],
-  },
-  {
-    title: 'People',
-    items: [
-      { id: 'hr', name: 'Employees & HR', note: 'Roll, contracts, payroll', sensitive: true },
-      { id: 'att', name: 'Attendance', note: 'Shifts, leave, overtime' },
-      { id: 'dir', name: 'Directors', note: 'Leadership directory' },
-      { id: 'msg', name: 'Chat', note: 'Threads and broadcasts' },
-      { id: 'mkt', name: 'Marketing', note: 'Brand assets, enquiries' },
-    ],
-  },
-  {
-    title: 'System',
-    items: [
-      { id: 'admin', name: 'Admin panel', note: 'This screen · roles & access', lock: 'systems admin only' },
-      { id: 'export', name: 'Data exports', note: 'CSV and accounting sync' },
-      { id: 'audit', name: 'Audit log', note: 'Who changed what, when' },
-    ],
-  },
+import type { AccessLevel, FinanceTabRow, PersonRow, RoleRow, SectionRow } from './types';
+
+export const SECTIONS: SectionRow[] = [
+  { id: 'dashboard', label: 'Dashboard', isPersonal: false, sortOrder: 0 },
+  { id: 'tasks', label: 'Tasks', isPersonal: false, sortOrder: 1 },
+  { id: 'attendance', label: 'Attendance', isPersonal: false, sortOrder: 2 },
+  { id: 'payroll', label: 'Payroll', isPersonal: true, sortOrder: 3 },
+  { id: 'production', label: 'Production', isPersonal: false, sortOrder: 4 },
+  { id: 'quality_control', label: 'Quality Control', isPersonal: false, sortOrder: 5 },
+  { id: 'inventory', label: 'Inventory', isPersonal: false, sortOrder: 6 },
+  { id: 'library', label: 'Product Library', isPersonal: false, sortOrder: 7 },
+  { id: 'orders', label: 'Orders', isPersonal: false, sortOrder: 8 },
+  { id: 'sales', label: 'Sales', isPersonal: false, sortOrder: 9 },
+  { id: 'customers', label: 'Customers', isPersonal: false, sortOrder: 10 },
+  { id: 'billing', label: 'Billing', isPersonal: false, sortOrder: 11 },
+  { id: 'purchases', label: 'Purchases', isPersonal: false, sortOrder: 12 },
+  { id: 'finance', label: 'Finance', isPersonal: false, sortOrder: 13 },
+  { id: 'accounting', label: 'Accounting', isPersonal: false, sortOrder: 14 },
+  { id: 'budget', label: 'Budget Requests', isPersonal: false, sortOrder: 15 },
+  { id: 'employees', label: 'Employees & HR', isPersonal: false, sortOrder: 16 },
+  { id: 'marketing', label: 'Marketing', isPersonal: false, sortOrder: 17 },
+  { id: 'content', label: 'Content Calendar', isPersonal: false, sortOrder: 18 },
+  { id: 'messenger', label: 'Messenger', isPersonal: false, sortOrder: 19 },
+  { id: 'directors', label: 'Directors', isPersonal: false, sortOrder: 20 },
+  { id: 'admin', label: 'Admin Panel', isPersonal: false, sortOrder: 21 },
+  { id: 'changelog', label: 'Changelog', isPersonal: false, sortOrder: 22 },
+  { id: 'bug_report', label: 'Bug Reports', isPersonal: false, sortOrder: 23 },
 ];
 
-export const ROLES: Role[] = [
-  { key: 'sup', label: 'Line supervisor', people: 14, meta: 'Sewing lines 1–3 · floor tablets' },
-  { key: 'pm', label: 'Production mgr', people: 4, meta: 'Plan owners · plant office' },
-  { key: 'acct', label: 'Accounts', people: 3, meta: 'Back office · Kathmandu' },
-  { key: 'hr', label: 'HR & payroll', people: 2, meta: 'Payroll run · SSF filings' },
-  { key: 'store', label: 'Store keeper', people: 5, meta: 'Fabric store · goods in' },
+export const FINANCE_TABS: FinanceTabRow[] = [
+  { id: 'expenses', label: 'Expenses', sortOrder: 0 },
+  { id: 'payroll', label: 'Payroll', sortOrder: 1 },
+  { id: 'purchases', label: 'Purchases', sortOrder: 2 },
+  { id: 'vat_bills', label: 'VAT Bills', sortOrder: 3 },
+  { id: 'journal', label: 'Journal', sortOrder: 4 },
+  { id: 'ledger', label: 'Ledger', sortOrder: 5 },
+  { id: 'pl', label: 'P&L', sortOrder: 6 },
+  { id: 'balance_sheet', label: 'Balance Sheet', sortOrder: 7 },
+  { id: 'bank', label: 'Bank', sortOrder: 8 },
+  { id: 'order_pl', label: 'Order P&L', sortOrder: 9 },
+  { id: 'kpi', label: 'KPI', sortOrder: 10 },
 ];
 
-/** Seed access matrix — role -> section -> 0 hidden / 1 view / 2 edit. */
-export const BASE_PERMISSIONS: PermissionMatrix = {
-  sup: { dash: 1, prod: 2, qc: 1, inv: 1, purch: 0, tasks: 2, bill: 0, acct: 0, fin: 0, budget: 1, sales: 0, cust: 0, hr: 0, att: 2, dir: 1, msg: 2, mkt: 0, admin: 0, export: 0, audit: 0 },
-  pm: { dash: 1, prod: 2, qc: 2, inv: 2, purch: 1, tasks: 2, bill: 0, acct: 0, fin: 1, budget: 2, sales: 1, cust: 1, hr: 0, att: 2, dir: 1, msg: 2, mkt: 0, admin: 0, export: 1, audit: 0 },
-  acct: { dash: 1, prod: 1, qc: 0, inv: 1, purch: 2, tasks: 1, bill: 2, acct: 2, fin: 2, budget: 2, sales: 1, cust: 2, hr: 0, att: 1, dir: 1, msg: 2, mkt: 0, admin: 0, export: 2, audit: 1 },
-  hr: { dash: 1, prod: 0, qc: 0, inv: 0, purch: 0, tasks: 1, bill: 0, acct: 0, fin: 0, budget: 1, sales: 0, cust: 0, hr: 2, att: 2, dir: 1, msg: 2, mkt: 0, admin: 0, export: 1, audit: 1 },
-  store: { dash: 1, prod: 1, qc: 1, inv: 2, purch: 1, tasks: 2, bill: 0, acct: 0, fin: 0, budget: 1, sales: 0, cust: 0, hr: 0, att: 1, dir: 1, msg: 2, mkt: 0, admin: 0, export: 0, audit: 0 },
+export const ROLES: RoleRow[] = [
+  { id: 'system-admin', label: 'System Admin', description: 'Full system access.', tier: 4 },
+  { id: 'director', label: 'Director', description: 'Oversight across the business, light editing.', tier: 4 },
+  { id: 'operations-head', label: 'Operations Head', description: 'Day-to-day owner of production, inventory and staff.', tier: 3 },
+  { id: 'accountant', label: 'Accountant', description: 'Finance, accounting, billing, payroll and inventory.', tier: 2 },
+  { id: 'fashion-designer', label: 'Fashion Designer', description: 'The product library, specs and sampling.', tier: 1 },
+  { id: 'content-coordinator', label: 'Content Coordinator', description: 'Content planning, marketing and video editing.', tier: 1 },
+];
+
+const grant = (edit: string[], view: string[] = []): Record<string, AccessLevel> => {
+  const out: Record<string, AccessLevel> = {};
+  for (const id of view) out[id] = 'view';
+  for (const id of edit) out[id] = 'edit';
+  return out;
 };
 
-export const LEVEL_LABEL: Record<AccessLevel, string> = { 0: 'hidden', 1: 'view', 2: 'edit' };
+const everything = (): Record<string, AccessLevel> =>
+  Object.fromEntries(SECTIONS.map((s) => [s.id, 'edit' as AccessLevel]));
 
-/** The signed-in admin performing changes — hardcoded like every other module's "current user" until real auth lands. */
-export const CURRENT_ADMIN = { name: 'Sarita Lama', initials: 'SL', username: 'sarita.lama' };
+export const PERMS: Record<string, Record<string, AccessLevel>> = {
+  'system-admin': everything(),
+  director: everything(),
+  'operations-head': grant(
+    ['tasks', 'attendance', 'production', 'quality_control', 'inventory', 'orders', 'messenger', 'bug_report'],
+    ['dashboard', 'employees', 'sales', 'customers', 'budget', 'changelog'],
+  ),
+  accountant: grant(
+    ['billing', 'purchases', 'finance', 'accounting', 'budget', 'inventory', 'payroll', 'messenger'],
+    ['dashboard', 'tasks', 'orders', 'sales', 'customers', 'attendance', 'changelog', 'bug_report'],
+  ),
+  'fashion-designer': grant(
+    ['library', 'tasks', 'messenger'],
+    ['dashboard', 'orders', 'production', 'inventory', 'attendance', 'changelog', 'bug_report'],
+  ),
+  'content-coordinator': grant(
+    ['content', 'marketing', 'tasks', 'messenger'],
+    ['dashboard', 'customers', 'attendance', 'changelog', 'bug_report'],
+  ),
+};
 
-/**
- * The "hidden" chip's foreground is more muted than any existing theme token
- * (view/edit chips map exactly onto surfaceRaised/textSecondary and
- * accentWash/accentWashText — only this one needs a literal, per the
- * Attendance STATUS_RAMP precedent of adding new hex only where nothing fits).
- */
-export const HIDDEN_CHIP_FG = { light: '#BDC7C1', dark: 'rgba(126,149,138,0.55)' };
+const allTabs = (): Record<string, AccessLevel> =>
+  Object.fromEntries(FINANCE_TABS.map((t) => [t.id, 'edit' as AccessLevel]));
+
+export const TAB_PERMS: Record<string, Record<string, AccessLevel>> = {
+  'system-admin': allTabs(),
+  director: allTabs(),
+  accountant: allTabs(),
+  'operations-head': { kpi: 'view' },
+};
+
+export const PEOPLE: PersonRow[] = [
+  { id: 'p1', name: 'Sarita Lama', email: 'sarita@kazi.example', department: 'Admin', positionId: 'system-admin', active: true },
+  { id: 'p2', name: 'Anmol Shrestha', email: 'anmol@kazi.example', department: 'Operations', positionId: 'operations-head', active: true },
+  { id: 'p3', name: 'Sunam Deepa', email: 'sunam@kazi.example', department: 'Finance', positionId: 'accountant', active: true },
+  { id: 'p4', name: 'Sarbagya Thapa', email: 'sarbagya@kazi.example', department: 'Design', positionId: 'fashion-designer', active: true },
+  { id: 'p5', name: 'Nisha Gurung', email: 'nisha@kazi.example', department: 'Marketing', positionId: 'content-coordinator', active: true },
+  { id: 'p6', name: 'Bimal Rai', email: 'bimal@kazi.example', department: 'Production', positionId: null, active: true },
+];
