@@ -17,7 +17,8 @@
         {
           "locationWhenInUsePermission": "Kazi uses your location to confirm you're at the workshop when you clock in."
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "scheme": "kazimobile",
     "ios": {

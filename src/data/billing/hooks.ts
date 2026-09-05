@@ -129,6 +129,19 @@ export function useUpdateChallanStatus() {
   });
 }
 
+export function useUpdateChallan() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<Challan> }) => api.updateChallan(id, updates),
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: billingKeys.challans() });
+      queryClient.setQueryData<Challan[]>(billingKeys.challans(), (old) =>
+        (old ?? []).map((c) => (c.id === id ? { ...c, ...updates } : c)),
+      );
+    },
+  });
+}
+
 export function useRestoreChallans() {
   const queryClient = useQueryClient();
   return useMutation({

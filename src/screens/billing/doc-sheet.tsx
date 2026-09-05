@@ -15,7 +15,7 @@ import {
   QUOTATION_STATUSES,
   QUOTATION_TERMS_DEFAULT,
 } from '@/data/billing/mock';
-import type { DiscountMode, DocCurrency } from '@/data/billing/types';
+import type { Challan, DiscountMode, DocCurrency, Quotation } from '@/data/billing/types';
 import { calcTotals, money } from '@/data/billing/utils';
 
 export interface DocDraftLine {
@@ -82,19 +82,51 @@ export function emptyDocDraft(kind: 'challan' | 'quotation'): DocDraft {
   };
 }
 
+/** Prefill the editor from a saved challan or quotation (the Edit action). */
+export function draftFromDoc(doc: Challan | Quotation): DocDraft {
+  const quote = 'validUntil' in doc;
+  const q = quote ? (doc as Quotation) : null;
+  const c = quote ? null : (doc as Challan);
+  return {
+    date: doc.date,
+    clientName: doc.clientName,
+    clientPAN: doc.clientPAN,
+    clientPhone: doc.clientPhone,
+    clientAddress: doc.clientAddress,
+    lines: doc.lines.length
+      ? doc.lines.map((l) => ({ desc: l.desc, qty: String(l.qty), unit: l.unit, rate: String(l.rate) }))
+      : [emptyLine(), emptyLine()],
+    discountMode: doc.discountMode,
+    discountPct: doc.discountPct ? String(doc.discountPct) : '',
+    discountFlatAmt: doc.discountFlatAmt ? String(doc.discountFlatAmt) : '',
+    note: doc.note,
+    status: doc.status,
+    vehicleNo: c?.vehicleNo ?? '',
+    driverName: c?.driverName ?? '',
+    routeFrom: c?.routeFrom ?? '',
+    routeTo: c?.routeTo ?? '',
+    currency: q?.currency ?? 'NPR',
+    validUntil: q?.validUntil ?? doc.date,
+    terms: q?.terms ?? '',
+  };
+}
+
 const toNum = (s: string) => parseFloat(s.replace(/[^0-9.]/g, '')) || 0;
 
 export interface DocSheetProps {
   visible: boolean;
   kind: 'challan' | 'quotation';
   draft: DocDraft;
+  /** The document number: the next free one when creating, its own when editing. */
   nextNumber: string;
+  /** Editing an existing document rather than creating one. */
+  editing?: boolean;
   onClose: () => void;
   onChange: (patch: Partial<DocDraft>) => void;
   onSave: () => void;
 }
 
-export function DocSheet({ visible, kind, draft, nextNumber, onClose, onChange, onSave }: DocSheetProps) {
+export function DocSheet({ visible, kind, draft, nextNumber, editing = false, onClose, onChange, onSave }: DocSheetProps) {
   const theme = useTheme();
   const [datePicker, setDatePicker] = useState<'date' | 'validUntil' | null>(null);
 
@@ -120,11 +152,11 @@ export function DocSheet({ visible, kind, draft, nextNumber, onClose, onChange, 
     <BottomSheet
       visible={visible}
       onClose={onClose}
-      title={isQuote ? 'New quotation' : 'New challan'}
+      title={editing ? `Edit ${nextNumber}` : isQuote ? 'New quotation' : 'New challan'}
       maxHeight={760}
     >
       <Text style={[styles.numberHint, { color: theme.textSecondary }]}>
-        {nextNumber} · number auto-assigned
+        {editing ? `${nextNumber} · status, prices and items are all editable` : `${nextNumber} · number auto-assigned`}
       </Text>
 
       {/* Client */}
@@ -368,7 +400,7 @@ export function DocSheet({ visible, kind, draft, nextNumber, onClose, onChange, 
 
       <Pressable onPress={onSave} disabled={!ready} style={[styles.saveButton, { backgroundColor: ready ? theme.accent : theme.draftWash }]}>
         <Text style={[styles.saveLabel, tabularNums, { color: ready ? theme.accentText : theme.draftWashText }]}>
-          {ready ? `Create ${nextNumber} · ${money(cur, totals.total)}` : 'Add a client and a line item'}
+          {ready ? `${editing ? 'Save' : 'Create'} ${nextNumber} · ${money(cur, totals.total)}` : 'Add a client and a line item'}
         </Text>
       </Pressable>
 

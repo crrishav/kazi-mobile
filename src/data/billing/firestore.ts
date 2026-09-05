@@ -23,12 +23,15 @@ import { arr, bool, num, str, tsToISO } from '@/lib/firestore/normalise';
 import { readCollection, type DocData } from '@/lib/supabase/read';
 
 import type {
+  Challan,
+  ChallanStatus,
   ClientId,
   Currency,
   DocCurrency,
   DocLine,
   Invoice,
   InvoiceLine,
+  OpenChallan,
   Payment,
   PaymentMethod,
   Quotation,
@@ -119,16 +122,28 @@ function mapInvoiceDoc(id: string, d: DocData): Invoice | null {
     clientPhone: str(d.clientPhone).trim() || undefined,
     clientAddress: str(d.clientAddress).trim() || undefined,
     applyVAT,
-    discountMode: 'pct',
+    discountMode: str(d.discountMode).toLowerCase() === 'amount' ? 'amount' : 'pct',
     discountPct: num(d.discountPct),
-    discountFlatAmt: num(d.discountAmtNPR),
+    discountFlatAmt: num(d.discountFlatAmt) || num(d.discountAmtNPR),
     issuedISO,
     dueISO,
     paymentTerms: str(d.paymentTerms).trim() || undefined,
     explicitStatus: status === 'Draft' ? 'Draft' : status === 'Sent' ? 'Sent' : undefined,
     relatedChallan: str(d.relatedChallan).trim() || undefined,
     relatedQuotation: str(d.relatedQuotation).trim() || undefined,
+    // The web app writes these inconsistently (`CASH` and `Bank` both occur).
+    paymentType: mapPaymentType(d.paymentType),
+    bankName: str(d.bankName).trim() || undefined,
+    note: str(d.note).trim() || undefined,
   };
+}
+
+function mapPaymentType(raw: unknown): Invoice['paymentType'] {
+  const s = str(raw).trim().toLowerCase();
+  if (s === 'cash') return 'Cash';
+  if (s === 'bank') return 'Bank';
+  if (s === 'credit') return 'Credit';
+  return undefined;
 }
 
 function mapQuotationStatus(raw: unknown): QuotationStatus {
@@ -167,10 +182,77 @@ function mapQuotationDoc(id: string, d: DocData): Quotation | null {
   };
 }
 
+function mapChallanStatus(raw: unknown): ChallanStatus {
+  const s = str(raw).trim().toLowerCase();
+  if (s === 'dispatched') return 'Dispatched';
+  if (s === 'delivered') return 'Delivered';
+  if (s === 'cancelled' || s === 'canceled') return 'Cancelled';
+  return 'Draft';
+}
+
+function mapChallanDoc(id: string, d: DocData): Challan | null {
+  const clientName = str(d.clientName).trim();
+  const number = str(d.challanNumber).trim();
+  if (!clientName && !number) return null;
+  const date = str(d.date).trim() || tsToISO(d.createdAt).slice(0, 10);
+  return {
+    id,
+    number: number || `CH-${id.slice(0, 4).toUpperCase()}`,
+    date,
+    clientName: clientName || '—',
+    clientPAN: str(d.clientPAN).trim(),
+    clientPhone: str(d.clientPhone).trim(),
+    clientAddress: str(d.clientAddress).trim(),
+    lines: arr<unknown>(d.items).map(toDocLine).filter((l) => l.desc || l.qty || l.rate),
+    discountMode: str(d.discountMode).toLowerCase() === 'amount' ? 'amount' : 'pct',
+    discountPct: num(d.discountPct),
+    discountFlatAmt: num(d.discountFlatAmt) || num(d.discountAmtNPR),
+    note: str(d.note).trim(),
+    createdBy: str(d.createdBy).trim(),
+    status: mapChallanStatus(d.status),
+    fiscalYear: str(d.fiscalYear).trim(),
+    vehicleNo: str(d.vehicleNo).trim(),
+    driverName: str(d.driverName).trim(),
+    routeFrom: str(d.routeFrom).trim(),
+    routeTo: str(d.routeTo).trim(),
+    relatedInvoice: str(d.relatedInvoice).trim(),
+  };
+}
+
 export async function fetchInvoices(): Promise<Invoice[]> {
   return readCollection('invoices', mapInvoiceDoc);
 }
 
 export async function fetchQuotations(): Promise<Quotation[]> {
   return readCollection('quotations', mapQuotationDoc);
+}
+
+export async function fetchChallans(): Promise<Challan[]> {
+  return readCollection('challans', mapChallanDoc);
+}
+
+/**
+ * The "delivered, not yet invoiced" banner on the billing list. The reference
+ * ERP has no separate collection for these — they are simply the challans that
+ * were delivered and never billed onto an invoice.
+ */
+export async function fetchOpenChallans(): Promise<OpenChallan[]> {
+  const challans = await fetchChallans();
+  return challans
+    .filter((c) => c.status === 'Delivered' && !c.relatedInvoice)
+    .map((c) => {
+      const pcs = c.lines.reduce((n, l) => n + l.qty, 0);
+      return {
+        id: c.id,
+        no: c.number,
+        client: DEFAULT_CLIENT,
+        clientName: c.clientName,
+        pcs,
+        date: c.date,
+        so: '',
+        cur: 'NPR' as Currency,
+        rate: 1,
+        desc: c.lines[0]?.desc ?? 'Delivered goods',
+      };
+    });
 }

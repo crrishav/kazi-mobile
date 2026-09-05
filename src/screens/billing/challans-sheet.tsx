@@ -30,12 +30,12 @@ export function ChallansSheet({ visible, challans, onClose, onRaise }: ChallansS
         </Card>
       ) : (
         challans.map((k) => {
-          const client = CLIENTS[k.client];
+          const clientName = k.clientName?.trim() || CLIENTS[k.client]?.name || '—';
           return (
             <Card key={k.id} elevation="raised" style={styles.card}>
               <View style={styles.topRow}>
                 <View style={styles.textWrap}>
-                  <Text style={[styles.client, { color: theme.textPrimary }]}>{client.name}</Text>
+                  <Text style={[styles.client, { color: theme.textPrimary }]}>{clientName}</Text>
                   <Text style={[styles.meta, tabularNums, { color: theme.textSecondary }]}>
                     {k.no} · {k.date} · {n0(k.pcs)} pcs · {k.so}
                   </Text>

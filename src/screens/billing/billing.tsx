@@ -4,6 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
+import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
@@ -13,7 +14,7 @@ import { useIsOwnTab } from '@/components/tab-bar/use-own-tab';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { TextField } from '@/components/ui/text-field';
 import { toCSV } from '@/lib/export/csv';
-import { shareInvoicePdf } from '@/lib/pdf/invoice';
+import { challanDocData, invoiceDocData, quotationDocData } from '@/lib/pdf/doc-data';
 import { fiscalYearForAD } from '@/lib/nepaliDate';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -30,10 +31,9 @@ import {
   useRestoreChallans,
   useRestoreInvoices,
   useRestoreQuotations,
-  useUpdateChallanStatus,
+  useUpdateChallan,
   useUpdateInvoice,
   useUpdateQuotation,
-  useUpdateQuotationStatus,
 } from '@/data/billing/hooks';
 import { CLIENTS, RATES, SYM } from '@/data/billing/mock';
 import type {
@@ -50,18 +50,17 @@ import type {
   Quotation,
   QuotationStatus,
 } from '@/data/billing/types';
-import { balance, lakh, money, n0, nextDocNumber, npr, nprOf, paid, statusFull, total } from '@/data/billing/utils';
+import { appliesVAT, balance, clientNameOf, money, n0, nextDocNumber, npr, nprOf, paid, statusFull, total, vat } from '@/data/billing/utils';
 
+import { CancelledSection } from './cancelled-section';
 import { ChallansSheet } from './challans-sheet';
-import { DetailView } from './detail-view';
-import { DocDetailSheet } from './doc-detail-sheet';
 import { DocList } from './doc-list';
-import { DocSheet, emptyDocDraft, type DocDraft } from './doc-sheet';
+import { DocSheet, draftFromDoc, emptyDocDraft, type DocDraft } from './doc-sheet';
 import { DocTypeSwitch } from './doc-type-switch';
+import { DocViewer } from './doc-viewer';
 import { InvoiceSheet, draftFromInvoice, draftFromQuotation, emptyInvoiceDraft, type InvoiceDraft } from './invoice-sheet';
 import { InvoiceRow } from './invoice-row';
 import { PaySheet, type PayDraft } from './pay-sheet';
-import { PdfPreview } from './pdf-preview';
 import { Summary } from './summary';
 
 const SHOW_FX = true;
@@ -101,10 +100,9 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
   const restoreInvoices = useRestoreInvoices();
   const removeOpenChallan = useRemoveOpenChallan();
   const addChallan = useAddChallan();
-  const updateChallanStatus = useUpdateChallanStatus();
+  const updateChallan = useUpdateChallan();
   const restoreChallans = useRestoreChallans();
   const addQuotation = useAddQuotation();
-  const updateQuotationStatus = useUpdateQuotationStatus();
   const updateQuotation = useUpdateQuotation();
   const restoreQuotations = useRestoreQuotations();
 
@@ -113,18 +111,17 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<BillingFilter>('all');
   const [sheet, setSheet] = useState<'challans' | 'pay' | null>(null);
-  const [pdfOpen, setPdfOpen] = useState(false);
   const [payDraft, setPayDraft] = useState<PayDraft | null>(null);
   const [docStatusFilter, setDocStatusFilter] = useState('all');
   const [openDoc, setOpenDoc] = useState<{ kind: 'challan' | 'quotation'; id: string } | null>(null);
   const [docSheet, setDocSheet] = useState<'challan' | 'quotation' | null>(null);
+  const [docEditId, setDocEditId] = useState<string | null>(null);
   const [docDraft, setDocDraft] = useState<DocDraft>(emptyDocDraft('challan'));
   const [invoiceSheetOpen, setInvoiceSheetOpen] = useState(false);
   const [invoiceDraft, setInvoiceDraft] = useState<InvoiceDraft>(emptyInvoiceDraft());
   const [convertQuoteId, setConvertQuoteId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [focusHandled, setFocusHandled] = useState(false);
-  const [printCounts, setPrintCounts] = useState<Record<string, number>>({});
 
   // Deep link (item 15): open (and optionally edit) a specific invoice on mount.
   useEffect(() => {
@@ -154,7 +151,15 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
         : null;
 
   const openNewDoc = (kind: 'challan' | 'quotation') => {
+    setDocEditId(null);
     setDocDraft(emptyDocDraft(kind));
+    setDocSheet(kind);
+  };
+
+  /** Edit an existing challan/quotation — the same form, including its status. */
+  const openEditDoc = (doc: Challan | Quotation, kind: 'challan' | 'quotation') => {
+    setDocEditId(doc.id);
+    setDocDraft(draftFromDoc(doc));
     setDocSheet(kind);
   };
 
@@ -181,6 +186,53 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
       note: docDraft.note.trim(),
       createdBy,
     };
+
+    // Editing an existing document: patch it in place, status included.
+    if (docEditId) {
+      if (docSheet === 'challan') {
+        const before = challans;
+        const current = challans.find((c) => c.id === docEditId);
+        updateChallan.mutate({
+          id: docEditId,
+          updates: {
+            ...base,
+            status: docDraft.status as ChallanStatus,
+            vehicleNo: docDraft.vehicleNo.trim(),
+            driverName: docDraft.driverName.trim(),
+            routeFrom: docDraft.routeFrom.trim(),
+            routeTo: docDraft.routeTo.trim(),
+          },
+        });
+        setDocSheet(null);
+        setDocEditId(null);
+        toast.show({
+          message: `${current?.number ?? 'Challan'} updated`,
+          tone: 'ok',
+          action: { label: 'Undo', onPress: () => restoreChallans.mutate(before) },
+        });
+      } else {
+        const before = quotations;
+        const current = quotations.find((q) => q.id === docEditId);
+        updateQuotation.mutate({
+          id: docEditId,
+          updates: {
+            ...base,
+            status: docDraft.status as QuotationStatus,
+            currency: docDraft.currency,
+            validUntil: docDraft.validUntil,
+            terms: docDraft.terms.trim(),
+          },
+        });
+        setDocSheet(null);
+        setDocEditId(null);
+        toast.show({
+          message: `${current?.number ?? 'Quotation'} updated`,
+          tone: 'ok',
+          action: { label: 'Undo', onPress: () => restoreQuotations.mutate(before) },
+        });
+      }
+      return;
+    }
 
     if (docSheet === 'challan') {
       const before = challans;
@@ -219,19 +271,30 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
     }
   };
 
-  const handleDocStatus = (next: ChallanStatus | QuotationStatus) => {
-    if (!openDoc) return;
-    if (openDoc.kind === 'challan') {
-      const before = challans;
-      updateChallanStatus.mutate({ id: openDoc.id, status: next as ChallanStatus });
-      toast.show({ message: `Challan marked ${next.toLowerCase()}`, tone: 'ok', action: { label: 'Undo', onPress: () => restoreChallans.mutate(before) } });
-    } else {
-      const before = quotations;
-      updateQuotationStatus.mutate({ id: openDoc.id, status: next as QuotationStatus });
-      toast.show({ message: `Quotation marked ${next.toLowerCase()}`, tone: 'ok', action: { label: 'Undo', onPress: () => restoreQuotations.mutate(before) } });
-    }
-    setOpenDoc(null);
-  };
+  const editingDoc = docEditId
+    ? (challans.find((c) => c.id === docEditId) ?? quotations.find((q) => q.id === docEditId) ?? null)
+    : null;
+  const docSheetNode = (
+    <DocSheet
+      visible={docSheet !== null}
+      kind={docSheet ?? 'challan'}
+      draft={docDraft}
+      editing={docEditId !== null}
+      nextNumber={
+        editingDoc
+          ? editingDoc.number
+          : docSheet === 'quotation'
+            ? nextDocNumber('QT', quotations.map((q) => q.number))
+            : nextDocNumber('CH', challans.map((c) => c.number))
+      }
+      onClose={() => {
+        setDocSheet(null);
+        setDocEditId(null);
+      }}
+      onChange={(patch) => setDocDraft((d) => ({ ...d, ...patch }))}
+      onSave={handleSaveDoc}
+    />
+  );
 
   const selected = invoices.find((v) => v.id === selectedId) ?? null;
   const live = invoices.filter((v) => !v.cancelled);
@@ -249,30 +312,44 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
     : 'All balances in NPR';
 
   const collected = invoices.reduce((n, v) => n + v.payments.reduce((m, p) => m + (p.cur === 'NPR' ? p.amt : p.amt * p.rate), 0), 0);
-  const overdue = openList.filter((v) => statusFull(v) === 'Overdue');
-  const overdueNpr = overdue.reduce((n, v) => n + nprOf(v, balance(v)), 0);
+  // VAT across the live (non-cancelled) invoices, in NPR: the headline is what
+  // has been invoiced, and the collected figure allocates each invoice’s VAT in
+  // proportion to how much of it has actually been paid.
+  const vatInvoices = live.filter((v) => appliesVAT(v));
+  const vatNpr = vatInvoices.reduce((n, v) => n + nprOf(v, vat(v)), 0);
+  const vatCollectedNpr = vatInvoices.reduce((n, v) => {
+    const t = total(v);
+    return n + nprOf(v, vat(v) * (t > 0 ? Math.min(1, paid(v) / t) : 0));
+  }, 0);
 
-  const FULL_STATUSES: InvoiceStatusFull[] = ['Draft', 'Sent', 'Partial', 'Paid', 'Overdue', 'Cancelled'];
+  // The book only ever uses three: every invoice is a Draft, part-paid, or
+  // settled. `statusFull` can still derive Sent/Overdue/Cancelled for an odd
+  // record — those keep their pill and stay reachable under All.
+  const FULL_STATUSES: InvoiceStatusFull[] = ['Draft', 'Partial', 'Paid'];
   const filters: { id: BillingFilter; label: string; count: number }[] = [
-    { id: 'all', label: 'All', count: invoices.length },
+    { id: 'all', label: 'All', count: live.length },
     ...FULL_STATUSES.map((s) => ({ id: s as BillingFilter, label: s as string, count: invoices.filter((v) => statusFull(v) === s).length })),
   ];
   const q = query.trim().toLowerCase();
-  const shown = invoices
+  const matching = invoices
     .filter((v) => filter === 'all' || statusFull(v) === filter)
     .filter(
       (v) =>
         !q ||
-        (v.clientName ?? CLIENTS[v.client].name).toLowerCase().includes(q) ||
+        clientNameOf(v).toLowerCase().includes(q) ||
         v.ref.toLowerCase().includes(q) ||
         v.so.toLowerCase().includes(q) ||
         statusFull(v).toLowerCase().includes(q),
     );
+  // Cancelled invoices stay on the books (IRD) but out of the working list —
+  // they collapse into their own section at the bottom, as on the website.
+  const shown = matching.filter((v) => !v.cancelled);
+  const cancelledShown = matching.filter((v) => v.cancelled);
 
   const handleExportCsv = async () => {
-    const csv = toCSV(shown, [
+    const csv = toCSV(matching, [
       { header: 'Invoice', value: (v) => v.ref },
-      { header: 'Client', value: (v) => v.clientName ?? CLIENTS[v.client].name },
+      { header: 'Client', value: (v) => clientNameOf(v) },
       { header: 'Issued', value: (v) => v.issuedISO ?? v.issued },
       { header: 'Due', value: (v) => v.dueISO ?? v.due },
       { header: 'Status', value: (v) => statusFull(v) },
@@ -283,14 +360,13 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
       { header: 'Total NPR', value: (v) => Math.round(nprOf(v, total(v))) },
     ]);
     await Clipboard.setStringAsync(csv);
-    toast.show({ message: `${shown.length} invoice${shown.length === 1 ? '' : 's'} copied as CSV`, tone: 'ok' });
+    toast.show({ message: `${matching.length} invoice${matching.length === 1 ? '' : 's'} copied as CSV`, tone: 'ok' });
   };
 
   const openDetail = (id: string) => {
     setView('detail');
     setSelectedId(id);
     setSheet(null);
-    setPdfOpen(false);
   };
   const backToList = () => {
     setView('list');
@@ -303,7 +379,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
   };
 
   const handleRaise = (challan: OpenChallan) => {
-    const client = CLIENTS[challan.client];
+    const clientLabel = challan.clientName?.trim() || CLIENTS[challan.client]?.name || 'the client';
     const seq = 1043 + invoices.filter((v) => v.id.startsWith('n')).length;
     const invoice: Invoice = {
       id: `n${seq}`,
@@ -325,7 +401,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
     addInvoice.mutate(invoice);
     removeOpenChallan.mutate(challan.id);
     setSheet(null);
-    flash(`${invoice.ref} raised for ${client.name} off ${challan.no}`);
+    flash(`${invoice.ref} raised for ${clientLabel} off ${challan.no}`);
   };
 
   const openPay = () => {
@@ -439,6 +515,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
       discountFlatAmt: toN(d.discountFlatAmt),
       paymentType: d.paymentType,
       bankName: d.paymentType === 'Bank' ? d.bankName : undefined,
+      note: d.note.trim(),
       explicitStatus: d.status,
     };
 
@@ -469,53 +546,17 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
     }
   };
 
-  // Real IRD PDF (item 16) — expo-print → expo-sharing; reprints stamp "Copy of Original — N".
-  const handleInvoicePdf = async () => {
-    if (!selected) return;
-    const copyNumber = (printCounts[selected.id] ?? 0) + 1;
-    setPrintCounts((c) => ({ ...c, [selected.id]: copyNumber }));
-    setPdfOpen(false);
-    try {
-      const shared = await shareInvoicePdf(selected, { copyNumber });
-      toast.show({
-        message: shared ? `${selected.ref}.pdf ready to share` : `${selected.ref}.pdf generated — sharing unavailable on this device`,
-        tone: 'ok',
-      });
-    } catch {
-      toast.show({ message: `Could not generate ${selected.ref}.pdf`, tone: 'bad' });
-    }
-  };
-
   const handleCancelInvoice = (v: Invoice) => {
     const before = invoices;
     updateInvoice.mutate({ id: v.id, updates: { cancelled: true, cancelNote: v.cancelNote ?? `Cancelled ${shortDate(new Date().toISOString().slice(0, 10))} — record retained for IRD.` } });
     flash(`${v.ref} cancelled`, before);
   };
 
+  // Tapping an invoice opens the document itself — the same sheet the website
+  // prints — with its actions pinned under it.
   if (view === 'detail' && selected) {
-    return (
-      <View style={[styles.flex, { backgroundColor: theme.background }]}>
-        <ScreenHeader
-          title={selected.clientName ?? CLIENTS[selected.client].name}
-          subtitle={`${selected.ref} · ${statusFull(selected)}`}
-          onBack={backToList}
-          rightSlot={
-            <Pressable onPress={() => setPdfOpen(true)} style={[styles.pdfIconButton, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-              <Icon name="file-text" size={15} color={theme.textPrimary} />
-            </Pressable>
-          }
-        />
-        <ScrollView contentContainerStyle={styles.content}>
-          <DetailView
-            invoice={selected}
-            canEdit={canEdit}
-            onAddPayment={openPay}
-            onOpenPdf={() => setPdfOpen(true)}
-            onEdit={() => openEditInvoice(selected)}
-            onCancel={() => handleCancelInvoice(selected)}
-          />
-        </ScrollView>
-
+    const paySheet = (
+      <>
         <PaySheet
           visible={sheet === 'pay'}
           invoice={selected}
@@ -527,13 +568,6 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
           onChange={(patch) => setPayDraft((d) => (d ? { ...d, ...patch } : d))}
           onSave={handleSavePayment}
         />
-        <PdfPreview
-          visible={pdfOpen}
-          invoice={selected}
-          onClose={() => setPdfOpen(false)}
-          onShare={handleInvoicePdf}
-          onDownload={handleInvoicePdf}
-        />
         <InvoiceSheet
           visible={invoiceSheetOpen}
           draft={invoiceDraft}
@@ -541,7 +575,80 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
           onClose={closeInvoiceSheet}
           onChange={(patch) => setInvoiceDraft((d) => ({ ...d, ...patch }))}
           onSave={handleSaveInvoice}
+          onCancelInvoice={
+            canEdit && !selected.cancelled && paid(selected) < 0.5
+              ? () => {
+                  closeInvoiceSheet();
+                  handleCancelInvoice(selected);
+                }
+              : undefined
+          }
         />
+      </>
+    );
+
+    const payLabel = selected.cancelled
+      ? 'Invoice cancelled'
+      : balance(selected) < 0.5
+        ? 'Collected in full'
+        : 'Add payment';
+    const payDisabled = selected.cancelled || balance(selected) < 0.5;
+
+    return (
+      <View style={styles.flex}>
+        <DocViewer
+          data={invoiceDocData(selected)}
+          docType="invoice"
+          title={selected.ref}
+          subtitle={`${clientNameOf(selected)} · ${statusFull(selected)}`}
+          onBack={backToList}
+          actions={
+            <>
+              <Button label={payLabel} onPress={openPay} disabled={payDisabled} style={styles.actionPrimary} />
+              {canEdit ? (
+                <Button label="Edit" variant="secondary" onPress={() => openEditInvoice(selected)} style={styles.actionSecondary} />
+              ) : null}
+            </>
+          }
+        />
+        {paySheet}
+      </View>
+    );
+  }
+
+  if (openDoc && activeDoc) {
+    const isQuote = openDoc.kind === 'quotation';
+    const quote = isQuote ? (activeDoc as Quotation) : null;
+    const canConvert = !!quote && canEdit && !quote.relatedInvoice && quote.status !== 'Cancelled' && quote.status !== 'Rejected';
+    return (
+      <View style={styles.flex}>
+        <DocViewer
+          data={isQuote ? quotationDocData(activeDoc as Quotation) : challanDocData(activeDoc as Challan)}
+          docType={isQuote ? 'quotation' : 'challan'}
+          title={activeDoc.number}
+          subtitle={`${activeDoc.clientName} · ${activeDoc.status}`}
+          onBack={() => setOpenDoc(null)}
+          actions={
+            <>
+              {canConvert ? (
+                <Button
+                  label="Convert to invoice"
+                  onPress={() => handleConvertQuotation(activeDoc as Quotation)}
+                  style={styles.actionPrimary}
+                />
+              ) : null}
+              {canEdit ? (
+                <Button
+                  label="Edit"
+                  variant="secondary"
+                  onPress={() => openEditDoc(activeDoc, openDoc.kind)}
+                  style={canConvert ? styles.actionSecondary : styles.actionPrimary}
+                />
+              ) : null}
+            </>
+          }
+        />
+        {docSheetNode}
       </View>
     );
   }
@@ -593,12 +700,12 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
           outstandingTotal={npr(outstandingNpr)}
           openCount={openList.length}
           fxExposure={fxExposure}
-          collectedMonth={lakh(collected)}
+          collectedMonth={npr(collected)}
           collectedPct={Math.min(100, (collected / (collected + outstandingNpr || 1)) * 100)}
-          collectedMeta={`${npr(collected)} · ${((collected / (collected + outstandingNpr || 1)) * 100).toFixed(0)}% of billed`}
-          overdueTotal={overdue.length ? lakh(overdueNpr) : 'रु 0'}
-          hasOverdue={overdue.length > 0}
-          overdueMeta={overdue.length ? `${npr(overdueNpr)} · ${Math.abs(overdue[0].dueDays)}d late` : 'nothing past terms'}
+          collectedMeta={`${((collected / (collected + outstandingNpr || 1)) * 100).toFixed(0)}% of billed`}
+          vatTotal={npr(vatNpr)}
+          vatPct={Math.min(100, (vatCollectedNpr / (vatNpr || 1)) * 100)}
+          vatMeta={vatInvoices.length ? `${npr(vatCollectedNpr)} collected` : 'no VAT invoices'}
         />
 
         <TextField
@@ -634,15 +741,21 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
           </Pressable>
         ) : null}
 
-        {shown.length === 0 ? (
+        {shown.length === 0 && cancelledShown.length === 0 ? (
           <EmptyState
             icon="file-text"
             title={q ? 'No invoices match' : 'Nothing in this status'}
-            message={q ? `No invoice matches "${query.trim()}".` : `Tap "All" to see every one of the ${invoices.length} invoices raised this quarter.`}
+            message={q ? `No invoice matches "${query.trim()}".` : `Tap "All" to see every one of the ${live.length} invoices raised this quarter.`}
           />
         ) : (
           shown.map((v, i) => <InvoiceRow key={v.id} invoice={v} index={i} showFx={SHOW_FX} onPress={() => openDetail(v.id)} />)
         )}
+
+        <CancelledSection label="Cancelled invoices" count={cancelledShown.length}>
+          {cancelledShown.map((v, i) => (
+            <InvoiceRow key={v.id} invoice={v} index={i} showFx={SHOW_FX} onPress={() => openDetail(v.id)} />
+          ))}
+        </CancelledSection>
         </>
         )}
       </ScrollView>
@@ -661,31 +774,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
         </Pressable>
       ) : null}
 
-      <DocDetailSheet
-        visible={openDoc !== null}
-        doc={activeDoc}
-        kind={openDoc?.kind ?? 'challan'}
-        canEdit={canEdit}
-        onClose={() => setOpenDoc(null)}
-        onStatus={handleDocStatus}
-        onConvert={
-          openDoc?.kind === 'quotation' && activeDoc ? () => handleConvertQuotation(activeDoc as Quotation) : undefined
-        }
-      />
-
-      <DocSheet
-        visible={docSheet !== null}
-        kind={docSheet ?? 'challan'}
-        draft={docDraft}
-        nextNumber={
-          docSheet === 'quotation'
-            ? nextDocNumber('QT', quotations.map((q) => q.number))
-            : nextDocNumber('CH', challans.map((c) => c.number))
-        }
-        onClose={() => setDocSheet(null)}
-        onChange={(patch) => setDocDraft((d) => ({ ...d, ...patch }))}
-        onSave={handleSaveDoc}
-      />
+      {docSheetNode}
 
       <InvoiceSheet
         visible={invoiceSheetOpen}
@@ -703,6 +792,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, paddingTop: 4, paddingBottom: 100, gap: 12 },
+  actionBar: { flexDirection: 'row', gap: 8, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 14, borderTopWidth: StyleSheet.hairlineWidth },
+  actionPrimary: { flex: 1.5, height: 50 },
+  actionSecondary: { flex: 1, height: 50 },
   pdfIconButton: { height: 34, width: 34, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   chipsRow: { gap: 7, paddingTop: 2 },

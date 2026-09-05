@@ -4,7 +4,7 @@ export type InvoiceStatus = 'accepted' | 'collected' | 'cancelled';
 /** The full IRD status model (item 14). `Draft`/`Sent` are user-set; the rest are derived. */
 export type InvoiceStatusFull = 'Draft' | 'Sent' | 'Partial' | 'Paid' | 'Overdue' | 'Cancelled';
 export type BillingFilter = 'all' | InvoiceStatusFull;
-export type BillingView = 'list' | 'detail';
+export type BillingView = 'list' | 'detail' | 'breakdown';
 export type SheetType = 'challans' | 'pay' | null;
 export type ClientId = 'northfield' | 'halden' | 'thamel' | 'baselayer' | 'karve' | 'ridgeline';
 
@@ -75,12 +75,16 @@ export interface Invoice {
   explicitStatus?: Extract<InvoiceStatusFull, 'Draft' | 'Sent'>;
   relatedChallan?: string;
   relatedQuotation?: string;
+  /** Free-text note on the live doc — shown on the invoice and the PDF. */
+  note?: string;
 }
 
 export interface OpenChallan {
   id: string;
   no: string;
   client: ClientId;
+  /** Live challans carry a free-text name; seeds only have the `client` key. */
+  clientName?: string;
   pcs: number;
   date: string;
   so: string;

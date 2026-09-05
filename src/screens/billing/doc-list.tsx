@@ -4,11 +4,14 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Avatar } from '@/components/ui/avatar';
 import { DualDate } from '@/components/ui/dual-date';
 import { EmptyState } from '@/components/ui/empty-state';
+import { formatAD } from '@/lib/nepaliDate';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import { CHALLAN_STATUSES, DOC_STATUS_PILL, QUOTATION_STATUSES } from '@/data/billing/mock';
 import type { Challan, Quotation } from '@/data/billing/types';
-import { calcTotals, money } from '@/data/billing/utils';
+import { calcTotals, money, n0 } from '@/data/billing/utils';
+
+import { CancelledSection } from './cancelled-section';
 
 type DocKind = 'challan' | 'quotation';
 type AnyDoc = Challan | Quotation;
@@ -27,13 +30,86 @@ function isQuotation(d: AnyDoc): d is Quotation {
 
 export function DocList({ kind, docs, statusFilter, onStatusFilter, onOpen }: DocListProps) {
   const theme = useTheme();
+  const todayISO = new Date().toISOString().slice(0, 10);
   const statuses = kind === 'challan' ? CHALLAN_STATUSES : QUOTATION_STATUSES;
 
-  const rows = docs.filter((d) => statusFilter === 'all' || d.status === statusFilter);
+  const matching = docs.filter((d) => statusFilter === 'all' || d.status === statusFilter);
+  // Cancelled documents are kept as a record but collapse into their own
+  // section at the bottom, out of the working list.
+  const rows = matching.filter((d) => d.status !== 'Cancelled');
+  const cancelled = matching.filter((d) => d.status === 'Cancelled');
+  const live = docs.filter((d) => d.status !== 'Cancelled');
   const chips: { id: string; label: string; count: number }[] = [
-    { id: 'all', label: 'All', count: docs.length },
-    ...statuses.map((s) => ({ id: s as string, label: s as string, count: docs.filter((d) => d.status === s).length })),
+    { id: 'all', label: 'All', count: live.length },
+    ...statuses
+      .filter((s) => s !== 'Cancelled')
+      .map((s) => ({ id: s as string, label: s as string, count: docs.filter((d) => d.status === s).length })),
   ];
+
+  const renderCard = (d: AnyDoc, i: number) => {
+    const quote = isQuotation(d);
+    const cur = quote ? d.currency : 'NPR';
+    const totals = calcTotals(d.lines, false, d.discountMode, d.discountPct, d.discountFlatAmt);
+    const pill = DOC_STATUS_PILL[d.status] ?? DOC_STATUS_PILL.Draft;
+    const initials = d.clientName.split(/[\s&]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+    // A quotation nobody acted on before its date is dead paper — say so
+    // rather than printing a date the reader has to compare themselves.
+    const expired = quote && !!d.validUntil && d.validUntil < todayISO && (d.status === 'Draft' || d.status === 'Sent');
+    const secondLine = quote
+      ? expired
+        ? `expired ${formatAD(d.validUntil)}`
+        : `valid to ${d.validUntil ? formatAD(d.validUntil) : '—'}`
+      : d.routeFrom || d.routeTo
+        ? `${d.routeFrom || '—'} → ${d.routeTo || '—'}`
+        : 'no route set';
+    const units = d.lines.reduce((n, l) => n + l.qty, 0);
+    const countChip = quote ? `${d.lines.length} item${d.lines.length === 1 ? '' : 's'}` : `${n0(units)} pcs`;
+
+    return (
+      <Animated.View key={d.id} entering={FadeInUp.delay(Math.min(i, 6) * 28).duration(220)}>
+        <Pressable
+          onPress={() => onOpen(d)}
+          style={[styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card, borderLeftColor: pill.dot }]}
+        >
+          <View style={styles.topRow}>
+            <Avatar initials={initials || '—'} tint={i % 2 === 0 ? 'mint' : 'dark'} size="md" />
+            <View style={styles.textWrap}>
+              <Text style={[styles.client, { color: theme.textPrimary }]} numberOfLines={1}>
+                {d.clientName}
+              </Text>
+              <View style={styles.metaRow}>
+                <Text style={[styles.sub, tabularNums, { color: theme.textSecondary }]}>{d.number}</Text>
+                <DualDate iso={d.date} inline size={10} bsStyle="numeric" secondary={false} />
+              </View>
+            </View>
+            <Text style={[styles.amount, tabularNums, { color: theme.textPrimary }]}>{money(cur, totals.total)}</Text>
+          </View>
+
+          <View style={styles.bottomRow}>
+            <View style={[styles.pill, { backgroundColor: pill.bg }]}>
+              <View style={[styles.pillDot, { backgroundColor: pill.dot }]} />
+              <Text style={[styles.pillLabel, { color: pill.fg }]}>{d.status}</Text>
+            </View>
+            <View style={[styles.metaChip, { backgroundColor: theme.draftWash }]}>
+              <Text style={[styles.metaChipText, tabularNums, { color: theme.textPrimary }]}>{countChip}</Text>
+            </View>
+            {d.relatedInvoice ? (
+              <View style={[styles.metaChip, { backgroundColor: theme.accentWash }]}>
+                <Text style={[styles.metaChipText, tabularNums, { color: theme.accentWashText }]}>{d.relatedInvoice}</Text>
+              </View>
+            ) : null}
+            <View style={styles.flex1} />
+            <Text
+              style={[styles.secondLine, tabularNums, { color: expired ? theme.dangerWashText : theme.textSecondary }]}
+              numberOfLines={1}
+            >
+              {secondLine}
+            </Text>
+          </View>
+        </Pressable>
+      </Animated.View>
+    );
+  };
 
   return (
     <View style={styles.wrap}>
@@ -53,61 +129,19 @@ export function DocList({ kind, docs, statusFilter, onStatusFilter, onOpen }: Do
         })}
       </ScrollView>
 
-      {rows.length === 0 ? (
+      {rows.length === 0 && cancelled.length === 0 ? (
         <EmptyState
           icon="file-text"
           title={`No ${kind === 'challan' ? 'challans' : 'quotations'} here`}
           message={`Tap "All" to see every ${kind}, or add one with the button below.`}
         />
       ) : (
-        rows.map((d, i) => {
-          const quote = isQuotation(d);
-          const cur = quote ? d.currency : 'NPR';
-          const totals = calcTotals(d.lines, false, d.discountMode, d.discountPct, d.discountFlatAmt);
-          const pill = DOC_STATUS_PILL[d.status] ?? DOC_STATUS_PILL.Draft;
-          const initials = d.clientName.split(/[\s&]+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
-          const secondLine = quote
-            ? `valid to ${d.validUntil ? d.validUntil.slice(5).replace('-', '/') : '—'}`
-            : d.relatedInvoice
-              ? `billed · ${d.relatedInvoice}`
-              : d.routeTo
-                ? `→ ${d.routeTo}`
-                : 'not dispatched';
-          return (
-            <Animated.View key={d.id} entering={FadeInUp.delay(Math.min(i, 6) * 28).duration(220)}>
-              <Pressable
-                onPress={() => onOpen(d)}
-                style={[styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card, borderLeftColor: pill.dot }]}
-              >
-                <View style={styles.topRow}>
-                  <Avatar initials={initials || '—'} tint={i % 2 === 0 ? 'mint' : 'dark'} size="md" />
-                  <View style={styles.textWrap}>
-                    <Text style={[styles.client, { color: theme.textPrimary }]} numberOfLines={1}>
-                      {d.clientName}
-                    </Text>
-                    <View style={styles.metaRow}>
-                      <Text style={[styles.sub, tabularNums, { color: theme.textSecondary }]}>{d.number}</Text>
-                      <DualDate iso={d.date} inline size={10} bsStyle="numeric" secondary={false} />
-                    </View>
-                  </View>
-                  <Text style={[styles.amount, tabularNums, { color: theme.textPrimary }]}>{money(cur, totals.total)}</Text>
-                </View>
-
-                <View style={styles.bottomRow}>
-                  <View style={[styles.pill, { backgroundColor: pill.bg }]}>
-                    <View style={[styles.pillDot, { backgroundColor: pill.dot }]} />
-                    <Text style={[styles.pillLabel, { color: pill.fg }]}>{d.status}</Text>
-                  </View>
-                  <View style={styles.flex1} />
-                  <Text style={[styles.secondLine, tabularNums, { color: theme.textSecondary }]} numberOfLines={1}>
-                    {secondLine}
-                  </Text>
-                </View>
-              </Pressable>
-            </Animated.View>
-          );
-        })
+        rows.map(renderCard)
       )}
+
+      <CancelledSection label={`Cancelled ${kind === 'challan' ? 'challans' : 'quotations'}`} count={cancelled.length}>
+        {cancelled.map(renderCard)}
+      </CancelledSection>
     </View>
   );
 }
@@ -129,6 +163,8 @@ const styles = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 26, paddingHorizontal: 10, borderRadius: 999 },
   pillDot: { width: 6, height: 6, borderRadius: 99 },
   pillLabel: { fontSize: 12, fontWeight: '600' },
+  metaChip: { height: 26, paddingHorizontal: 9, borderRadius: 8, justifyContent: 'center' },
+  metaChipText: { fontFamily: fontFamily.mono, fontSize: 10.5 },
   flex1: { flex: 1 },
   secondLine: { fontFamily: fontFamily.mono, fontSize: 10.5, flexShrink: 1 },
 });

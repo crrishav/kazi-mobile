@@ -1,4 +1,4 @@
-import { RATES, SYM, VAT_RATE } from './mock';
+import { CLIENTS, RATES, SYM, VAT_RATE } from './mock';
 import type { Currency, DiscountMode, DocLine, Invoice, InvoiceStatus, InvoiceStatusFull } from './types';
 
 export function n0(n: number): string {
@@ -24,6 +24,29 @@ export function lakh(n: number): string {
 
 export function short(cur: Currency, n: number): string {
   return cur === 'NPR' ? `रु ${n0(n)}` : `${SYM[cur]}${n0(n)}`;
+}
+
+/**
+ * The buyer to show. Invoices that came from the database carry a free-text
+ * `clientName`; only the seeded ones map onto a `CLIENTS` key (and a real
+ * invoice’s key is a placeholder), so reading `CLIENTS[v.client]` directly
+ * names a mock client the detail screen never mentions — or throws, when the
+ * key isn’t one of the six seeds.
+ */
+export function clientNameOf(v: Pick<Invoice, 'client' | 'clientName'>): string {
+  return v.clientName?.trim() || CLIENTS[v.client]?.name || 'Unnamed client';
+}
+
+/** Two-letter avatar initials for whichever name {@link clientNameOf} settles on. */
+export function clientInitialsOf(v: Pick<Invoice, 'client' | 'clientName'>): string {
+  if (!v.clientName?.trim()) return CLIENTS[v.client]?.initials ?? '—';
+  return clientNameOf(v)
+    .split(/[\s&.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
 }
 
 export function subtotal(v: Invoice): number {

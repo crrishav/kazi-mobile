@@ -15,10 +15,11 @@ import { num } from '@/lib/firestore/normalise';
 import { createDocument, patchDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
-import type { Invoice, Payment, Quotation, QuotationStatus } from './types';
+import type { Challan, ChallanStatus, Invoice, Payment, Quotation, QuotationStatus } from './types';
 
 const INVOICES = 'invoices';
 const QUOTATIONS = 'quotations';
+const CHALLANS = 'challans';
 
 function invoiceLines(inv: Partial<Invoice>) {
   return (inv.lines ?? []).map((l) => ({
@@ -50,7 +51,20 @@ function invoiceToLive(inv: Partial<Invoice>): Record<string, unknown> {
   if (inv.cur !== undefined) out.currency = inv.cur;
   if (inv.paymentTerms ?? inv.terms) out.paymentTerms = inv.paymentTerms ?? inv.terms;
   if (inv.discountPct !== undefined) out.discountPct = inv.discountPct;
-  if (inv.discountFlatAmt !== undefined) out.discountAmtNPR = inv.discountFlatAmt;
+  if (inv.discountMode !== undefined) out.discountMode = inv.discountMode;
+  if (inv.discountFlatAmt !== undefined) out.discountFlatAmt = inv.discountFlatAmt;
+  // The live doc also stores the *effective* discount; recompute it whenever the
+  // write carries enough (lines + mode) to know what it is.
+  if (inv.lines && inv.discountMode !== undefined) {
+    const sub = inv.lines.reduce((n, l) => n + l.qty * l.rate, 0);
+    out.discountAmtNPR =
+      inv.discountMode === 'amount'
+        ? Math.min(sub, inv.discountFlatAmt ?? 0)
+        : sub * (Math.min(100, inv.discountPct ?? 0) / 100);
+  }
+  if (inv.paymentType !== undefined) out.paymentType = inv.paymentType;
+  if (inv.bankName !== undefined) out.bankName = inv.bankName;
+  if (inv.note !== undefined) out.note = inv.note;
   if (inv.explicitStatus !== undefined) out.status = inv.explicitStatus;
   else if (inv.cancelled) out.status = 'Cancelled';
   if (inv.relatedChallan !== undefined) out.relatedChallan = inv.relatedChallan;
@@ -123,6 +137,47 @@ export async function addQuotation(quotation: Quotation): Promise<void> {
 export async function updateQuotation(id: string, updates: Partial<Quotation>): Promise<void> {
   const fields = quotationToLive(updates);
   if (Object.keys(fields).length > 0) await patchDocument(QUOTATIONS, id, fields);
+}
+
+// ---- Challans ----
+
+function challanToLive(c: Partial<Challan>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (c.number !== undefined) out.challanNumber = c.number;
+  if (c.date !== undefined) out.date = c.date;
+  if (c.clientName !== undefined) out.clientName = c.clientName;
+  if (c.clientPAN !== undefined) out.clientPAN = c.clientPAN;
+  if (c.clientPhone !== undefined) out.clientPhone = c.clientPhone;
+  if (c.clientAddress !== undefined) out.clientAddress = c.clientAddress;
+  if (c.discountMode !== undefined) out.discountMode = c.discountMode;
+  if (c.discountPct !== undefined) out.discountPct = c.discountPct;
+  if (c.discountFlatAmt !== undefined) out.discountFlatAmt = c.discountFlatAmt;
+  if (c.note !== undefined) out.note = c.note;
+  if (c.status !== undefined) out.status = c.status;
+  if (c.fiscalYear !== undefined) out.fiscalYear = c.fiscalYear;
+  if (c.vehicleNo !== undefined) out.vehicleNo = c.vehicleNo;
+  if (c.driverName !== undefined) out.driverName = c.driverName;
+  if (c.routeFrom !== undefined) out.routeFrom = c.routeFrom;
+  if (c.routeTo !== undefined) out.routeTo = c.routeTo;
+  if (c.relatedInvoice !== undefined) out.relatedInvoice = c.relatedInvoice;
+  if (c.lines !== undefined) {
+    out.items = c.lines.map((l) => ({ description: l.desc, qty: l.qty, unit: l.unit, rate: l.rate }));
+  }
+  return out;
+}
+
+export async function updateChallan(id: string, updates: Partial<Challan>): Promise<void> {
+  const fields = challanToLive(updates);
+  if (Object.keys(fields).length > 0) await patchDocument(CHALLANS, id, fields);
+}
+
+export async function updateChallanStatus(id: string, status: ChallanStatus): Promise<void> {
+  await patchDocument(CHALLANS, id, { status });
+}
+
+/** Snapshot restore (undo) — not reversed server-side, same as invoices. */
+export async function restoreChallans(_previous: Challan[]): Promise<void> {
+  /* intentionally no live write */
 }
 
 export async function updateQuotationStatus(id: string, status: QuotationStatus): Promise<void> {

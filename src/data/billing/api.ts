@@ -7,7 +7,8 @@
  * issues gap-free sequential numbers via a `counters/billing` transaction, and
  * the rules make invoices/quotations/challans un-deletable (IRD documents).
  * Writing one from mobile without bumping that counter would collide with the
- * website's numbering — port the counter first. Challans have no live collection.
+ * website's numbering — port the counter first. Challan creates are mock for
+ * the same reason; challan READS come from the live `challans` table.
  * Snapshot-undo restores are not reversed server-side.
  */
 
@@ -20,12 +21,8 @@ import * as writeLive from './firestore-write';
 import * as mock from './mock-api';
 
 export {
-  fetchOpenChallans,
   removeOpenChallan,
-  fetchChallans,
   addChallan,
-  updateChallanStatus,
-  restoreChallans,
   // Creates stay mock — see the file header (sequential-number contract).
   addInvoice,
   addQuotation,
@@ -38,6 +35,22 @@ export const fetchInvoices = isSupabaseConfigured
 export const fetchQuotations = isSupabaseConfigured
   ? liveRead('billing/quotations', live.fetchQuotations)
   : mock.fetchQuotations;
+
+export const fetchChallans = isSupabaseConfigured
+  ? liveRead('billing/challans', live.fetchChallans)
+  : mock.fetchChallans;
+
+export const fetchOpenChallans = isSupabaseConfigured
+  ? liveRead('billing/openChallans', live.fetchOpenChallans)
+  : mock.fetchOpenChallans;
+
+export const updateChallan = liveWrite('billing/updateChallan', writeLive.updateChallan, mock.updateChallan);
+export const updateChallanStatus = liveWrite(
+  'billing/updateChallanStatus',
+  writeLive.updateChallanStatus,
+  mock.updateChallanStatus,
+);
+export const restoreChallans = liveWrite('billing/restoreChallans', writeLive.restoreChallans, mock.restoreChallans);
 
 export const updateInvoice = liveWrite('billing/updateInvoice', writeLive.updateInvoice, mock.updateInvoice);
 export const addPayment = liveWrite('billing/addPayment', writeLive.addPayment, mock.addPayment);

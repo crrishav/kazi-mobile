@@ -10,7 +10,7 @@ import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii, tabularNums } from '@/theme';
 import { CLIENTS, DOC_UNITS, PAN_REQUIRED_ABOVE_NPR, RATES } from '@/data/billing/mock';
 import type { DiscountMode, DocCurrency, Invoice, Quotation } from '@/data/billing/types';
-import { calcTotals, money, n0 } from '@/data/billing/utils';
+import { calcTotals, clientNameOf, money, n0 } from '@/data/billing/utils';
 
 export interface InvoiceDraftLine {
   desc: string;
@@ -83,7 +83,7 @@ const BANKS = ['Nabil Bank', 'Sanima Bank', 'NIC Asia', 'Global IME'];
 export function draftFromInvoice(v: Invoice): InvoiceDraft {
   return {
     id: v.id,
-    clientName: v.clientName ?? CLIENTS[v.client].name,
+    clientName: clientNameOf(v),
     clientPAN: v.clientPAN ?? '',
     clientPhone: v.clientPhone ?? '',
     clientAddress: v.clientAddress ?? '',
@@ -102,7 +102,7 @@ export function draftFromInvoice(v: Invoice): InvoiceDraft {
     paymentType: v.paymentType ?? 'Cash',
     bankName: v.bankName ?? 'Nabil Bank',
     status: v.explicitStatus ?? 'Sent',
-    note: '',
+    note: v.note ?? '',
   };
 }
 
@@ -140,9 +140,11 @@ export interface InvoiceSheetProps {
   onClose: () => void;
   onChange: (patch: Partial<InvoiceDraft>) => void;
   onSave: () => void;
+  /** Offered while editing an invoice nothing has been paid against. */
+  onCancelInvoice?: () => void;
 }
 
-export function InvoiceSheet({ visible, draft, nextNumber, onClose, onChange, onSave }: InvoiceSheetProps) {
+export function InvoiceSheet({ visible, draft, nextNumber, onClose, onChange, onSave, onCancelInvoice }: InvoiceSheetProps) {
   const theme = useTheme();
   const [datePicker, setDatePicker] = useState<'issued' | 'due' | null>(null);
 
@@ -452,6 +454,12 @@ export function InvoiceSheet({ visible, draft, nextNumber, onClose, onChange, on
         </Text>
       </Pressable>
 
+      {editing && onCancelInvoice ? (
+        <Pressable onPress={onCancelInvoice} style={[styles.cancelButton, { borderColor: theme.danger }]}>
+          <Text style={[styles.cancelLabel, { color: theme.dangerWashText }]}>Cancel this invoice</Text>
+        </Pressable>
+      ) : null}
+
       <NepaliDatePicker
         visible={datePicker !== null}
         onClose={() => setDatePicker(null)}
@@ -521,4 +529,6 @@ const styles = StyleSheet.create({
   vatNote: { fontSize: 10.5, fontStyle: 'italic' },
   saveButton: { height: 54, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   saveLabel: { fontSize: 15, fontWeight: '600' },
+  cancelButton: { height: 48, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  cancelLabel: { fontSize: 14.5, fontWeight: '600' },
 });

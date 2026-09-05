@@ -4,9 +4,10 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Avatar } from '@/components/ui/avatar';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { CLIENTS, INVOICE_PILL } from '@/data/billing/mock';
+import { formatAD } from '@/lib/nepaliDate';
+import { INVOICE_PILL, PAN_REQUIRED_ABOVE_NPR } from '@/data/billing/mock';
 import type { Invoice } from '@/data/billing/types';
-import { money, npr, nprOf, paid, statusFull, total as invTotal } from '@/data/billing/utils';
+import { appliesVAT, balance, clientInitialsOf, clientNameOf, money, npr, nprOf, paid, statusFull, total as invTotal, vat } from '@/data/billing/utils';
 
 export interface InvoiceRowProps {
   invoice: Invoice;
@@ -17,20 +18,28 @@ export interface InvoiceRowProps {
 
 export function InvoiceRow({ invoice: v, index, showFx, onPress }: InvoiceRowProps) {
   const theme = useTheme();
-  const client = CLIENTS[v.client];
   const st = statusFull(v);
   const pill = INVOICE_PILL[st];
   const tot = invTotal(v);
   const pd = paid(v);
+  const bal = balance(v);
   const part = st === 'Partial';
   const late = st === 'Overdue';
-  const challanLabel = v.challans.length
+  // The web table's "Credit Due" column — the number someone scanning the list
+  // is actually after, which the total alone never tells them.
+  const showDue = !v.cancelled && bal > 0.5;
+  const vatAmt = appliesVAT(v) ? vat(v) : 0;
+  // A missing PAN only matters above the IRD threshold, so it's flagged as an
+  // exception rather than given a column of dashes.
+  const panMissing = !v.clientPAN?.trim() && nprOf(v, tot) > PAN_REQUIRED_ABOVE_NPR;
+  const related = v.challans.length
     ? v.challans.length > 1
       ? `${v.challans[0].no} +${v.challans.length - 1}`
       : v.challans[0].no
-    : v.so || v.ref;
-  const due = v.cancelled ? 'voided' : st === 'Paid' ? 'settled' : late ? `due ${v.due} · ${Math.abs(v.dueDays)}d late` : `due ${v.due}`;
-  const paidPct = Math.min(100, (pd / tot) * 100);
+    : (v.relatedQuotation ?? v.relatedChallan ?? v.so ?? '');
+  const issued = v.issuedISO ? formatAD(v.issuedISO) : v.issued;
+  const due = v.cancelled ? 'voided' : st === 'Paid' ? 'settled' : late ? `due ${v.due} · ${Math.abs(v.dueDays)}d late` : `due ${v.dueISO ? formatAD(v.dueISO) : v.due}`;
+  const paidPct = tot > 0 ? Math.min(100, (pd / tot) * 100) : 0;
 
   return (
     <Animated.View entering={FadeInUp.delay(Math.min(index, 6) * 30).duration(220)}>
@@ -39,13 +48,13 @@ export function InvoiceRow({ invoice: v, index, showFx, onPress }: InvoiceRowPro
         style={[styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card, borderLeftColor: pill.accent }]}
       >
         <View style={styles.topRow}>
-          <Avatar initials={client.initials} tint={index % 2 === 0 ? 'mint' : 'dark'} size="md" />
+          <Avatar initials={clientInitialsOf(v)} tint={index % 2 === 0 ? 'mint' : 'dark'} size="md" />
           <View style={styles.textWrap}>
             <Text style={[styles.client, { color: theme.textPrimary }]} numberOfLines={1}>
-              {client.name}
+              {clientNameOf(v)}
             </Text>
             <Text style={[styles.sub, tabularNums, { color: theme.textSecondary }]} numberOfLines={1}>
-              {v.ref} · {v.so} · {v.issued}
+              {v.ref} · {issued}
             </Text>
           </View>
           <View style={styles.amountCol}>
@@ -59,6 +68,12 @@ export function InvoiceRow({ invoice: v, index, showFx, onPress }: InvoiceRowPro
               {npr(nprOf(v, tot))}
             </Text>
             {showFx && v.cur !== 'NPR' ? <Text style={[styles.fxAmount, tabularNums, { color: theme.textSecondary }]}>{money(v.cur, tot)}</Text> : null}
+            <Text style={[styles.vatLine, tabularNums, { color: theme.textSecondary }]}>
+              {vatAmt > 0.5 ? `incl. VAT ${npr(nprOf(v, vatAmt))}` : 'no VAT'}
+            </Text>
+            {showDue ? (
+              <Text style={[styles.dueAmount, tabularNums, { color: theme.dangerWashText }]}>{npr(nprOf(v, bal))} due</Text>
+            ) : null}
           </View>
         </View>
 
@@ -78,11 +93,20 @@ export function InvoiceRow({ invoice: v, index, showFx, onPress }: InvoiceRowPro
             <View style={[styles.pillDot, { backgroundColor: pill.dot }]} />
             <Text style={[styles.pillLabel, { color: pill.fg }]}>{pill.label}</Text>
           </View>
-          <View style={[styles.challanChip, { backgroundColor: theme.draftWash }]}>
-            <Text style={[styles.challanText, tabularNums, { color: theme.textPrimary }]}>{challanLabel}</Text>
-          </View>
+          {related ? (
+            <View style={[styles.chip, { backgroundColor: theme.draftWash }]}>
+              <Text style={[styles.chipText, tabularNums, { color: theme.textPrimary }]}>{related}</Text>
+            </View>
+          ) : null}
+          {panMissing ? (
+            <View style={[styles.chip, { backgroundColor: theme.warningWash }]}>
+              <Text style={[styles.chipText, { color: theme.warningWashText }]}>No PAN</Text>
+            </View>
+          ) : null}
           <View style={styles.flex1} />
-          <Text style={[styles.due, tabularNums, { color: late ? theme.dangerWashText : theme.textSecondary }]}>{due}</Text>
+          <Text style={[styles.due, tabularNums, { color: late ? theme.dangerWashText : theme.textSecondary }]} numberOfLines={1}>
+            {due}
+          </Text>
         </View>
       </Pressable>
     </Animated.View>
@@ -98,6 +122,8 @@ const styles = StyleSheet.create({
   amountCol: { alignItems: 'flex-end', gap: 3, flexShrink: 0 },
   amount: { fontSize: 14.5, fontWeight: '600' },
   fxAmount: { fontFamily: fontFamily.mono, fontSize: 10.5 },
+  vatLine: { fontFamily: fontFamily.mono, fontSize: 10 },
+  dueAmount: { fontFamily: fontFamily.mono, fontSize: 11, fontWeight: '500' },
   progressWrap: { gap: 5 },
   progressTrack: { height: 5, borderRadius: 99, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 99 },
@@ -106,8 +132,8 @@ const styles = StyleSheet.create({
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 26, paddingHorizontal: 10, borderRadius: 999 },
   pillDot: { width: 6, height: 6, borderRadius: 99 },
   pillLabel: { fontSize: 12, fontWeight: '600' },
-  challanChip: { height: 26, paddingHorizontal: 9, borderRadius: 8, justifyContent: 'center' },
-  challanText: { fontFamily: fontFamily.mono, fontSize: 10.5 },
+  chip: { height: 26, paddingHorizontal: 9, borderRadius: 8, justifyContent: 'center' },
+  chipText: { fontFamily: fontFamily.mono, fontSize: 10.5 },
   flex1: { flex: 1 },
-  due: { fontFamily: fontFamily.mono, fontSize: 10.5 },
+  due: { fontFamily: fontFamily.mono, fontSize: 10.5, flexShrink: 0 },
 });

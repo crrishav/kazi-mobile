@@ -59,6 +59,11 @@ export async function updateChallanStatus(id: string, status: ChallanStatus): Pr
   docChallansDb = docChallansDb.map((c) => (c.id === id ? { ...c, status } : c));
 }
 
+export async function updateChallan(id: string, updates: Partial<Challan>): Promise<void> {
+  await simulateLatency(200);
+  docChallansDb = docChallansDb.map((c) => (c.id === id ? { ...c, ...updates } : c));
+}
+
 export async function restoreChallans(previous: Challan[]): Promise<void> {
   await simulateLatency(150);
   docChallansDb = [...previous];
