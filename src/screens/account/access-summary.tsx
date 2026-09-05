@@ -32,6 +32,7 @@ const SECTION_LABEL: Record<SectionId, string> = {
 
 const FINANCE_LABEL: Record<FinanceTabId, string> = {
   expenses: 'Expenses',
+  payroll: 'Payroll',
   purchases: 'Purchases',
   'vat-bills': 'VAT bills',
   journal: 'Journal',

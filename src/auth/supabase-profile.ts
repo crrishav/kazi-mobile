@@ -43,12 +43,15 @@ const SECTION_TO_MOBILE: Record<string, SectionId> = {
   admin: 'admin-panel',
   changelog: 'changelog',
   bug_report: 'bug-report',
-  // `library`, `payroll` and `content` exist in Postgres for the web app;
-  // the mobile app has no screen for them, so they are intentionally dropped.
+  // `library` and `content` exist in Postgres for the web app; the mobile app
+  // has no screen for them, so they are intentionally dropped. (`payroll` is a
+  // finance *tab*, mapped in TAB_TO_MOBILE below.)
 };
 
 const TAB_TO_MOBILE: Record<string, FinanceTabId> = {
   expenses: 'expenses',
+  // Rendered under Employees on mobile, but it is a finance tab in Postgres.
+  payroll: 'payroll',
   purchases: 'purchases',
   vat_bills: 'vat-bills',
   journal: 'journal',

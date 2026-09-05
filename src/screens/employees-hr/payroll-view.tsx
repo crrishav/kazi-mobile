@@ -93,7 +93,7 @@ export function PayrollView({
           </View>
           <View style={styles.runRow}>
             <Text style={[styles.runLabel, { color: theme.textPrimary }]}>Deductions · SSF, advance, attendance</Text>
-            <Text style={[styles.runValue, tabularNums, { color: theme.dangerText }]}>{runDeductions}</Text>
+            <Text style={[styles.runValue, tabularNums, { color: theme.dangerWashText }]}>{runDeductions}</Text>
           </View>
           <View style={[styles.netRow, { borderTopColor: theme.border }]}>
             <Text style={[styles.netLabel, { color: theme.textPrimary }]}>Net payable</Text>

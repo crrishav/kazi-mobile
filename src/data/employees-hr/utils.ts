@@ -29,6 +29,46 @@ export function acctHint(acct: string): string {
   return `${digits.length} of 13 digits`;
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const MONTHS_SHORT = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+/**
+ * Join dates arrive ISO from Postgres (`join_date` is a `date`) but as
+ * `12 Mar 2021` from the mock roster. The editor works in ISO, so normalise
+ * on the way in; anything unrecognised is handed back untouched for the
+ * person to correct rather than silently blanked.
+ */
+export function toISODate(raw: string): string {
+  const v = raw.trim();
+  if (!v || ISO_DATE.test(v)) return v;
+  const m = /^(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})$/.exec(v);
+  if (!m) return v;
+  const month = MONTHS_SHORT.indexOf(m[2].slice(0, 3).toLowerCase());
+  if (month < 0) return v;
+  return `${m[3]}-${String(month + 1).padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+}
+
+/** Empty is allowed (the column is nullable); anything else must be a real ISO day. */
+export function dateValid(raw: string): boolean {
+  const v = raw.trim();
+  if (!v) return true;
+  if (!ISO_DATE.test(v)) return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+}
+
+/** 24-hour `HH:MM`, blank allowed — the shift columns are nullable `time`. */
+export function timeValid(raw: string): boolean {
+  const v = raw.trim();
+  return !v || /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+}
+
+/** A blank email is fine on an existing record; a typed one has to look like one. */
+export function emailValid(raw: string): boolean {
+  const v = raw.trim();
+  return !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
 export function pay(p: Employee, m: PayMonth): PayResult {
   const ot = Math.round(p.otH * p.otR * m.factor);
   const otHours = Math.round(p.otH * m.factor);

@@ -10,6 +10,11 @@ export function useEmployees() {
   return useQuery({ queryKey: employeesKeys.list(), queryFn: api.fetchEmployees });
 }
 
+/** The Role picker's options. Reference data — cached for the session. */
+export function usePositions() {
+  return useQuery({ queryKey: employeesKeys.positions(), queryFn: api.fetchPositions, staleTime: Infinity });
+}
+
 export function useAddEmployee() {
   const queryClient = useQueryClient();
   return useMutation({

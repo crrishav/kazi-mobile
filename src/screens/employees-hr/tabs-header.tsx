@@ -7,16 +7,21 @@ import type { EmployeeView } from '@/data/employees-hr/types';
 export interface TabsHeaderProps {
   view: EmployeeView;
   onChange: (v: EmployeeView) => void;
+  /** Payroll is salary data — only shown to profiles holding the `payroll` permission. */
+  showPayroll: boolean;
 }
 
 const TABS: { id: EmployeeView; label: string; admin?: boolean }[] = [
   { id: 'directory', label: 'Directory' },
-  { id: 'orgchart', label: 'Org chart' },
   { id: 'payroll', label: 'Payroll', admin: true },
 ];
 
-export function TabsHeader({ view, onChange }: TabsHeaderProps) {
+export function TabsHeader({ view, onChange, showPayroll }: TabsHeaderProps) {
   const theme = useTheme();
+
+  // Without Payroll there is only Directory left, and a one-tab switcher is
+  // just a label taking up a row — drop it entirely.
+  if (!showPayroll) return null;
 
   return (
     <View style={styles.outer}>

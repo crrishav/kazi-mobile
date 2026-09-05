@@ -42,9 +42,16 @@ export type SectionId =
   | 'changelog'
   | 'bug-report';
 
-/** The 10 Finance sub-tabs, each gated individually (reference `financeTabAllowed`). */
+/**
+ * The Finance sub-tabs, each gated individually (reference `financeTabAllowed`).
+ *
+ * `payroll` is one of them in the database even though mobile renders it inside
+ * Employees rather than Finance — the permission is the same row either way, so
+ * the gate reads it from the same place the web app does.
+ */
 export type FinanceTabId =
   | 'expenses'
+  | 'payroll'
   | 'purchases'
   | 'vat-bills'
   | 'journal'
@@ -56,7 +63,7 @@ export type FinanceTabId =
   | 'kpi';
 
 export const FINANCE_TABS: FinanceTabId[] = [
-  'expenses', 'purchases', 'vat-bills', 'journal', 'ledger',
+  'expenses', 'payroll', 'purchases', 'vat-bills', 'journal', 'ledger',
   'pnl', 'balance-sheet', 'bank', 'order-pnl', 'kpi',
 ];
 
@@ -123,7 +130,7 @@ const EDIT_BY_ROLE: Record<Role, SectionId[] | '*'> = {
  * (a `nepal_admin` with these overrides on top of the general Nepal-admin nav).
  */
 export const DEFAULT_NEPAL_ADMIN_PERMISSIONS: PermissionOverrides = {
-  finance: { expenses: true, purchases: true, 'vat-bills': true, journal: true, ledger: true, pnl: true, 'balance-sheet': true, bank: true, 'order-pnl': true, kpi: true },
+  finance: { expenses: true, payroll: true, purchases: true, 'vat-bills': true, journal: true, ledger: true, pnl: true, 'balance-sheet': true, bank: true, 'order-pnl': true, kpi: true },
   billing: true,
   accounting: true,
   purchases: true,
@@ -160,6 +167,22 @@ export function financeTabAllowed(profile: Profile | null, tab: FinanceTabId): b
   if (fin && typeof fin === 'object') return !!fin[tab];
   if (fin === true) return true;
   // No explicit finance override: Nepal-admin-and-up see every tab, others none.
+  return isAtLeast(profile.role, 'nepal_admin');
+}
+
+/**
+ * May this profile see payroll — salaries, deductions, slips?
+ *
+ * The `payroll` permission lives with the Finance tabs in Postgres, but the
+ * screen it gates on mobile is Employees, so this deliberately does *not* go
+ * through `financeTabAllowed` (which additionally demands the Finance section).
+ * With no explicit grant it falls back to role: Nepal admin and above.
+ */
+export function payrollVisible(profile: Profile | null): boolean {
+  if (!profile) return false;
+  const fin = profile.permissions?.finance;
+  if (fin && typeof fin === 'object') return !!fin.payroll;
+  if (fin === true) return true;
   return isAtLeast(profile.role, 'nepal_admin');
 }
 

@@ -8,6 +8,7 @@ import * as realAuth from './real-auth';
 import { isRealAuthConfigured } from './real-auth';
 import {
   financeTabAllowed,
+  payrollVisible,
   sectionCanEdit,
   sectionVisible,
   type FinanceTabId,
@@ -33,6 +34,8 @@ interface AuthContextValue {
   can: (section: SectionId) => boolean;
   /** One Finance sub-tab is available. */
   financeTab: (tab: FinanceTabId) => boolean;
+  /** Payroll — salaries, deductions, slips — is visible to this profile. */
+  canViewPayroll: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -117,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canView: (section) => sectionVisible(profile, section),
       can: (section) => sectionCanEdit(profile, section),
       financeTab: (tab) => financeTabAllowed(profile, tab),
+      canViewPayroll: payrollVisible(profile),
     }),
     [session, profile, isLoading, signIn, requestPasswordReset, signOut, setDevRole],
   );

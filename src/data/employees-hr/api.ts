@@ -22,6 +22,9 @@ export const fetchEmployees = isSupabaseConfigured
   ? liveRead('employees-hr', live.fetchEmployees)
   : mock.fetchEmployees;
 
+/** Reference data, not a module collection — falls back to the mock list itself. */
+export const fetchPositions = live.fetchPositions;
+
 export const addEmployee = liveWrite('employees-hr/addEmployee', writeLive.addEmployee, mock.addEmployee);
 export const updateEmployee = liveWrite('employees-hr/updateEmployee', writeLive.updateEmployee, mock.updateEmployee);
 export const deleteEmployee = liveWrite('employees-hr/deleteEmployee', writeLive.deleteEmployee, mock.deleteEmployee);
