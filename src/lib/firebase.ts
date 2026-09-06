@@ -93,9 +93,13 @@ export function getFirebaseAuth(): Auth {
   if (authRef) return authRef;
   const app = getFirebaseApp();
   try {
+    // Deliberate lazy requires: the RN persistence entry point only exists on
+    // some builds, so this whole block is a guarded probe rather than an import.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const rnAuth = require('@firebase/auth') as {
       getReactNativePersistence?: (storage: unknown) => unknown;
     };
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
     authRef = rnAuth.getReactNativePersistence
       ? initializeAuth(app, { persistence: rnAuth.getReactNativePersistence(AsyncStorage) as never })

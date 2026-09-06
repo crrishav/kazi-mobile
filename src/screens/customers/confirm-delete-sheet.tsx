@@ -22,9 +22,13 @@ export function ConfirmDeleteSheet({ visible, name, warning, onCancel, onConfirm
   const [mounted, setMounted] = useState(visible);
   const progress = useSharedValue(0);
 
+  // Mounting is adjusted during render rather than from the effect: by the time
+  // an effect ran the sheet would already have missed a frame of its entrance.
+  // Unmounting is the opposite — it waits for the exit animation's callback.
+  if (visible && !mounted) setMounted(true);
+
   useEffect(() => {
     if (visible) {
-      setMounted(true);
       progress.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
     } else if (mounted) {
       progress.value = withTiming(0, { duration: 160, easing: Easing.in(Easing.cubic) }, (finished) => {

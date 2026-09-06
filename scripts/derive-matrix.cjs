@@ -94,7 +94,6 @@ const finTab = (u, tab) => {
   }
 
   const allSections = (await pg.query('select id from sections order by sort_order')).rows.map(r => r.id);
-  const allTabs = (await pg.query('select id from finance_tabs order by sort_order')).rows.map(r => r.id);
 
   // ── roll up per position ─────────────────────────────────────────────
   const matrix = {};   // position -> { sec: {view, edit}, tabs: Set, people: [] }
@@ -116,7 +115,6 @@ const finTab = (u, tab) => {
     for (const s of ALWAYS) (m.sec[s] ||= { view: true, edit: s === 'bug_report' }).view = true;
 
   // ── report ───────────────────────────────────────────────────────────
-  const pad = (s, n) => String(s ?? '').padEnd(n);
   console.log('Derived from the effective access of the people currently in each position.\n');
   for (const [pid, m] of Object.entries(matrix).sort()) {
     const view = Object.entries(m.sec).filter(([, v]) => v.view).map(([k]) => k);

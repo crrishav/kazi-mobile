@@ -29,10 +29,6 @@ export function CustomerRow({ customer, index, isOpen, onSwipeOpen, onSwipeClose
   const translateX = useSharedValue(0);
   const startX = useSharedValue(0);
 
-  useEffect(() => {
-    translateX.value = withTiming(isOpen ? -REVEAL : 0, { duration: 200 });
-  }, [isOpen, translateX]);
-
   const pan = Gesture.Pan()
     .enabled(!!onDelete)
     .activeOffsetX([-10, 10])
@@ -48,6 +44,10 @@ export function CustomerRow({ customer, index, isOpen, onSwipeOpen, onSwipeClose
       if (open) runOnJS(onSwipeOpen)();
       else runOnJS(onSwipeClose)();
     });
+
+  useEffect(() => {
+    translateX.value = withTiming(isOpen ? -REVEAL : 0, { duration: 200 });
+  }, [isOpen, translateX]);
 
   const cardStyle = useAnimatedStyle(() => ({ transform: [{ translateX: translateX.value }] }));
 

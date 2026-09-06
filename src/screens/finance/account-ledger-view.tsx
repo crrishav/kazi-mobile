@@ -1,34 +1,72 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Money } from '@/components/ui/money';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums, type Theme } from '@/theme';
-import type { AccountLedger, AccountSummary } from '@/data/finance/ledger';
+import type { AccountLedger, AccountSummary, LedgerRow } from '@/data/finance/ledger';
 import type { AccountType } from '@/data/finance/types';
 
 export interface AccountLedgerViewProps {
   ledgers: AccountLedger[];
   summaries: AccountSummary[];
   canEdit: boolean;
+  /** Account pills — `'all'` plus one id per Cash/Bank ledger. */
+  filters: { id: string; label: string; count: number }[];
+  activeFilter: string;
+  onFilterChange: (id: string) => void;
   /** Tap the opening-balance chip on a Cash/Bank card. */
   onEditOpening: (accountName: string, current: number) => void;
+  /** Tap a movement row — edits it, or jumps to the source screen. */
+  onOpenRow: (accountName: string, row: LedgerRow) => void;
 }
 
 const npr = (n: number) => `रु ${Math.round(n).toLocaleString('en-IN')}`;
+
+/** `05 Sep 26` — the row's meta line also carries the reference, so it stays short. */
+const shortDate = (iso: string) =>
+  new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
 
 function typeColor(theme: Theme, type: AccountType, balance: number): string {
   if (type === 'Asset' || type === 'Expense') return balance >= 0 ? theme.textPrimary : theme.dangerWashText;
   return balance >= 0 ? theme.accentWashText : theme.dangerWashText;
 }
 
-export function AccountLedgerView({ ledgers, summaries, canEdit, onEditOpening }: AccountLedgerViewProps) {
+export function AccountLedgerView({
+  ledgers,
+  summaries,
+  canEdit,
+  filters,
+  activeFilter,
+  onFilterChange,
+  onEditOpening,
+  onOpenRow,
+}: AccountLedgerViewProps) {
   const theme = useTheme();
 
+  const shown = activeFilter === 'all' ? ledgers : ledgers.filter((l) => l.account === activeFilter);
   const otherAccounts = summaries.filter((s) => !ledgers.some((l) => l.account === s.name) && (s.count > 0 || s.balance !== 0));
 
   return (
     <View style={styles.wrap}>
-      {ledgers.map((l) => (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+        {filters.map((f) => {
+          const on = activeFilter === f.id;
+          return (
+            <Pressable
+              key={f.id}
+              onPress={() => onFilterChange(f.id)}
+              style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+            >
+              <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]} numberOfLines={1}>
+                {f.label}
+              </Text>
+              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{f.count}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      {shown.map((l) => (
         <View key={l.account} style={[styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }]}>
           <View style={styles.cardHead}>
             <Text style={[styles.cardTitle, { color: theme.textPrimary }]}>{l.account}</Text>
@@ -55,13 +93,18 @@ export function AccountLedgerView({ ledgers, summaries, canEdit, onEditOpening }
             <Text style={[styles.emptyRow, { color: theme.textSecondary }]}>No movements yet</Text>
           ) : (
             l.rows.map((r, i) => (
-              <View key={i} style={[styles.tr, { borderBottomColor: theme.background }]}>
+              <Pressable
+                key={i}
+                onPress={canEdit ? () => onOpenRow(l.account, r) : undefined}
+                style={[styles.tr, { borderBottomColor: theme.background }]}
+              >
                 <View style={styles.tdParticulars}>
                   <Text style={[styles.rowTitle, { color: theme.textPrimary }]} numberOfLines={1}>
                     {r.particulars}
                   </Text>
                   <Text style={[styles.rowRef, tabularNums, { color: theme.textSecondary }]} numberOfLines={1}>
-                    {r.ref}
+                    {r.date ? shortDate(r.date) : '—'}
+                    {r.ref ? ` · ${r.ref}` : ''}
                   </Text>
                 </View>
                 <Text style={[styles.tdNum, tabularNums, { color: r.dr ? theme.accentWashText : theme.textSecondary }]}>
@@ -73,7 +116,7 @@ export function AccountLedgerView({ ledgers, summaries, canEdit, onEditOpening }
                 <Text style={[styles.tdNum, tabularNums, { color: theme.textPrimary, fontWeight: '600' }]}>
                   {npr(r.balance).replace('रु ', '')}
                 </Text>
-              </View>
+              </Pressable>
             ))
           )}
         </View>
@@ -110,6 +153,10 @@ export function AccountLedgerView({ ledgers, summaries, canEdit, onEditOpening }
 
 const styles = StyleSheet.create({
   wrap: { gap: 14 },
+  chipsRow: { gap: 7, paddingBottom: 2 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 13, borderRadius: 999, borderWidth: 1 },
+  chipLabel: { fontFamily: fontFamily.semibold, fontSize: 12.5, maxWidth: 150 },
+  chipCount: { fontFamily: fontFamily.mono, fontSize: 10.5, opacity: 0.85 },
   card: { borderRadius: 18, padding: 15, gap: 10 },
   cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   cardTitle: { fontFamily: fontFamily.semibold, fontSize: 15 },

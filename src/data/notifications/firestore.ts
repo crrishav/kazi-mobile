@@ -16,9 +16,8 @@ import {
   updateDoc,
   where,
   writeBatch,
-} from '@/lib/supabase/firestore-compat';
+ getDb } from '@/lib/supabase/firestore-compat';
 
-import { getDb } from '@/lib/supabase/firestore-compat';
 import { isSupabaseConfigured as isFirebaseConfigured } from '@/lib/supabase';
 import { tsToISO } from '@/lib/firestore/normalise';
 

@@ -1,11 +1,9 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
-import { DualDate } from '@/components/ui/dual-date';
+import { DateField } from '@/components/ui/date-field';
 import { Icon } from '@/components/ui/icon';
-import { NepaliDatePicker } from '@/components/ui/nepali-date-picker';
 import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii } from '@/theme';
@@ -41,7 +39,6 @@ export function isAdvanceAccount(name: string): boolean {
 
 export function JournalSheet({ visible, draft, accounts, onClose, onChange, onSave, onDelete }: JournalSheetProps) {
   const theme = useTheme();
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   const amount = parseInt(draft.amount.replace(/[^0-9]/g, ''), 10) || 0;
   const needsParty = isAdvanceAccount(draft.debitAccount) || isAdvanceAccount(draft.creditAccount);
@@ -93,13 +90,7 @@ export function JournalSheet({ visible, draft, accounts, onClose, onChange, onSa
       <TextField label="Description" value={draft.description} onChangeText={(v) => onChange({ description: v })} placeholder="What is this entry for?" />
       <TextField label="Reference" value={draft.reference} onChangeText={(v) => onChange({ reference: v })} placeholder="e.g. JV-0332" />
 
-      <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Date</Text>
-        <Pressable onPress={() => setPickerOpen(true)} style={[styles.dateRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <DualDate iso={draft.date} inline size={14} />
-          <Icon name="calendar" size={16} color={theme.textSecondary} />
-        </Pressable>
-      </View>
+      <DateField label="Date" value={draft.date} onChange={(iso) => onChange({ date: iso })} pickerTitle="Entry date" />
 
       {error ? (
         <View style={[styles.errorBox, { backgroundColor: theme.dangerWash }]}>
@@ -114,14 +105,6 @@ export function JournalSheet({ visible, draft, accounts, onClose, onChange, onSa
 
       <Button label={editing ? 'Save changes' : `Post रु ${amount.toLocaleString('en-IN')}`} onPress={onSave} disabled={!ready} />
       {editing && onDelete ? <Button label="Delete entry" variant="dangerOutline" onPress={onDelete} /> : null}
-
-      <NepaliDatePicker
-        visible={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        value={draft.date}
-        onChange={(iso) => onChange({ date: iso })}
-        title="Entry date"
-      />
     </BottomSheet>
   );
 }

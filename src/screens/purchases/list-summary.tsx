@@ -5,7 +5,7 @@ import { Money } from '@/components/ui/money';
 import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import type { PurchaseFilter, PurchaseGroup } from '@/data/purchases/types';
+import type { PurchaseFilter } from '@/data/purchases/types';
 
 export interface ListSummaryProps {
   /** NPR. */
@@ -13,8 +13,6 @@ export interface ListSummaryProps {
   /** NPR. */
   unpaidTotal: number;
   cashShare: string;
-  group: PurchaseGroup;
-  onGroupChange: (g: PurchaseGroup) => void;
   filters: { id: PurchaseFilter; label: string; count: number }[];
   activeFilter: PurchaseFilter;
   onFilterChange: (f: PurchaseFilter) => void;
@@ -22,25 +20,26 @@ export interface ListSummaryProps {
   onSearchChange: (v: string) => void;
   /** Hide the "spend this month" hero card (Finance's Purchases tab has its own KPIs). */
   showSummary?: boolean;
+  /** `false` when the parent already pads the sides — see `PurchasesPane`. */
+  inset?: boolean;
 }
 
 export function ListSummary({
   monthTotal,
   unpaidTotal,
   cashShare,
-  group,
-  onGroupChange,
   filters,
   activeFilter,
   onFilterChange,
   search,
   onSearchChange,
   showSummary = true,
+  inset = true,
 }: ListSummaryProps) {
   const theme = useTheme();
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, inset && styles.wrapInset]}>
       {showSummary ? (
         <Card elevation="inverted" style={styles.summaryCard}>
           <View style={styles.gap5}>
@@ -61,21 +60,6 @@ export function ListSummary({
       ) : null}
 
       <TextField value={search} onChangeText={onSearchChange} placeholder="Search party, category or EXP id" />
-
-      <View style={[styles.segmented, { backgroundColor: theme.draftWash, borderColor: theme.border }]}>
-        <Pressable
-          onPress={() => onGroupChange('date')}
-          style={[styles.segmentButton, { backgroundColor: group === 'date' ? theme.surface : 'transparent', boxShadow: group === 'date' ? theme.shadows.card : undefined }]}
-        >
-          <Text style={[styles.segmentLabel, { color: group === 'date' ? theme.textPrimary : theme.textSecondary }]}>By date</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => onGroupChange('supplier')}
-          style={[styles.segmentButton, { backgroundColor: group === 'supplier' ? theme.surface : 'transparent', boxShadow: group === 'supplier' ? theme.shadows.card : undefined }]}
-        >
-          <Text style={[styles.segmentLabel, { color: group === 'supplier' ? theme.textPrimary : theme.textSecondary }]}>By supplier</Text>
-        </Pressable>
-      </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
         {filters.map((f) => {
@@ -99,9 +83,9 @@ export function ListSummary({
 const styles = StyleSheet.create({
   wrap: {
     gap: 10,
-    paddingHorizontal: 20,
     paddingBottom: 12,
   },
+  wrapInset: { paddingHorizontal: 20 },
   summaryCard: { padding: 17, gap: 14, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   gap5: { gap: 5 },
   eyebrow: { fontFamily: fontFamily.mono, fontSize: 10, letterSpacing: 0.12 * 10, textTransform: 'uppercase' },
@@ -110,9 +94,6 @@ const styles = StyleSheet.create({
   statCell: { alignItems: 'flex-end', gap: 3 },
   statValue: { fontSize: 16, fontWeight: '600', lineHeight: 16 },
   statLabel: { fontFamily: fontFamily.mono, fontSize: 9.5, letterSpacing: 0.1 * 9.5, textTransform: 'uppercase' },
-  segmented: { flexDirection: 'row', padding: 4, borderRadius: 14, borderWidth: 1, gap: 4 },
-  segmentButton: { flex: 1, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  segmentLabel: { fontFamily: fontFamily.semibold, fontSize: 13 },
   chipsRow: { gap: 7 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 32, paddingHorizontal: 13, borderRadius: 999, borderWidth: 1 },
   chipLabel: { fontFamily: fontFamily.semibold, fontSize: 12.5 },

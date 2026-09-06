@@ -1,23 +1,42 @@
-import type { Account, BankTransaction, Expense, ExpenseCategory, ExpenseSource, FiscalYear, JournalEntry, LedgerMonth, OrderCosts, VatBill } from './types';
+import type { Account, BankTransaction, Expense, ExpenseCategory, ExpenseCategoryId, ExpenseSource, FiscalYear, JournalEntry, LedgerMonth, OrderCosts, VatBill } from './types';
 
+/**
+ * The reference's 15 `EXPENSE_CATEGORIES`, in its order. `label` is the exact
+ * string the live `finance_expenses.category` stores, so the web app and mobile
+ * read the same rows back into the same bucket.
+ */
 export const CATEGORIES: ExpenseCategory[] = [
-  { id: 'power', label: 'Power', tag: 'PWR', bg: '#F7EEDA', fg: '#7A5709' },
-  { id: 'wages', label: 'Wages', tag: 'WAG', bg: '#E2F6EC', fg: '#0E5E43' },
-  { id: 'freight', label: 'Freight', tag: 'FRT', bg: '#E9EFEC', fg: '#147A57' },
-  { id: 'rent', label: 'Rent', tag: 'RNT', bg: '#F1EEE5', fg: '#3B4F47' },
-  { id: 'repairs', label: 'Repairs', tag: 'REP', bg: '#F8E7DF', fg: '#8E4327' },
-  { id: 'admin', label: 'Admin', tag: 'ADM', bg: '#EDEAE0', fg: '#5B6C64' },
+  { id: 'utilities', label: 'Utilities', tag: 'UTL', bg: '#F7EEDA', fg: '#7A5709' },
+  { id: 'rent-lease', label: 'Rent / Lease', tag: 'RNT', bg: '#F1EEE5', fg: '#3B4F47' },
+  { id: 'salaries', label: 'Salaries', tag: 'SAL', bg: '#E2F6EC', fg: '#0E5E43' },
+  { id: 'office-supplies', label: 'Office Supplies', tag: 'OFF', bg: '#E8EEF6', fg: '#2C4A6E' },
+  { id: 'transport', label: 'Transport', tag: 'TRN', bg: '#E9EFEC', fg: '#147A57' },
+  { id: 'meals', label: 'Meals & Entertainment', tag: 'MEA', bg: '#F8E7DF', fg: '#8E4327' },
+  { id: 'marketing', label: 'Marketing', tag: 'MKT', bg: '#F0E9F3', fg: '#5A3C6B' },
+  { id: 'professional-fees', label: 'Professional Fees', tag: 'PRO', bg: '#EDEAE0', fg: '#5B6C64' },
+  { id: 'equipment', label: 'Equipment', tag: 'EQP', bg: '#E8EEF6', fg: '#2C4A6E' },
+  { id: 'maintenance', label: 'Maintenance & Repairs', tag: 'MNT', bg: '#F8E7DF', fg: '#8E4327' },
+  { id: 'raw-materials', label: 'Raw Materials', tag: 'RAW', bg: '#EAF2E4', fg: '#3F6127' },
+  { id: 'consumables', label: 'Consumables', tag: 'CON', bg: '#F7EEDA', fg: '#7A5709' },
+  { id: 'software', label: 'Software & Subscriptions', tag: 'SFW', bg: '#F0E9F3', fg: '#5A3C6B' },
+  { id: 'miscellaneous', label: 'Miscellaneous', tag: 'MSC', bg: '#F1EEE5', fg: '#3B4F47' },
+  { id: 'other', label: 'Other', tag: 'OTH', bg: '#EDEAE0', fg: '#5B6C64' },
 ];
+
+/** The category record for an id, falling back to `Other` rather than undefined. */
+export function expenseCategory(id: ExpenseCategoryId | string): ExpenseCategory {
+  return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[CATEGORIES.length - 1];
+}
 
 export const EXPENSE_SOURCES: ExpenseSource[] = ['Cash', 'Bank', 'Payable'];
 
 export const seedExpenses: Expense[] = [
-  { id: 'e1', category: 'power', name: 'NEA electricity · Bhadra', note: 'Bill 44112 · bank transfer', amountNPR: 214500, date: '2026-08-24', source: 'Bank', vatBill: true, status: 'Paid', loggedBy: 'Anil Karki' },
-  { id: 'e2', category: 'freight', name: 'Air freight · SO-2290', note: 'Halden & Co. · DHL consignment', amountNPR: 486000, date: '2026-08-22', source: 'Bank', vatBill: true, status: 'Paid', loggedBy: 'Anil Karki' },
-  { id: 'e3', category: 'repairs', name: 'Overlock service · 6 heads', note: 'Juki technician · 2 days', amountNPR: 78000, date: '2026-08-21', source: 'Payable', vatBill: false, status: 'Unpaid', loggedBy: 'Sita Rai' },
-  { id: 'e4', category: 'wages', name: 'Overtime · finishing line', note: '38 workers · week 33', amountNPR: 342000, date: '2026-08-20', source: 'Cash', vatBill: false, status: 'Paid', loggedBy: 'Anil Karki' },
-  { id: 'e5', category: 'rent', name: 'Godown rent · Balaju', note: 'Bhadra · 4,200 sq ft', amountNPR: 195000, date: '2026-08-18', source: 'Bank', vatBill: true, status: 'Paid', loggedBy: 'Anil Karki' },
-  { id: 'e6', category: 'admin', name: 'Customs agent fee', note: '3 consignments cleared', amountNPR: 62000, date: '2026-08-17', source: 'Payable', vatBill: false, status: 'Unpaid', loggedBy: 'Sita Rai' },
+  { id: 'e1', category: 'utilities', name: 'NEA electricity · Bhadra', note: 'Bill 44112 · bank transfer', amountNPR: 214500, date: '2026-08-24', source: 'Bank', vatBill: true, status: 'Paid', loggedBy: 'Anil Karki' },
+  { id: 'e2', category: 'transport', name: 'Air freight · SO-2290', note: 'Halden & Co. · DHL consignment', amountNPR: 486000, date: '2026-08-22', source: 'Bank', vatBill: true, status: 'Paid', loggedBy: 'Anil Karki' },
+  { id: 'e3', category: 'maintenance', name: 'Overlock service · 6 heads', note: 'Juki technician · 2 days', amountNPR: 78000, date: '2026-08-21', source: 'Payable', vatBill: false, status: 'Unpaid', loggedBy: 'Sita Rai' },
+  { id: 'e4', category: 'salaries', name: 'Overtime · finishing line', note: '38 workers · week 33', amountNPR: 342000, date: '2026-08-20', source: 'Cash', vatBill: false, status: 'Paid', loggedBy: 'Anil Karki' },
+  { id: 'e5', category: 'rent-lease', name: 'Godown rent · Balaju', note: 'Bhadra · 4,200 sq ft', amountNPR: 195000, date: '2026-08-18', source: 'Bank', vatBill: true, status: 'Paid', loggedBy: 'Anil Karki' },
+  { id: 'e6', category: 'professional-fees', name: 'Customs agent fee', note: '3 consignments cleared', amountNPR: 62000, date: '2026-08-17', source: 'Payable', vatBill: false, status: 'Unpaid', loggedBy: 'Sita Rai' },
 ];
 
 export const seedVatBills: VatBill[] = [

@@ -151,18 +151,19 @@ export class DataReadError extends Error {
 /**
  * Turn a Supabase/PostgREST failure into something a person can act on.
  *
- * A rejected token splits two ways, and telling them apart matters because the
- * remedies are opposite. On a Firebase session EVERY request is rejected and
- * always will be — the project's JWKS has no Firebase key — so signing in
- * again changes nothing; the person needs a Supabase password. On a Supabase
- * session it means the token really did go stale, and signing in again is the
- * fix. Anything else is a network or server problem they cannot act on.
+ * A rejected token splits two ways. On a Firebase session EVERY request is
+ * rejected and always will be — the project's JWKS has no Firebase key — but
+ * signing in again IS the fix, because sign-in tries Supabase first and almost
+ * everyone now has a Supabase password; only if that sign-in fails do they need
+ * to set one. On a Supabase session it means the token really did go stale, and
+ * signing in again is the fix there too. Anything else is a network or server
+ * problem they cannot act on.
  */
 function messageFor(cause: unknown): string {
   const raw = cause instanceof Error ? cause.message : String(cause ?? '');
   if (/JWT|token|PGRST301|suitable key|key type|Unauthorized|401/i.test(raw)) {
     if (lastTokenSource() === 'firebase') {
-      return 'This login can’t read live data yet. Sign out, tap “Forgot password?” to set a password, then sign in with it.';
+      return 'This session is too old to read live data. Please sign out and sign in again — and if the sign-in is refused, tap “Forgot password?” to set a password first.';
     }
     return 'Your session was rejected by the server. Please sign out and sign in again.';
   }

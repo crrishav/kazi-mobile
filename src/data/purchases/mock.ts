@@ -8,7 +8,8 @@ export const STATUS: Record<PurchaseStatus, { label: string; dot: string; bg: st
 
 export const SUPPLIERS = ['Sunrise Mills', 'Kathmandu Trims', 'Bagmati Knits', 'Print House KTM', 'Highland Yarn (UK)'];
 
-export const BANKS = ['NIC Asia', 'Nabil Bank', 'Global IME', 'Standard Chartered'];
+/** @deprecated use `PURCHASE_BANKS` from `./types`. */
+export const BANKS = ['Nabil Bank', 'Sanima Bank', 'NIC Asia', 'Global IME', 'Standard Chartered'];
 
 /** Seeds carry the shared `finance_purchases` shape — multi-line, `EXP0NN` ids, ISO dates. */
 export const seedEntries: PurchaseEntry[] = [
@@ -19,13 +20,13 @@ export const seedEntries: PurchaseEntry[] = [
     subtotalNPR: 186000, taxableAmt: 186000, vatAmountNPR: 24180, amountNPR: 210180,
   },
   {
-    id: 'p2', expenseId: 'EXP183', party: 'Kathmandu Trims', category: 'Trims', paymentType: 'Cash',
+    id: 'p2', expenseId: 'EXP183', party: 'Kathmandu Trims', category: 'Consumables', paymentType: 'Cash',
     date: '2026-08-23', vatBill: false, discountAmt: 0, status: 'paid', loggedBy: 'Prakash Thapa', grn: 'GRN-1187',
     items: [{ particulars: 'Recycled Poly Zips', quantity: 3000, unit: 'pcs', rate: 46, amount: 138000 }],
     subtotalNPR: 138000, taxableAmt: 138000, vatAmountNPR: 0, amountNPR: 138000,
   },
   {
-    id: 'p3', expenseId: 'EXP182', party: 'Print House KTM', category: 'Packaging', paymentType: 'Cash',
+    id: 'p3', expenseId: 'EXP182', party: 'Print House KTM', category: 'Consumables', paymentType: 'Cash',
     date: '2026-08-22', vatBill: false, discountAmt: 0, status: 'paid', loggedBy: 'Sita Rai', grn: 'GRN-1186',
     items: [{ particulars: 'Woven Care Labels', quantity: 20000, unit: 'pcs', rate: 3, amount: 60000 }],
     subtotalNPR: 60000, taxableAmt: 60000, vatAmountNPR: 0, amountNPR: 60000,
@@ -46,7 +47,7 @@ export const seedEntries: PurchaseEntry[] = [
     subtotalNPR: 241200, taxableAmt: 241200, vatAmountNPR: 31356, amountNPR: 272556,
   },
   {
-    id: 'p6', expenseId: 'EXP179', party: 'Kathmandu Trims', category: 'Trims', paymentType: 'Cash',
+    id: 'p6', expenseId: 'EXP179', party: 'Kathmandu Trims', category: 'Consumables', paymentType: 'Cash',
     date: '2026-08-19', vatBill: false, discountAmt: 0, status: 'unpaid', loggedBy: 'Sita Rai', grn: 'GRN-1179',
     items: [{ particulars: 'Ribbed Collar Tape', quantity: 4000, unit: 'm', rate: 22, amount: 88000 }],
     subtotalNPR: 88000, taxableAmt: 88000, vatAmountNPR: 0, amountNPR: 88000,

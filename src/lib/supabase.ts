@@ -98,6 +98,56 @@ export function getSupabaseAuth(): SupabaseClient {
 }
 
 /**
+ * Decode a JWT's claims without verifying it — diagnosis only, never a
+ * decision. Returns `null` for anything that isn't a readable JWT.
+ */
+function claimsOf(token: string): Record<string, unknown> | null {
+  try {
+    const body = token.split('.')[1];
+    if (!body) return null;
+    const padded = body.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(body.length / 4) * 4, '=');
+    return JSON.parse(globalThis.atob(padded)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Say — once per distinct token, in dev only — exactly who the data client is
+ * signing requests as.
+ *
+ * Every failure mode this wiring has ever had looks identical from a screen:
+ * a wall of `PGRST301 "No suitable key or wrong key type"` with nothing naming
+ * the cause. The cause is always in the token, so print it: a Firebase `iss`
+ * means Postgres will reject every request no matter how many times the person
+ * signs in, and no token at all means the request went out as `anon`.
+ */
+let announced = '';
+function announce(source: TokenSource, token: string | null): void {
+  if (!__DEV__) return;
+  const claims = token ? claimsOf(token) : null;
+  const who = claims ? String(claims.email ?? claims.sub ?? 'an unnamed subject') : token ? 'an undecodable token' : 'anonymous';
+  const key = `${source}:${who}`;
+  if (announced === key) return;
+  announced = key;
+
+  if (source === 'supabase') {
+    const exp = typeof claims?.exp === 'number' ? new Date(claims.exp * 1000).toISOString() : 'unknown';
+    console.log(`[supabase] signing data requests as ${who} (Supabase session, expires ${exp})`);
+  } else if (source === 'firebase') {
+    console.warn(
+      `[supabase] signing data requests with a FIREBASE token for ${who}. Postgres cannot ` +
+        'verify it — the project JWKS holds only Supabase’s own key — so every read and ' +
+        'write below will fail with PGRST301. This is a session left over from before the ' +
+        'Supabase swap: sign out and sign in again to trade it for one that works. If the ' +
+        'sign-in itself fails, the account has no Supabase password yet — "Forgot password?".',
+    );
+  } else {
+    console.warn('[supabase] no session — data requests go out as the anon role and will see almost nothing.');
+  }
+}
+
+/**
  * The token every data request is signed with: the Supabase session first (the
  * only one Postgres can verify), then a Firebase ID token, then nothing.
  *
@@ -110,6 +160,7 @@ async function currentAccessToken(): Promise<string | null> {
     const { data } = await getSupabaseAuth().auth.getSession();
     if (data.session?.access_token) {
       tokenSource = 'supabase';
+      announce('supabase', data.session.access_token);
       return data.session.access_token;
     }
   } catch (err) {
@@ -121,7 +172,9 @@ async function currentAccessToken(): Promise<string | null> {
       const user = getFirebaseAuth().currentUser;
       if (user) {
         tokenSource = 'firebase';
-        return await user.getIdToken();
+        const token = await user.getIdToken();
+        announce('firebase', token);
+        return token;
       }
     } catch {
       // fall through to anonymous
@@ -129,6 +182,7 @@ async function currentAccessToken(): Promise<string | null> {
   }
 
   tokenSource = null;
+  announce(null, null);
   return null;
 }
 

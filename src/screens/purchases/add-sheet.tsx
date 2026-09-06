@@ -1,25 +1,27 @@
-import { useState } from 'react';
+import { memo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
-import { DualDate } from '@/components/ui/dual-date';
+import { DateField } from '@/components/ui/date-field';
 import { Icon } from '@/components/ui/icon';
 import { Money } from '@/components/ui/money';
-import { NepaliDatePicker } from '@/components/ui/nepali-date-picker';
 import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
-import { fontFamily, radii, tabularNums } from '@/theme';
-import { BANKS, STATUS, SUPPLIERS } from '@/data/purchases/mock';
-import { computeTotals } from '@/data/purchases/utils';
+import { fontFamily, radii, tabularNums, type Theme } from '@/theme';
+import { STATUS } from '@/data/purchases/mock';
 import {
+  PURCHASE_BANKS,
   PURCHASE_CATEGORIES,
+  PURCHASE_REGIONS,
   PURCHASE_UNITS,
-  type PurchaseCategory,
+  type PaymentType,
   type PurchaseDraft,
   type PurchaseDraftLine,
   type PurchaseStatus,
+  type VatBillState,
 } from '@/data/purchases/types';
+import { applyLineChange, computeTotals, emptyLine, toNum } from '@/data/purchases/utils';
 
 export interface AddSheetProps {
   visible: boolean;
@@ -27,224 +29,210 @@ export interface AddSheetProps {
   onClose: () => void;
   onChange: (patch: Partial<PurchaseDraft>) => void;
   onSave: () => void;
-  /** Shown as a "Delete purchase" action when editing (embedded use — the standalone screen deletes from its detail view). */
+  /** Party names already on file, offered as one-tap shortcuts. */
+  parties?: string[];
+  /** Shown as a "Delete purchase" action when editing. */
   onDelete?: () => void;
 }
 
 const STATUS_OPTIONS: PurchaseStatus[] = ['paid', 'partial', 'unpaid'];
-const toNum = (s: string) => parseFloat(s.replace(/[^0-9.]/g, '')) || 0;
+const PAYMENT_OPTIONS: { id: PaymentType; label: string; icon: 'credit-card' | 'home' | 'clock' }[] = [
+  { id: 'Cash', label: 'Cash', icon: 'credit-card' },
+  { id: 'Bank', label: 'Bank', icon: 'home' },
+  { id: 'Credit', label: 'Credit', icon: 'clock' },
+];
+const VAT_OPTIONS: { id: string; label: string; value: VatBillState }[] = [
+  { id: 'yes', label: 'Yes · 13%', value: true },
+  { id: 'no', label: 'No', value: false },
+  { id: 'na', label: 'N/A', value: null },
+];
 
-export function emptyLine(): PurchaseDraftLine {
-  return { particulars: '', quantity: '', unit: 'pcs', rate: '' };
-}
+/** Sentinel for "Other" while the free-text field is still empty. */
+const OTHER = '__other__';
 
-export function AddSheet({ visible, draft, onClose, onChange, onSave, onDelete }: AddSheetProps) {
+export function AddSheet({ visible, draft, onClose, onChange, onSave, parties = [], onDelete }: AddSheetProps) {
   const theme = useTheme();
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   const editing = draft.id !== null;
+  const lines = draft.lines.length ? draft.lines : [emptyLine()];
   const totals = computeTotals(
-    draft.lines.map((l) => ({ quantity: toNum(l.quantity), rate: toNum(l.rate) })),
+    lines.map((l) => ({ amount: l.amount.trim() === '' ? toNum(l.quantity) * toNum(l.rate) : toNum(l.amount) })),
     toNum(draft.discountAmt),
     draft.vatBill,
+    toNum(draft.taxableAmt),
   );
-  const ready = draft.party.trim().length > 0 && totals.subtotal > 0;
+  const ready = draft.party.trim().length > 0 && lines.some((l) => l.particulars.trim());
 
-  const patchLine = (index: number, patch: Partial<PurchaseDraftLine>) => {
-    onChange({ lines: draft.lines.map((l, i) => (i === index ? { ...l, ...patch } : l)) });
-  };
-  const addLine = () => onChange({ lines: [...draft.lines, emptyLine()] });
-  const removeLine = (index: number) => onChange({ lines: draft.lines.filter((_, i) => i !== index) });
+  const patchLine = (index: number, patch: Partial<PurchaseDraftLine>) =>
+    onChange({ lines: applyLineChange(lines, index, patch) });
+  const addLine = () => onChange({ lines: [...lines, emptyLine()] });
+  const removeLine = (index: number) => onChange({ lines: lines.filter((_, i) => i !== index) });
+
+  const bankIsOther =
+    draft.bankName !== '' && !PURCHASE_BANKS.includes(draft.bankName as (typeof PURCHASE_BANKS)[number]);
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={editing ? 'Edit purchase' : 'Add purchase'} maxHeight={720}>
+    <BottomSheet visible={visible} onClose={onClose} title={editing ? 'Edit purchase' : 'Add purchase'} maxHeight={760}>
+      <DateField label="Date" value={draft.date} onChange={(iso) => onChange({ date: iso })} pickerTitle="Purchase date" />
+
       {/* Party */}
-      <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Party</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-          {SUPPLIERS.map((s) => {
-            const on = draft.party === s;
-            return (
-              <Pressable
-                key={s}
-                onPress={() => onChange({ party: s })}
-                style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
-              >
-                <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{s}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-        <TextField value={draft.party} onChangeText={(v) => onChange({ party: v })} placeholder="or type a party name" />
-      </View>
+      <Field label="Party name">
+        {parties.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+            {parties.map((p) => (
+              <Chip key={p} label={p} on={draft.party === p} onPress={() => onChange({ party: p })} theme={theme} />
+            ))}
+          </ScrollView>
+        ) : null}
+        <TextField
+          value={draft.party}
+          onChangeText={(v) => onChange({ party: v })}
+          placeholder={parties.length ? 'or type a party name' : 'Party name'}
+          autoCapitalize="words"
+        />
+      </Field>
 
       {/* Category */}
-      <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Category</Text>
+      <Field label="Category">
         <View style={styles.wrapRow}>
-          {PURCHASE_CATEGORIES.map((c: PurchaseCategory) => {
-            const on = draft.category === c;
-            return (
-              <Pressable
-                key={c}
-                onPress={() => onChange({ category: c })}
-                style={[styles.pill, { backgroundColor: on ? theme.accentWash : theme.surface, borderColor: on ? theme.accent : theme.border }]}
-              >
-                <Text style={[styles.pillLabel, { color: on ? theme.accentWashText : theme.textPrimary }]}>{c}</Text>
-              </Pressable>
-            );
-          })}
+          {PURCHASE_CATEGORIES.map((c) => (
+            <Pill key={c} label={c} on={draft.category === c} onPress={() => onChange({ category: c })} theme={theme} />
+          ))}
         </View>
-      </View>
+      </Field>
 
-      {/* Line items */}
-      <View style={styles.group}>
-        <View style={styles.lineHeader}>
-          <Text style={[styles.label, { color: theme.textSecondary }]}>Line items</Text>
-          <Pressable onPress={addLine} style={styles.addLineBtn}>
-            <Icon name="plus" size={13} color={theme.link} />
-            <Text style={[styles.addLineText, { color: theme.link }]}>Add line</Text>
-          </Pressable>
+      {/* Region — an untagged purchase belongs to both arms of the business. */}
+      <Field label="Region">
+        <View style={styles.row8}>
+          {PURCHASE_REGIONS.map((r) => (
+            <Segment
+              key={r.id}
+              label={r.label}
+              on={draft.region === r.id}
+              onPress={() => onChange({ region: r.id })}
+              theme={theme}
+            />
+          ))}
+          <Segment label="Not set" on={draft.region === ''} onPress={() => onChange({ region: '' })} theme={theme} />
         </View>
-
-        {draft.lines.map((l, i) => {
-          const amount = Math.round(toNum(l.quantity) * toNum(l.rate));
-          return (
-            <View key={i} style={[styles.lineCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <View style={styles.lineTopRow}>
-                <TextInput
-                  value={l.particulars}
-                  onChangeText={(v) => patchLine(i, { particulars: v })}
-                  placeholder="Particulars"
-                  placeholderTextColor={theme.textSecondary}
-                  style={[styles.lineParticulars, { color: theme.textPrimary }]}
-                />
-                {draft.lines.length > 1 ? (
-                  <Pressable onPress={() => removeLine(i)} hitSlop={8}>
-                    <Icon name="x" size={15} color={theme.textSecondary} />
-                  </Pressable>
-                ) : null}
-              </View>
-              <View style={styles.lineBottomRow}>
-                <TextInput
-                  value={l.quantity}
-                  onChangeText={(v) => patchLine(i, { quantity: v })}
-                  placeholder="Qty"
-                  keyboardType="numeric"
-                  placeholderTextColor={theme.textSecondary}
-                  style={[styles.lineNum, { color: theme.textPrimary, borderColor: theme.border }]}
-                />
-                <View style={styles.unitRow}>
-                  {PURCHASE_UNITS.slice(0, 4).map((u) => {
-                    const on = l.unit === u;
-                    return (
-                      <Pressable
-                        key={u}
-                        onPress={() => patchLine(i, { unit: u })}
-                        style={[styles.unitChip, { backgroundColor: on ? theme.surfaceInverted : 'transparent', borderColor: on ? theme.surfaceInverted : theme.border }]}
-                      >
-                        <Text style={[styles.unitText, { color: on ? theme.onDark.text : theme.textSecondary }]}>{u}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                <TextInput
-                  value={l.rate}
-                  onChangeText={(v) => patchLine(i, { rate: v })}
-                  placeholder="Rate"
-                  keyboardType="numeric"
-                  placeholderTextColor={theme.textSecondary}
-                  style={[styles.lineNum, { color: theme.textPrimary, borderColor: theme.border }]}
-                />
-              </View>
-              <Text style={[styles.lineAmount, tabularNums, { color: theme.textSecondary }]}>
-                = रु {amount.toLocaleString('en-IN')}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
+      </Field>
 
       {/* Payment */}
-      <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Payment type</Text>
-        <View style={styles.methodRow}>
-          {(['Cash', 'Bank'] as const).map((m) => {
-            const on = draft.paymentType === m;
+      <Field label="Payment type">
+        <View style={styles.row8}>
+          {PAYMENT_OPTIONS.map((m) => {
+            const on = draft.paymentType === m.id;
             return (
               <Pressable
-                key={m}
-                onPress={() => onChange({ paymentType: m })}
-                style={[styles.methodButton, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                key={m.id}
+                onPress={() => onChange({ paymentType: m.id })}
+                style={[
+                  styles.methodButton,
+                  {
+                    backgroundColor: on ? theme.surfaceInverted : theme.surface,
+                    borderColor: on ? theme.surfaceInverted : theme.border,
+                  },
+                ]}
               >
-                <Icon name={m === 'Cash' ? 'credit-card' : 'home'} size={17} color={on ? theme.onDark.text : theme.textPrimary} />
-                <Text style={[styles.methodLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{m}</Text>
+                <Icon name={m.icon} size={16} color={on ? theme.onDark.text : theme.textPrimary} />
+                <Text style={[styles.methodLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{m.label}</Text>
               </Pressable>
             );
           })}
         </View>
         {draft.paymentType === 'Bank' ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            {BANKS.map((b) => {
-              const on = draft.bankName === b;
-              return (
-                <Pressable
-                  key={b}
-                  onPress={() => onChange({ bankName: b })}
-                  style={[styles.chip, { backgroundColor: on ? theme.accentWash : theme.surface, borderColor: on ? theme.accent : theme.border }]}
-                >
-                  <Text style={[styles.chipLabel, { color: on ? theme.accentWashText : theme.textPrimary }]}>{b}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          <>
+            <View style={styles.wrapRow}>
+              {PURCHASE_BANKS.map((b) => (
+                <Pill key={b} label={b} on={draft.bankName === b} onPress={() => onChange({ bankName: b })} theme={theme} />
+              ))}
+              <Pill
+                label="Other"
+                on={bankIsOther}
+                onPress={() => onChange({ bankName: bankIsOther ? draft.bankName : OTHER })}
+                theme={theme}
+              />
+            </View>
+            {bankIsOther ? (
+              <TextField
+                value={draft.bankName === OTHER ? '' : draft.bankName}
+                onChangeText={(v) => onChange({ bankName: v === '' ? OTHER : v })}
+                placeholder="Type bank name"
+                autoCapitalize="words"
+              />
+            ) : null}
+          </>
         ) : null}
-      </View>
+      </Field>
 
-      {/* Date */}
-      <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Date</Text>
-        <Pressable onPress={() => setPickerOpen(true)} style={[styles.dateRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <DualDate iso={draft.date} inline size={14} />
-          <Icon name="calendar" size={16} color={theme.textSecondary} />
-        </Pressable>
-      </View>
+      {/* VAT bill — tri-state, matching the reference's Yes / No / N/A select. */}
+      <Field label="VAT bill">
+        <View style={styles.row8}>
+          {VAT_OPTIONS.map((o) => (
+            <Segment
+              key={o.id}
+              label={o.label}
+              on={draft.vatBill === o.value}
+              onPress={() => onChange({ vatBill: o.value })}
+              theme={theme}
+            />
+          ))}
+        </View>
+        <Text style={[styles.hint, { color: theme.textSecondary }]}>
+          {draft.vatBill === true
+            ? '13% input VAT is added on top and stays recoverable.'
+            : draft.vatBill === false
+              ? 'The supplier issued a bill, but not a VAT one.'
+              : 'No bill on file — nothing recoverable.'}
+        </Text>
+      </Field>
 
-      {/* Discount + VAT */}
+      {/* Line items */}
       <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Discount · NPR</Text>
-        <View style={[styles.amountRow, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-          <Text style={[styles.rupeeSign, { color: theme.textSecondary }]}>रु</Text>
-          <TextInput
-            value={draft.discountAmt}
-            onChangeText={(v) => onChange({ discountAmt: v })}
-            placeholder="0"
-            keyboardType="numeric"
-            placeholderTextColor={theme.textSecondary}
-            style={[styles.discountInput, { color: theme.textPrimary }]}
+        <View style={styles.lineHeader}>
+          <Text style={[styles.label, { color: theme.textSecondary }]}>Line items</Text>
+          <Pressable onPress={addLine} hitSlop={8} style={styles.addLineBtn}>
+            <Icon name="plus" size={13} color={theme.link} />
+            <Text style={[styles.addLineText, { color: theme.link }]}>Add line</Text>
+          </Pressable>
+        </View>
+
+        {lines.map((l, i) => (
+          <LineCard
+            key={l.key}
+            line={l}
+            index={i}
+            canRemove={lines.length > 1}
+            onPatch={patchLine}
+            onRemove={removeLine}
+            theme={theme}
           />
-        </View>
+        ))}
       </View>
 
-      <Pressable
-        onPress={() => onChange({ vatBill: !draft.vatBill })}
-        style={[styles.billRow, { backgroundColor: draft.vatBill ? theme.accentWash : theme.surfaceRaised, borderColor: draft.vatBill ? theme.accent : theme.border }]}
-      >
-        <View style={[styles.billIcon, { backgroundColor: theme.accentWash }]}>
-          <Icon name="file-text" size={18} color={theme.accentWashText} />
-        </View>
-        <View style={styles.billTextWrap}>
-          <Text style={[styles.billTitle, { color: theme.textPrimary }]}>{draft.vatBill ? 'VAT bill · 13% applied' : 'No VAT bill'}</Text>
-          <Text style={[styles.billHint, { color: theme.textSecondary }]}>
-            {draft.vatBill ? 'Tap to remove · input VAT recoverable' : 'Tap if the supplier issued a VAT bill'}
+      {/* Discount */}
+      <Field label="Discount · NPR">
+        <AmountInput value={draft.discountAmt} onChangeText={(v) => onChange({ discountAmt: v })} placeholder="0" theme={theme} />
+      </Field>
+
+      {/* Taxable override — only means anything on a VAT bill. */}
+      {draft.vatBill === true ? (
+        <Field label="Taxable amount · NPR">
+          <AmountInput
+            value={draft.taxableAmt}
+            onChangeText={(v) => onChange({ taxableAmt: v })}
+            placeholder={String(totals.net)}
+            theme={theme}
+          />
+          <Text style={[styles.hint, { color: theme.textSecondary }]}>
+            Leave blank to charge VAT on the whole net amount. Set it when the bill splits taxable from non-taxable lines.
           </Text>
-        </View>
-      </Pressable>
+        </Field>
+      ) : null}
 
       {/* Status */}
-      <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Status</Text>
-        <View style={styles.statusRow}>
+      <Field label="Status">
+        <View style={styles.row8}>
           {STATUS_OPTIONS.map((id) => {
             const s = STATUS[id];
             const on = draft.status === id;
@@ -259,45 +247,246 @@ export function AddSheet({ visible, draft, onClose, onChange, onSave, onDelete }
             );
           })}
         </View>
-      </View>
+      </Field>
 
       {/* Totals */}
       <View style={[styles.totalsCard, { backgroundColor: theme.surfaceRaised, borderColor: theme.border }]}>
         <TotalRow label="Subtotal" value={totals.subtotal} theme={theme} />
         {totals.discount > 0 ? <TotalRow label="Discount" value={-totals.discount} theme={theme} /> : null}
-        <TotalRow label="Taxable" value={totals.taxable} theme={theme} />
-        {draft.vatBill ? <TotalRow label="VAT · 13%" value={totals.vat} theme={theme} /> : null}
+        <TotalRow label="Net amount" value={totals.net} theme={theme} />
+        {draft.vatBill === true && totals.taxable !== totals.net ? (
+          <TotalRow label="Taxable" value={totals.taxable} theme={theme} />
+        ) : null}
+        {draft.vatBill === true ? <TotalRow label="VAT · 13%" value={totals.vat} theme={theme} /> : null}
         <View style={[styles.grandRow, { borderTopColor: theme.border }]}>
           <Text style={[styles.grandLabel, { color: theme.textPrimary }]}>Grand total</Text>
           <Money npr={totals.grandTotal} size={16} align="right" />
         </View>
       </View>
 
-      <Pressable onPress={onSave} disabled={!ready} style={[styles.saveButton, { backgroundColor: ready ? theme.accent : theme.draftWash }]}>
+      <Pressable
+        onPress={onSave}
+        disabled={!ready}
+        style={[styles.saveButton, { backgroundColor: ready ? theme.accent : theme.draftWash }]}
+      >
         <Text style={[styles.saveLabel, tabularNums, { color: ready ? theme.accentText : theme.draftWashText }]}>
-          {ready ? `${editing ? 'Save changes' : 'Post'} · रु ${totals.grandTotal.toLocaleString('en-IN')}` : 'Add a party and a line item'}
+          {ready
+            ? `${editing ? 'Save changes' : 'Post'} · रु ${Math.round(totals.grandTotal).toLocaleString('en-IN')}`
+            : 'Add a party and a line item'}
         </Text>
       </Pressable>
 
       {editing && onDelete ? <Button label="Delete purchase" variant="dangerOutline" onPress={onDelete} /> : null}
-
-      <NepaliDatePicker
-        visible={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        value={draft.date}
-        onChange={(iso) => onChange({ date: iso })}
-        title="Purchase date"
-      />
     </BottomSheet>
   );
 }
 
-function TotalRow({ label, value, theme }: { label: string; value: number; theme: ReturnType<typeof useTheme> }) {
+/**
+ * One particular. Memoised on the line itself, so typing in one row doesn't
+ * re-render every other row's `TextInput` underneath the keyboard.
+ */
+const LineCard = memo(function LineCard({
+  line,
+  index,
+  canRemove,
+  onPatch,
+  onRemove,
+  theme,
+}: {
+  line: PurchaseDraftLine;
+  index: number;
+  canRemove: boolean;
+  onPatch: (index: number, patch: Partial<PurchaseDraftLine>) => void;
+  onRemove: (index: number) => void;
+  theme: Theme;
+}) {
+  const unitIsOther = line.unit !== '' && !PURCHASE_UNITS.includes(line.unit as (typeof PURCHASE_UNITS)[number]);
+
+  return (
+    <View style={[styles.lineCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View style={styles.lineTopRow}>
+        <TextInput
+          value={line.particulars}
+          onChangeText={(v) => onPatch(index, { particulars: v })}
+          placeholder="Particulars"
+          placeholderTextColor={theme.textSecondary}
+          style={[styles.lineParticulars, { color: theme.textPrimary }]}
+        />
+        {canRemove ? (
+          <Pressable onPress={() => onRemove(index)} hitSlop={10}>
+            <Icon name="x" size={15} color={theme.textSecondary} />
+          </Pressable>
+        ) : null}
+      </View>
+
+      <View style={styles.lineNumRow}>
+        <NumCell label="Qty" value={line.quantity} onChangeText={(v) => onPatch(index, { quantity: v })} theme={theme} />
+        <NumCell label="Rate" value={line.rate} onChangeText={(v) => onPatch(index, { rate: v })} theme={theme} />
+        {/* Independently editable: a lump-sum line has no qty × rate behind it. */}
+        <NumCell label="Amount" value={line.amount} onChangeText={(v) => onPatch(index, { amount: v })} theme={theme} emphasis />
+      </View>
+
+      <View style={styles.wrapRowTight}>
+        {PURCHASE_UNITS.map((u) => {
+          const on = line.unit === u;
+          return (
+            <Pressable
+              key={u}
+              onPress={() => onPatch(index, { unit: u })}
+              style={[
+                styles.unitChip,
+                {
+                  backgroundColor: on ? theme.surfaceInverted : 'transparent',
+                  borderColor: on ? theme.surfaceInverted : theme.border,
+                },
+              ]}
+            >
+              <Text style={[styles.unitText, { color: on ? theme.onDark.text : theme.textSecondary }]}>{u}</Text>
+            </Pressable>
+          );
+        })}
+        <Pressable
+          onPress={() => onPatch(index, { unit: unitIsOther ? line.unit : OTHER })}
+          style={[
+            styles.unitChip,
+            {
+              backgroundColor: unitIsOther ? theme.surfaceInverted : 'transparent',
+              borderColor: unitIsOther ? theme.surfaceInverted : theme.border,
+            },
+          ]}
+        >
+          <Text style={[styles.unitText, { color: unitIsOther ? theme.onDark.text : theme.textSecondary }]}>other</Text>
+        </Pressable>
+      </View>
+
+      {unitIsOther ? (
+        <TextInput
+          value={line.unit === OTHER ? '' : line.unit}
+          onChangeText={(v) => onPatch(index, { unit: v === '' ? OTHER : v })}
+          placeholder="Type a unit"
+          placeholderTextColor={theme.textSecondary}
+          style={[styles.otherUnitInput, { color: theme.textPrimary, borderColor: theme.border }]}
+        />
+      ) : null}
+    </View>
+  );
+});
+
+function NumCell({
+  label,
+  value,
+  onChangeText,
+  theme,
+  emphasis = false,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (v: string) => void;
+  theme: Theme;
+  emphasis?: boolean;
+}) {
+  return (
+    <View style={styles.numCell}>
+      <Text style={[styles.numLabel, { color: theme.textSecondary }]}>{label}</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder="0"
+        keyboardType="decimal-pad"
+        placeholderTextColor={theme.textSecondary}
+        style={[
+          styles.numInput,
+          tabularNums,
+          { color: theme.textPrimary, borderColor: theme.border, fontWeight: emphasis ? '700' : '500' },
+        ]}
+      />
+    </View>
+  );
+}
+
+function AmountInput({
+  value,
+  onChangeText,
+  placeholder,
+  theme,
+}: {
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder: string;
+  theme: Theme;
+}) {
+  return (
+    <View style={[styles.amountRow, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+      <Text style={[styles.rupeeSign, { color: theme.textSecondary }]}>रु</Text>
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        keyboardType="decimal-pad"
+        placeholderTextColor={theme.textSecondary}
+        style={[styles.discountInput, { color: theme.textPrimary }]}
+      />
+    </View>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.group}>
+      <Text style={[styles.label, { color: theme.textSecondary }]}>{label}</Text>
+      {children}
+    </View>
+  );
+}
+
+function Chip({ label, on, onPress, theme }: { label: string; on: boolean; onPress: () => void; theme: Theme }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.chip,
+        { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border },
+      ]}
+    >
+      <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function Pill({ label, on, onPress, theme }: { label: string; on: boolean; onPress: () => void; theme: Theme }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.pill, { backgroundColor: on ? theme.accentWash : theme.surface, borderColor: on ? theme.accent : theme.border }]}
+    >
+      <Text style={[styles.pillLabel, { color: on ? theme.accentWashText : theme.textPrimary }]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+function Segment({ label, on, onPress, theme }: { label: string; on: boolean; onPress: () => void; theme: Theme }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[
+        styles.segment,
+        { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border },
+      ]}
+    >
+      <Text style={[styles.segmentLabel, { color: on ? theme.onDark.text : theme.textPrimary }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+function TotalRow({ label, value, theme }: { label: string; value: number; theme: Theme }) {
   return (
     <View style={styles.totalRow}>
       <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>{label}</Text>
       <Text style={[styles.totalValue, tabularNums, { color: theme.textPrimary }]}>
-        {value < 0 ? '−' : ''}रु {Math.abs(value).toLocaleString('en-IN')}
+        {value < 0 ? '−' : ''}रु {Math.abs(Math.round(value)).toLocaleString('en-IN')}
       </Text>
     </View>
   );
@@ -306,37 +495,35 @@ function TotalRow({ label, value, theme }: { label: string; value: number; theme
 const styles = StyleSheet.create({
   group: { gap: 8 },
   label: { fontFamily: fontFamily.mono, fontSize: 10, letterSpacing: 0.11 * 10, textTransform: 'uppercase' },
+  hint: { fontSize: 11.5, lineHeight: 11.5 * 1.4 },
   chipRow: { gap: 7, paddingVertical: 1 },
   chip: { height: 40, paddingHorizontal: 13, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   chipLabel: { fontFamily: fontFamily.semibold, fontSize: 13 },
   wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  wrapRowTight: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  row8: { flexDirection: 'row', gap: 8 },
   pill: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
   pillLabel: { fontFamily: fontFamily.semibold, fontSize: 12.5 },
+  segment: { flex: 1, height: 44, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  segmentLabel: { fontFamily: fontFamily.semibold, fontSize: 13 },
   lineHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   addLineBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   addLineText: { fontFamily: fontFamily.semibold, fontSize: 12.5 },
   lineCard: { borderRadius: 14, borderWidth: 1, padding: 12, gap: 10 },
   lineTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   lineParticulars: { flex: 1, fontSize: 14.5, fontWeight: '600', padding: 0 },
-  lineBottomRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  lineNum: { width: 62, height: 40, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, fontSize: 14, textAlign: 'center' },
-  unitRow: { flex: 1, flexDirection: 'row', gap: 4, justifyContent: 'center' },
-  unitChip: { paddingHorizontal: 8, height: 28, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  lineNumRow: { flexDirection: 'row', gap: 8 },
+  numCell: { flex: 1, gap: 4 },
+  numLabel: { fontFamily: fontFamily.mono, fontSize: 9, letterSpacing: 0.1 * 9, textTransform: 'uppercase' },
+  numInput: { height: 42, borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, fontSize: 14, textAlign: 'center' },
+  unitChip: { paddingHorizontal: 8, height: 26, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   unitText: { fontFamily: fontFamily.mono, fontSize: 10.5 },
-  lineAmount: { fontFamily: fontFamily.mono, fontSize: 11, textAlign: 'right' },
-  methodRow: { flexDirection: 'row', gap: 8 },
-  methodButton: { flex: 1, height: 50, borderRadius: 13, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  methodLabel: { fontFamily: fontFamily.semibold, fontSize: 14 },
-  dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 52, paddingHorizontal: 16, borderRadius: radii.lg - 2, borderWidth: 1 },
+  otherUnitInput: { height: 38, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, fontSize: 13 },
+  methodButton: { flex: 1, height: 50, borderRadius: 13, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  methodLabel: { fontFamily: fontFamily.semibold, fontSize: 13.5 },
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 52, paddingHorizontal: 16, borderRadius: radii.lg - 2, borderWidth: 1 },
   rupeeSign: { fontFamily: fontFamily.mono, fontSize: 14 },
   discountInput: { flex: 1, fontSize: 18, fontWeight: '600', padding: 0 },
-  billRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, borderWidth: 1.5, padding: 15 },
-  billIcon: { width: 40, height: 40, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  billTextWrap: { flex: 1, gap: 3, minWidth: 0 },
-  billTitle: { fontSize: 13.5, fontWeight: '600' },
-  billHint: { fontSize: 11.5, lineHeight: 11.5 * 1.4 },
-  statusRow: { flexDirection: 'row', gap: 8 },
   statusButton: { flex: 1, height: 44, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   statusLabel: { fontFamily: fontFamily.semibold, fontSize: 13 },
   totalsCard: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 8 },

@@ -38,13 +38,14 @@ import {
   useUndoOrderCosts,
   useUndoVatBills,
   useUpdateAccountOpening,
+  useUpdateBankTransaction,
   useUpdateExpense,
   useUpdateJournalEntry,
   useUpsertOrderCosts,
   useVatBills,
 } from '@/data/finance/hooks';
-import { accountLedger, accountSummaries } from '@/data/finance/ledger';
-import { BANK_ACCOUNTS, CASH_ACCOUNT, LAST_MONTH_UNITS_PASSED, LEDGER, YEARS } from '@/data/finance/mock';
+import { accountLedger, accountSummaries, type LedgerRow } from '@/data/finance/ledger';
+import { BANK_ACCOUNTS, CASH_ACCOUNT, LAST_MONTH_UNITS_PASSED, LEDGER, YEARS, expenseCategory } from '@/data/finance/mock';
 import { autoLabourRate, buildOrderPnl, summariseOrderPnl, type OrderPnlRow } from '@/data/finance/order-pnl';
 import { buildBalanceSheet, buildProfitAndLoss } from '@/data/finance/pnl';
 import { fmt, lakh } from '@/data/finance/utils';
@@ -64,6 +65,7 @@ import { FinanceHeader } from './header';
 import { JournalSheet, isAdvanceAccount, type JournalDraft } from './journal-sheet';
 import { JournalView } from './journal-view';
 import { KpiStrip } from './kpi-strip';
+import { LedgerEntrySheet, type LedgerDraft } from './ledger-entry-sheet';
 import { LedgerView, type LedgerFilter, type LedgerViewMonth } from './ledger-view';
 import { OpeningBalanceSheet } from './opening-balance-sheet';
 import { OrderCostsSheet, type OrderCostsDraft } from './order-costs-sheet';
@@ -83,10 +85,10 @@ type OpeningSheet = { open: boolean; account: string; current: number };
 const today = () => new Date().toISOString().slice(0, 10);
 
 function emptyExpenseDraft(): ExpenseDraft {
-  return { amount: '', categoryId: 'power', note: '', source: 'Bank', date: today(), hasReceipt: false };
+  return { amount: '', categoryId: 'utilities', note: '', source: 'Bank', date: today(), hasReceipt: false };
 }
 function emptyBillDraft(expenseId = ''): VatBillDraft {
-  return { expenseId, fileName: '', kind: 'image' };
+  return { expenseId, fileName: '', kind: 'image', date: today() };
 }
 function emptyJournalDraft(): JournalDraft {
   return { id: null, date: today(), amount: '', debitAccount: '', creditAccount: '', description: '', reference: '', partyName: '' };
@@ -170,6 +172,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   const undoJournal = useUndoJournalEntries();
   const updateOpening = useUpdateAccountOpening();
   const addBankTx = useAddBankTransaction();
+  const updateBankTx = useUpdateBankTransaction();
   const deleteBankTx = useDeleteBankTransaction();
   const undoBankTx = useUndoBankTransactions();
   const upsertOrderCosts = useUpsertOrderCosts();
@@ -190,9 +193,12 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   const [billDraft, setBillDraft] = useState<VatBillDraft>(emptyBillDraft());
   const [vatFocusExpenseId, setVatFocusExpenseId] = useState<string | null>(null);
   const [purchasesAddNonce, setPurchasesAddNonce] = useState(0);
+  const [purchasesSearch, setPurchasesSearch] = useState({ term: '', nonce: 0 });
   const [journalSheetOpen, setJournalSheetOpen] = useState(false);
   const [journalDraft, setJournalDraft] = useState<JournalDraft>(emptyJournalDraft());
   const [openingSheet, setOpeningSheet] = useState<OpeningSheet>({ open: false, account: '', current: 0 });
+  const [ledgerAccount, setLedgerAccount] = useState('all');
+  const [ledgerDraft, setLedgerDraft] = useState<LedgerDraft | null>(null);
   const [bankSheetOpen, setBankSheetOpen] = useState(false);
   const [bankDraft, setBankDraft] = useState<BankTxDraft>(emptyBankDraft());
   const [oplFilter, setOplFilter] = useState<OrderPnlFilter>('all');
@@ -372,6 +378,11 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
     })
     .filter((m) => m.rows.length > 0);
 
+  const ledgerAccountFilters = [
+    { id: 'all', label: 'All', count: cashBankLedgers.reduce((n, l) => n + l.rows.length, 0) },
+    ...cashBankLedgers.map((l) => ({ id: l.account, label: l.account.replace('Bank - ', ''), count: l.rows.length })),
+  ];
+
   // ---- Expense actions ----
   const openAdd = () => {
     setDraft(emptyExpenseDraft());
@@ -386,7 +397,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
     }
     const category: ExpenseCategoryId = draft.categoryId;
     const before = expenses;
-    const name = draft.note.trim() || `${category} expense`;
+    const name = draft.note.trim() || `${expenseCategory(category).label} expense`;
     const entry: Expense = {
       id: `n${Date.now()}`,
       category,
@@ -447,7 +458,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
       fileName: billDraft.fileName.trim(),
       kind: billDraft.kind,
       uploadedBy: loggedBy,
-      date: today(),
+      date: billDraft.date,
     };
     addVatBill.mutate(bill);
     setVatSheet({ mode: null, bill: null });
@@ -528,6 +539,49 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
       tone: 'ok',
       action: { label: 'Undo', onPress: () => undoJournal.mutate(before) },
     });
+  };
+
+  // ---- Cash/Bank ledger row actions ----
+  // The reference edits a bank / journal row in place and sends purchase rows
+  // off to the Purchases page; expense rows are mobile's own extra source and
+  // edit the same two fields.
+  const openLedgerRow = (account: string, row: LedgerRow) => {
+    if (!canEdit || !row.link) return;
+    if (row.link.kind === 'purchase') {
+      setPurchasesSearch((p) => ({ term: row.ref, nonce: p.nonce + 1 }));
+      setTab('purchases');
+      toast.show({ message: `${row.ref} — tap it in Purchases to edit`, tone: 'ok' });
+      return;
+    }
+    setLedgerDraft({
+      kind: row.link.kind,
+      id: row.link.id,
+      account,
+      date: row.date,
+      ref: row.ref,
+      side: row.dr ? 'dr' : 'cr',
+      particulars: row.particulars,
+      amount: String(row.dr || row.cr),
+    });
+  };
+
+  const saveLedgerRow = () => {
+    if (!ledgerDraft) return;
+    const amount = parseInt(ledgerDraft.amount.replace(/[^0-9]/g, ''), 10) || 0;
+    const particulars = ledgerDraft.particulars.trim();
+    if (amount <= 0 || !particulars) {
+      toast.show({ message: 'Particulars and an amount are required', tone: 'bad' });
+      return;
+    }
+    if (ledgerDraft.kind === 'bank') {
+      updateBankTx.mutate({ id: ledgerDraft.id, updates: { description: particulars, amountNPR: amount } });
+    } else if (ledgerDraft.kind === 'journal') {
+      updateJournal.mutate({ id: ledgerDraft.id, updates: { description: particulars, amountNPR: amount } });
+    } else {
+      updateExpense.mutate({ id: ledgerDraft.id, updates: { name: particulars, note: particulars, amountNPR: amount } });
+    }
+    setLedgerDraft(null);
+    toast.show({ message: `${particulars} updated`, tone: 'ok' });
   };
 
   const saveOpening = (value: number) => {
@@ -745,7 +799,11 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
             ledgers={cashBankLedgers}
             summaries={summaries}
             canEdit={canEdit}
+            filters={ledgerAccountFilters}
+            activeFilter={ledgerAccount}
+            onFilterChange={setLedgerAccount}
             onEditOpening={(account, current) => setOpeningSheet({ open: true, account, current })}
+            onOpenRow={openLedgerRow}
           />
         ) : tab === 'bank' ? (
           <BankView transactions={bankTransactions} canEdit={canEdit} onDelete={removeBankTx} />
@@ -765,7 +823,14 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
             onOpenCosts={openOplCosts}
           />
         ) : (
-          <PurchasesPane showSummary={false} showFab={false} addNonce={purchasesAddNonce} />
+          <PurchasesPane
+            showSummary={false}
+            showFab={false}
+            inset={false}
+            addNonce={purchasesAddNonce}
+            searchSeed={purchasesSearch.term}
+            searchNonce={purchasesSearch.nonce}
+          />
         )}
       </ScrollView>
 
@@ -785,6 +850,15 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
         onChange={(patch) => setJournalDraft((d) => ({ ...d, ...patch }))}
         onSave={handleSaveJournal}
         onDelete={journalDraft.id ? removeJournal : undefined}
+      />
+
+      <LedgerEntrySheet
+        visible={ledgerDraft !== null}
+        draft={ledgerDraft}
+        canEdit={canEdit}
+        onChange={(patch) => setLedgerDraft((d) => (d ? { ...d, ...patch } : d))}
+        onClose={() => setLedgerDraft(null)}
+        onSave={saveLedgerRow}
       />
 
       <OpeningBalanceSheet

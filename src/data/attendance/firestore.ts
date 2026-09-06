@@ -16,11 +16,10 @@
  *   - `month` tallies aggregate ALL of a staffer's records (live data is sparse)
  */
 
-import { collection, getDocs } from '@/lib/supabase/firestore-compat';
+import { collection, getDocs , getDb } from '@/lib/supabase/firestore-compat';
 
 import type { AvatarTint } from '@/components/ui/avatar';
 import { num, str, tsToISO } from '@/lib/firestore/normalise';
-import { getDb } from '@/lib/supabase/firestore-compat';
 
 import { findEmployee, readEmployees } from './live-shared';
 

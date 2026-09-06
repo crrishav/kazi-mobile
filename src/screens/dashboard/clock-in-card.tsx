@@ -25,11 +25,15 @@ export function DashboardClockInCard() {
 
   const [elapsed, setElapsed] = useState(0);
 
-  useEffect(() => {
-    // Re-seed from the server on first load and on any session change (a
-    // clock-out made on another device / the web, or a fresh clock-in).
+  // Re-seed from the server on first load and on any session change (a
+  // clock-out made on another device / the web, or a fresh clock-in). Done
+  // during render, not from an effect, so the ticker never shows a stale second.
+  const session = `${clockStatus?.clockedIn}|${clockStatus?.inTime}|${clockStatus?.outTime}`;
+  const [seededFrom, setSeededFrom] = useState(session);
+  if (seededFrom !== session) {
+    setSeededFrom(session);
     if (clockStatus) setElapsed(clockStatus.elapsedSeconds);
-  }, [clockStatus?.clockedIn, clockStatus?.inTime, clockStatus?.outTime]);
+  }
 
   useEffect(() => {
     if (!clockStatus?.clockedIn) return;

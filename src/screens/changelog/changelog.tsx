@@ -24,7 +24,7 @@ export function Changelog() {
   const [filter, setFilter] = useState<FilterKey>('All');
   const [openSha, setOpenSha] = useState<string | null>(null);
 
-  const commits = feed?.commits ?? [];
+  const commits = useMemo(() => feed?.commits ?? [], [feed]);
   const filters = useMemo(() => buildFilters(commits), [commits]);
   const visible = filter === 'All' ? commits : commits.filter((c) => c.type === filter);
   const days = useMemo(() => groupByDay(visible), [visible]);

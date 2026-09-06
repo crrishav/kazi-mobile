@@ -235,6 +235,19 @@ export function useAddBankTransaction() {
   });
 }
 
+export function useUpdateBankTransaction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<BankTransaction> }) => api.updateBankTransaction(id, updates),
+    onMutate: async ({ id, updates }) => {
+      await queryClient.cancelQueries({ queryKey: financeKeys.bankTransactions() });
+      queryClient.setQueryData<BankTransaction[]>(financeKeys.bankTransactions(), (old) =>
+        (old ?? []).map((t) => (t.id === id ? { ...t, ...updates } : t)),
+      );
+    },
+  });
+}
+
 export function useDeleteBankTransaction() {
   const queryClient = useQueryClient();
   return useMutation({

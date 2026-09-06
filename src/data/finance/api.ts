@@ -62,6 +62,11 @@ export const restoreJournalEntries = liveWrite(
 );
 
 export const addBankTransaction = liveWrite('finance/addBankTransaction', writeLive.addBankTransaction, mock.addBankTransaction);
+export const updateBankTransaction = liveWrite(
+  'finance/updateBankTransaction',
+  writeLive.updateBankTransaction,
+  mock.updateBankTransaction,
+);
 export const deleteBankTransaction = liveWrite(
   'finance/deleteBankTransaction',
   writeLive.deleteBankTransaction,

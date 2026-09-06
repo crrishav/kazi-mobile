@@ -116,6 +116,11 @@ export async function addBankTransaction(tx: BankTransaction): Promise<void> {
   bankTxDb = [tx, ...bankTxDb];
 }
 
+export async function updateBankTransaction(id: string, updates: Partial<BankTransaction>): Promise<void> {
+  await simulateLatency(250);
+  bankTxDb = bankTxDb.map((t) => (t.id === id ? { ...t, ...updates } : t));
+}
+
 export async function deleteBankTransaction(id: string): Promise<void> {
   await simulateLatency(250);
   bankTxDb = bankTxDb.filter((t) => t.id !== id);

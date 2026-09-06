@@ -28,6 +28,7 @@ export interface ModuleEntry {
 export const MORE_MODULES: ModuleEntry[] = [
   { id: 'sales', label: 'Sales', route: '/sales', icon: 'trending-up', blurb: 'Pipeline overview' },
   { id: 'order-management', label: 'Production', route: '/order-management', icon: 'tool', blurb: 'Order pipeline, stages, priority' },
+  { id: 'inventory', label: 'Inventory', route: '/inventory', icon: 'package', blurb: 'Stock levels, movements, library' },
   { id: 'customers', label: 'Customers', route: '/customers', icon: 'users', blurb: 'Accounts and contacts' },
   { id: 'billing', label: 'Billing', route: '/billing', icon: 'file-text', blurb: 'Invoices, challans, payments' },
   { id: 'finance', label: 'Finance', route: '/finance', icon: 'dollar-sign', blurb: 'Expenses, purchases, ledger, P&L' },

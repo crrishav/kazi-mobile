@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
@@ -18,9 +18,14 @@ export function OpeningBalanceSheet({ visible, accountName, current, onClose, on
   const theme = useTheme();
   const [value, setValue] = useState(String(current));
 
-  useEffect(() => {
+  // Re-seed the field each time the sheet opens, and if the stored balance
+  // moves underneath it. Done during render so it never paints the old figure.
+  const seed = `${visible}:${current}`;
+  const [seededFrom, setSeededFrom] = useState(seed);
+  if (seededFrom !== seed) {
+    setSeededFrom(seed);
     if (visible) setValue(String(current));
-  }, [visible, current]);
+  }
 
   const num = parseInt(value.replace(/[^0-9]/g, ''), 10) || 0;
 

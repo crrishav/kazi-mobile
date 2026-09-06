@@ -1,11 +1,8 @@
-import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
-import { DualDate } from '@/components/ui/dual-date';
-import { Icon } from '@/components/ui/icon';
-import { NepaliDatePicker } from '@/components/ui/nepali-date-picker';
+import { DateField } from '@/components/ui/date-field';
 import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii } from '@/theme';
@@ -33,7 +30,6 @@ export interface BankTxSheetProps {
 
 export function BankTxSheet({ visible, draft, onClose, onChange, onSave }: BankTxSheetProps) {
   const theme = useTheme();
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   const amount = parseInt(draft.amount.replace(/[^0-9]/g, ''), 10) || 0;
   const bankName = draft.bankChoice === 'Other' ? draft.otherBank.trim() : draft.bankChoice;
@@ -123,17 +119,9 @@ export function BankTxSheet({ visible, draft, onClose, onChange, onSave }: BankT
 
       <TextField label="Reference" value={draft.reference} onChangeText={(v) => onChange({ reference: v })} placeholder="Transaction / cheque no." />
 
-      <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Date</Text>
-        <Pressable onPress={() => setPickerOpen(true)} style={[styles.dateRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <DualDate iso={draft.date} inline size={14} />
-          <Icon name="calendar" size={16} color={theme.textSecondary} />
-        </Pressable>
-      </View>
+      <DateField label="Date" value={draft.date} onChange={(iso) => onChange({ date: iso })} pickerTitle="Transaction date" />
 
       <Button label={ready ? `Log रु ${amount.toLocaleString('en-IN')}` : 'Fill in bank, amount & description'} onPress={onSave} disabled={!ready} />
-
-      <NepaliDatePicker visible={pickerOpen} onClose={() => setPickerOpen(false)} value={draft.date} onChange={(iso) => onChange({ date: iso })} title="Transaction date" />
     </BottomSheet>
   );
 }

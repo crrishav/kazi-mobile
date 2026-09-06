@@ -1,7 +1,31 @@
-export type ExpenseCategoryId = 'power' | 'wages' | 'freight' | 'rent' | 'repairs' | 'admin';
+/**
+ * The reference `EXPENSE_CATEGORIES` (Finance.jsx) verbatim, as slugs. The
+ * live `finance_expenses.category` is free text holding the *label*, so
+ * `CATEGORIES` in `mock.ts` carries the exact string each id reads and writes.
+ */
+export const EXPENSE_CATEGORY_IDS = [
+  'utilities',
+  'rent-lease',
+  'salaries',
+  'office-supplies',
+  'transport',
+  'meals',
+  'marketing',
+  'professional-fees',
+  'equipment',
+  'maintenance',
+  'raw-materials',
+  'consumables',
+  'software',
+  'miscellaneous',
+  'other',
+] as const;
+
+export type ExpenseCategoryId = (typeof EXPENSE_CATEGORY_IDS)[number];
 
 export interface ExpenseCategory {
   id: ExpenseCategoryId;
+  /** The live/reference category string, e.g. `Meals & Entertainment`. */
   label: string;
   tag: string;
   bg: string;

@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { collection, getDocs } from '@/lib/supabase/firestore-compat';
+import { collection, getDocs , getDb } from '@/lib/supabase/firestore-compat';
 
 import { ROLES, type Role } from '@/auth/roles';
 import { TEAM_MEMBERS } from '@/auth/team-members';
-import { getDb } from '@/lib/supabase/firestore-compat';
 import { isSupabaseConfigured as isFirebaseConfigured } from '@/lib/supabase';
 import { str } from '@/lib/firestore/normalise';
 

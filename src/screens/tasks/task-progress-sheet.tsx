@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Avatar, tintFromSeed } from '@/components/ui/avatar';
@@ -29,10 +29,14 @@ export function TaskProgressSheet({ visible, task, saving = false, onClose, onSa
   const [status, setStatus] = useState<TaskStatus>('progress');
 
   // Reopening on another task (or after someone else moved this one) starts
-  // from what the server currently says.
-  useEffect(() => {
+  // from what the server currently says — re-seeded during render so the first
+  // paint already shows the right step.
+  const serverStatus = `${task?.id}|${task?.status}`;
+  const [seededFrom, setSeededFrom] = useState(serverStatus);
+  if (seededFrom !== serverStatus) {
+    setSeededFrom(serverStatus);
     if (task) setStatus(task.status);
-  }, [task?.id, task?.status]);
+  }
 
   const due = task ? DUE_OPTIONS.find((d) => d.id === task.due) : undefined;
   const dirty = !!task && status !== task.status;

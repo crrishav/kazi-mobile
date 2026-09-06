@@ -8,9 +8,8 @@
  * read-modify-write.
  */
 
-import { doc, getDoc } from '@/lib/supabase/firestore-compat';
+import { doc, getDoc , getDb } from '@/lib/supabase/firestore-compat';
 
-import { getDb } from '@/lib/supabase/firestore-compat';
 import { num } from '@/lib/firestore/normalise';
 import { createDocument, patchDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';

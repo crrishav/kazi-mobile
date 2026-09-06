@@ -21,7 +21,7 @@ export function ForgotForm({ email, onEmailChange, loading, onSubmit, onBack }: 
       <View style={styles.heading}>
         <Text style={[styles.title, { color: theme.textPrimary }]}>Reset your password</Text>
         <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-          We'll email a reset link. It expires in 30 minutes.
+          We&apos;ll email a reset link. It expires in 30 minutes.
         </Text>
       </View>
       <TextField label="Work email" value={email} onChangeText={onEmailChange} placeholder="sita@kazi.com.np" keyboardType="email-address" />

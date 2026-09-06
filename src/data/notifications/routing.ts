@@ -40,7 +40,6 @@ const VIEW = (section: SectionId): Predicate => (m) => sectionVisible(asProfile(
 const EDIT = (section: SectionId): Predicate => (m) => sectionCanEdit(asProfile(m), section);
 const APPROVER: Predicate = (m) => m.role === 'uk_admin' || m.role === 'super_admin';
 const LOC = (loc: 'nepal' | 'uk'): Predicate => (m) => m.location === loc;
-const EVERYONE: Predicate = () => true;
 
 /** Roster member matches `payload[field]` by name or email. */
 const ID = (field: string): Predicate => (m, ev) => samePerson(m, (ev.payload as Record<string, unknown>)?.[field] as string);
@@ -60,7 +59,6 @@ const IN_LIST = (field: string): Predicate => (m, ev) => {
 };
 
 const and = (...ps: Predicate[]): Predicate => (m, ev, r) => ps.every((p) => p(m, ev, r));
-const or = (...ps: Predicate[]): Predicate => (m, ev, r) => ps.some((p) => p(m, ev, r));
 
 // ---- the matrix -------------------------------------------------------------
 

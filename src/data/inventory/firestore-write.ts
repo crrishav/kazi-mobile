@@ -14,9 +14,8 @@
  * `stock_movements` too.
  */
 
-import { collection, doc, getDoc, getDocs, query, where } from '@/lib/supabase/firestore-compat';
+import { collection, doc, getDoc, getDocs, query, where , getDb } from '@/lib/supabase/firestore-compat';
 
-import { getDb } from '@/lib/supabase/firestore-compat';
 import { num } from '@/lib/firestore/normalise';
 import { createDocument, patchDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';

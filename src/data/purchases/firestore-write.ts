@@ -16,9 +16,13 @@ function toLive(e: Partial<PurchaseEntry>): Record<string, unknown> {
   if (e.expenseId !== undefined) out.expenseId = e.expenseId;
   if (e.party !== undefined) out.expenseItem = e.party;
   if (e.category !== undefined) out.category = e.category;
-  if (e.paymentType !== undefined) out.paymentType = e.paymentType === 'Bank' ? 'Bank' : 'CASH';
-  if (e.bankName !== undefined) out.bankName = e.bankName;
+  if (e.paymentType !== undefined) out.paymentType = e.paymentType === 'Cash' ? 'CASH' : e.paymentType;
+  // Only a Bank purchase carries a bank; clearing it back to null is the point
+  // of writing `?? null` rather than skipping the field.
+  if (e.bankName !== undefined) out.bankName = e.bankName ?? null;
+  if (e.region !== undefined) out.region = e.region || null;
   if (e.date !== undefined) out.date = e.date;
+  // Tri-state: true / false / null ("N/A") all mean something in this column.
   if (e.vatBill !== undefined) out.vatBill = e.vatBill;
   if (e.discountAmt !== undefined) out.discountAmt = e.discountAmt;
   if (e.taxableAmt !== undefined) out.taxableAmt = e.taxableAmt;

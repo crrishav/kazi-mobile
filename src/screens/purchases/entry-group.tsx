@@ -1,14 +1,13 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
-import { DualDate } from '@/components/ui/dual-date';
 import { Icon } from '@/components/ui/icon';
 import { Money } from '@/components/ui/money';
 import { StatusPill, type StatusKind } from '@/components/ui/status-pill';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import { STATUS } from '@/data/purchases/mock';
-import type { PurchaseEntry, PurchaseGroup, PurchaseStatus } from '@/data/purchases/types';
+import type { PurchaseEntry, PurchaseStatus } from '@/data/purchases/types';
 
 const PILL_KIND: Record<PurchaseStatus, StatusKind> = {
   paid: 'on-track',
@@ -21,11 +20,10 @@ export interface EntryGroupProps {
   total: number;
   hasUnpaid: boolean;
   entries: PurchaseEntry[];
-  group: PurchaseGroup;
   onOpen: (id: string) => void;
 }
 
-export function EntryGroup({ title, total, hasUnpaid, entries, group, onOpen }: EntryGroupProps) {
+export function EntryGroup({ title, total, hasUnpaid, entries, onOpen }: EntryGroupProps) {
   const theme = useTheme();
 
   return (
@@ -43,6 +41,7 @@ export function EntryGroup({ title, total, hasUnpaid, entries, group, onOpen }: 
       {entries.map((e, i) => {
         const status = STATUS[e.status];
         const isCash = e.paymentType === 'Cash';
+        const methodIcon = e.paymentType === 'Cash' ? 'credit-card' : e.paymentType === 'Credit' ? 'clock' : 'home';
         const lead = e.items[0]?.particulars ?? e.category;
         const more = e.items.length > 1 ? ` +${e.items.length - 1}` : '';
         return (
@@ -52,13 +51,13 @@ export function EntryGroup({ title, total, hasUnpaid, entries, group, onOpen }: 
               style={[styles.row, { backgroundColor: theme.surface, boxShadow: theme.shadows.card, borderLeftColor: status.dot }]}
             >
               <View style={[styles.methodIcon, { backgroundColor: isCash ? theme.draftWash : theme.accentWash }]}>
-                <Icon name={isCash ? 'credit-card' : 'home'} size={17} color={isCash ? theme.textSecondary : theme.accentDeep} />
+                <Icon name={methodIcon} size={17} color={isCash ? theme.textSecondary : theme.accentDeep} />
               </View>
               <View style={styles.textWrap}>
                 <View style={styles.topLine}>
                   <View style={styles.itemTextWrap}>
                     <Text style={[styles.itemName, { color: theme.textPrimary }]} numberOfLines={1}>
-                      {group === 'date' ? e.party : e.expenseId}
+                      {e.party}
                     </Text>
                     <Text style={[styles.itemSub, tabularNums, { color: theme.textSecondary }]} numberOfLines={1}>
                       {lead}
@@ -76,11 +75,7 @@ export function EntryGroup({ title, total, hasUnpaid, entries, group, onOpen }: 
                     </Text>
                   </View>
                   <View style={styles.flex1} />
-                  {group === 'date' ? (
-                    <Text style={[styles.tail, tabularNums, { color: theme.textSecondary }]}>{e.expenseId}</Text>
-                  ) : (
-                    <DualDate iso={e.date} inline size={10} bsStyle="numeric" secondary={false} />
-                  )}
+                  <Text style={[styles.tail, tabularNums, { color: theme.textSecondary }]}>{e.expenseId}</Text>
                 </View>
               </View>
             </Pressable>

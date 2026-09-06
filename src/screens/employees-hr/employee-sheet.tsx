@@ -45,7 +45,6 @@ export interface EmployeeSheetProps {
   onDiscard: () => void;
   onViewSlip: () => void;
   /** Edit mode only (item 28). */
-  onCreateLogin?: () => void;
   onDelete?: () => void;
 }
 
@@ -158,7 +157,6 @@ export function EmployeeSheet({
   changeCount,
   onDiscard,
   onViewSlip,
-  onCreateLogin,
   onDelete,
 }: EmployeeSheetProps) {
   const theme = useTheme();
@@ -492,12 +490,6 @@ export function EmployeeSheet({
             <Icon name="file-text" size={16} color={theme.textPrimary} />
             <Text style={[styles.actionLabel, { color: theme.textPrimary }]}>View latest salary slip</Text>
           </Pressable>
-          {onCreateLogin ? (
-            <Pressable onPress={onCreateLogin} style={[styles.actionButton, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-              <Icon name="key" size={16} color={theme.textPrimary} />
-              <Text style={[styles.actionLabel, { color: theme.textPrimary }]}>Create app login</Text>
-            </Pressable>
-          ) : null}
           {onDelete ? (
             <Pressable
               onPress={handleDelete}

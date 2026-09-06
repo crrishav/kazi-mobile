@@ -20,7 +20,6 @@ export interface DirectoryViewProps {
   onFilterChange: (id: string) => void;
   people: PersonRowModel[];
   onOpenPerson: (id: number) => void;
-  onAdd: () => void;
 }
 
 export function DirectoryView({
@@ -35,7 +34,6 @@ export function DirectoryView({
   onFilterChange,
   people,
   onOpenPerson,
-  onAdd,
 }: DirectoryViewProps) {
   const theme = useTheme();
 
@@ -100,11 +98,6 @@ export function DirectoryView({
       {people.length === 0 ? (
         <EmptyState icon="users" title="No one matches that" message="Try a department chip, or add the person as a new record." />
       ) : null}
-
-      <Pressable onPress={onAdd} style={[styles.addButton, { borderColor: theme.border }]}>
-        <Icon name="plus" size={16} color={theme.accentDeep} />
-        <Text style={[styles.addLabel, { color: theme.accentDeep }]}>Add employee</Text>
-      </Pressable>
     </View>
   );
 }
@@ -134,6 +127,4 @@ const styles = StyleSheet.create({
 
   peopleGroup: { gap: 8 },
 
-  addButton: { height: 50, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
-  addLabel: { fontFamily: fontFamily.semibold, fontSize: 14.5 },
 });

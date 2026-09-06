@@ -14,6 +14,8 @@
 import { bool, dedupeByName, num, str, tsToISO } from '@/lib/firestore/normalise';
 import { readCollection, type DocData } from '@/lib/supabase/read';
 
+import { CATEGORIES } from './mock';
+
 import type {
   Account,
   AccountType,
@@ -25,15 +27,35 @@ import type {
 
 // --- Expenses ---
 
-/** Free-text live `category` → the mobile 6-bucket set. */
+const CATEGORY_BY_LABEL = new Map(CATEGORIES.map((c) => [c.label.toLowerCase(), c.id]));
+
+/**
+ * Free-text live `category` → one of the 15 reference categories. Rows the web
+ * app wrote carry a label verbatim; older rows (and the ones mobile wrote under
+ * its former 6-bucket set) carry anything at all, so the patterns catch the
+ * shapes actually seen live — `Equipment / IT`, `Setup / Security`,
+ * `Furniture & Fixtures`, `Machinery / Assets`, `Miscellaneous / Events`.
+ */
 function mapExpenseCategory(raw: unknown): ExpenseCategoryId {
   const s = str(raw).trim().toLowerCase();
-  if (/(util|power|electric|water|internet|phone|recharge)/.test(s)) return 'power';
-  if (/(wage|salary|payroll|staff|welfare)/.test(s)) return 'wages';
-  if (/(transport|freight|deliver|shipping|logistic|fuel)/.test(s)) return 'freight';
-  if (/(rent|lease)/.test(s)) return 'rent';
-  if (/(repair|maintenance|service|machine)/.test(s)) return 'repairs';
-  return 'admin';
+  const exact = CATEGORY_BY_LABEL.get(s);
+  if (exact) return exact;
+  if (/(util|power|electric|water|internet|phone|recharge)/.test(s)) return 'utilities';
+  if (/(rent|lease)/.test(s)) return 'rent-lease';
+  if (/(salar|wage|payroll|staff|welfare)/.test(s)) return 'salaries';
+  if (/(software|subscription|saas|licen)/.test(s)) return 'software';
+  if (/(office|stationer)/.test(s)) return 'office-supplies';
+  if (/(transport|freight|deliver|shipping|logistic|fuel|travel)/.test(s)) return 'transport';
+  // Before `meals`, so the live `Miscellaneous / Events` follows its lead word.
+  if (/misc/.test(s)) return 'miscellaneous';
+  if (/(meal|food|entertain|refreshment|snack|event)/.test(s)) return 'meals';
+  if (/(market|advert|promo|branding)/.test(s)) return 'marketing';
+  if (/(professional|legal|lawyer|audit|consult)/.test(s)) return 'professional-fees';
+  if (/(raw material|fabric|yarn|trim)/.test(s)) return 'raw-materials';
+  if (/consumable/.test(s)) return 'consumables';
+  if (/(repair|maintenance|service|wiring)/.test(s)) return 'maintenance';
+  if (/(equipment|machin|furnitur|fixture|asset|setup|install)/.test(s)) return 'equipment';
+  return 'other';
 }
 
 function mapExpenseDoc(id: string, d: DocData): Expense | null {

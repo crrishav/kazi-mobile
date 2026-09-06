@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
@@ -10,37 +10,41 @@ import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import { useAdjustStock, useStock } from '@/data/inventory/hooks';
 import { useAddEntry, useDeleteEntry, useEntries, useRestoreEntries, useUpdateEntry } from '@/data/purchases/hooks';
-import { buildEntry, draftFromEntry } from '@/data/purchases/utils';
-import type { PurchaseDraft, PurchaseEntry, PurchaseFilter, PurchaseGroup } from '@/data/purchases/types';
+import { buildEntry, draftFromEntry, emptyDraft } from '@/data/purchases/utils';
+import type { PurchaseDraft, PurchaseEntry, PurchaseFilter } from '@/data/purchases/types';
 
-import { AddSheet, emptyLine } from './add-sheet';
+import { AddSheet } from './add-sheet';
 import { EntryGroup } from './entry-group';
 import { ListSummary } from './list-summary';
-import { PurchaseDetailSheet } from './purchase-detail-sheet';
 
 export interface PurchasesPaneProps {
   showSummary?: boolean;
   showFab?: boolean;
   /** Bumping this from a parent opens the "add purchase" sheet. */
   addNonce?: number;
+  /**
+   * Prefills the search box — Finance's Ledger tab sends a purchase row here
+   * by its `EXP…` id, the way the reference's `goToLedgerSource` does.
+   * `searchNonce` must change for a repeat of the same term to take.
+   */
+  searchSeed?: string;
+  searchNonce?: number;
+  /**
+   * Whether the pane supplies its own 20px side gutter. Finance's Purchases
+   * tab renders it inside a ScrollView that is already padded, so it passes
+   * `false` — otherwise the list sits inset twice as far as every other tab.
+   */
+  inset?: boolean;
 }
 
-function emptyDraft(): PurchaseDraft {
-  return {
-    id: null,
-    party: '',
-    category: 'Raw Materials',
-    paymentType: 'Cash',
-    bankName: '',
-    date: new Date().toISOString().slice(0, 10),
-    vatBill: false,
-    discountAmt: '',
-    status: 'paid',
-    lines: [emptyLine()],
-  };
-}
-
-export function PurchasesPane({ showSummary = true, showFab = true, addNonce = 0 }: PurchasesPaneProps) {
+export function PurchasesPane({
+  showSummary = true,
+  showFab = true,
+  addNonce = 0,
+  searchSeed = '',
+  searchNonce = 0,
+  inset = true,
+}: PurchasesPaneProps) {
   const theme = useTheme();
   const toast = useToast();
   const { profile, can } = useAuth();
@@ -55,22 +59,42 @@ export function PurchasesPane({ showSummary = true, showFab = true, addNonce = 0
   const restoreEntries = useRestoreEntries();
   const adjustStock = useAdjustStock();
 
-  const [group, setGroup] = useState<PurchaseGroup>('date');
   const [filter, setFilter] = useState<PurchaseFilter>('all');
   const [search, setSearch] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [draft, setDraft] = useState<PurchaseDraft>(emptyDraft());
-  const [detailId, setDetailId] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Each bump of the nonce is the header's "+" being pressed — open a blank
+  // draft. Handled during render so the sheet opens on the same frame.
+  const [handledNonce, setHandledNonce] = useState(addNonce);
+  if (handledNonce !== addNonce) {
+    setHandledNonce(addNonce);
     if (addNonce > 0) {
       setDraft(emptyDraft());
       setSheetOpen(true);
     }
-  }, [addNonce]);
+  }
 
-  const list = entries ?? [];
-  const detailEntry = list.find((e) => e.id === detailId) ?? null;
+  const [handledSearchNonce, setHandledSearchNonce] = useState(searchNonce);
+  if (handledSearchNonce !== searchNonce) {
+    setHandledSearchNonce(searchNonce);
+    if (searchNonce > 0) setSearch(searchSeed);
+  }
+
+  const list = useMemo(() => entries ?? [], [entries]);
+
+  /** The parties already on file, most-used first — the sheet's quick picks. */
+  const parties = useMemo(() => {
+    const counts = new Map<string, number>();
+    list.forEach((e) => {
+      const name = e.party.trim();
+      if (name && name !== 'Unnamed party') counts.set(name, (counts.get(name) ?? 0) + 1);
+    });
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([name]) => name);
+  }, [list]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -94,26 +118,27 @@ export function PurchasesPane({ showSummary = true, showFab = true, addNonce = 0
     { id: 'bank', label: 'Bank', count: list.filter((e) => e.paymentType === 'Bank').length },
   ];
 
+  // One bucket per purchase date, newest day first.
   const buckets: { key: string; title: string; entries: PurchaseEntry[] }[] = [];
   filtered.forEach((e) => {
-    const key = group === 'date' ? e.date : e.party;
-    let b = buckets.find((x) => x.key === key);
+    let b = buckets.find((x) => x.key === e.date);
     if (!b) {
-      b = { key, title: group === 'date' ? formatAD(e.date) : e.party, entries: [] };
+      b = { key: e.date, title: formatAD(e.date), entries: [] };
       buckets.push(b);
     }
     b.entries.push(e);
   });
-  if (group === 'date') buckets.sort((a, b) => (a.key < b.key ? 1 : -1));
-  else buckets.sort((a, b) => b.entries.reduce((n, e) => n + e.amountNPR, 0) - a.entries.reduce((n, e) => n + e.amountNPR, 0));
+  buckets.sort((a, b) => (a.key < b.key ? 1 : -1));
 
   const openAdd = () => {
     setDraft(emptyDraft());
     setSheetOpen(true);
   };
 
-  const openEdit = (entry: PurchaseEntry) => {
-    setDetailId(null);
+  /** Tapping a row goes straight into the editor — the reference edits in place too. */
+  const openEdit = (id: string) => {
+    const entry = list.find((e) => e.id === id);
+    if (!entry) return;
     setDraft(draftFromEntry(entry));
     setSheetOpen(true);
   };
@@ -135,7 +160,7 @@ export function PurchasesPane({ showSummary = true, showFab = true, addNonce = 0
     const editing = draft.id !== null;
     const before = list;
     const entry = buildEntry(draft, list, loggedBy);
-    if (entry.items.length === 0 || !entry.party) {
+    if (entry.items.length === 0 || !draft.party.trim()) {
       toast.show({ message: 'Add a party and at least one line item', tone: 'bad' });
       return;
     }
@@ -150,16 +175,9 @@ export function PurchasesPane({ showSummary = true, showFab = true, addNonce = 0
     });
   };
 
-  const markPaid = (entry: PurchaseEntry) => {
-    updateEntry.mutate({ id: entry.id, updates: { status: 'paid' } });
-    setDetailId(null);
-    toast.show({ message: `${entry.expenseId} marked paid`, tone: 'ok' });
-  };
-
   const removeEntry = (entry: PurchaseEntry) => {
     const before = list;
     deleteEntry.mutate(entry.id);
-    setDetailId(null);
     toast.show({
       message: `${entry.expenseId} deleted`,
       tone: 'ok',
@@ -173,17 +191,16 @@ export function PurchasesPane({ showSummary = true, showFab = true, addNonce = 0
         monthTotal={monthTotal}
         unpaidTotal={unpaidTotal}
         cashShare={`${monthTotal ? Math.round((cashTotal / monthTotal) * 100) : 0}%`}
-        group={group}
-        onGroupChange={setGroup}
         filters={filters}
         activeFilter={filter}
         onFilterChange={setFilter}
         search={search}
         onSearchChange={setSearch}
         showSummary={showSummary}
+        inset={inset}
       />
 
-      <View style={styles.list}>
+      <View style={[styles.list, inset && styles.listInset]}>
         {buckets.length === 0 ? (
           <EmptyState icon="shopping-bag" title="No purchases here" message={`Clear the filter to see all ${list.length} entries.`} />
         ) : (
@@ -194,8 +211,7 @@ export function PurchasesPane({ showSummary = true, showFab = true, addNonce = 0
               total={b.entries.reduce((n, e) => n + e.amountNPR, 0)}
               hasUnpaid={b.entries.some((e) => e.status !== 'paid')}
               entries={b.entries}
-              group={group}
-              onOpen={setDetailId}
+              onOpen={openEdit}
             />
           ))
         )}
@@ -211,22 +227,13 @@ export function PurchasesPane({ showSummary = true, showFab = true, addNonce = 0
         </Pressable>
       ) : null}
 
-      <PurchaseDetailSheet
-        visible={detailId !== null}
-        entry={detailEntry}
-        canEdit={canEdit}
-        onClose={() => setDetailId(null)}
-        onEdit={() => detailEntry && openEdit(detailEntry)}
-        onMarkPaid={() => detailEntry && markPaid(detailEntry)}
-        onDelete={() => detailEntry && removeEntry(detailEntry)}
-      />
-
       <AddSheet
         visible={sheetOpen}
         draft={draft}
         onClose={() => setSheetOpen(false)}
         onChange={(patch) => setDraft((d) => ({ ...d, ...patch }))}
         onSave={handleSave}
+        parties={parties}
         onDelete={
           draft.id
             ? () => {
@@ -245,7 +252,8 @@ export function PurchasesPane({ showSummary = true, showFab = true, addNonce = 0
 
 const styles = StyleSheet.create({
   wrap: { gap: 4 },
-  list: { paddingHorizontal: 20, paddingTop: 4, gap: 16 },
+  list: { paddingTop: 4, gap: 16 },
+  listInset: { paddingHorizontal: 20 },
   fab: {
     position: 'absolute',
     right: 20,

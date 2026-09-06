@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { CATEGORIES, MARGINS } from '@/data/finance/mock';
+import { MARGINS, expenseCategory } from '@/data/finance/mock';
 import { lakh, rupees } from '@/data/finance/utils';
 import type { Expense } from '@/data/finance/types';
 
@@ -94,7 +94,7 @@ export function Overview({ expenses, onBrowseYears }: OverviewProps) {
       </View>
 
       {expenses.map((e) => {
-        const cat = CATEGORIES.find((c) => c.id === e.category) ?? CATEGORIES[5];
+        const cat = expenseCategory(e.category);
         return (
           <View key={e.id} style={[styles.expenseRow, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }]}>
             <View style={[styles.expenseTag, { backgroundColor: cat.bg }]}>

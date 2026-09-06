@@ -139,7 +139,7 @@ export async function updateDoc(ref: DocRef, data: DocData): Promise<void> {
  */
 export function writeBatch(_db: unknown) {
   const pending = new Map<string, DocData[]>();
-  const updates: Array<[string, string, DocData]> = [];
+  const updates: [string, string, DocData][] = [];
   return {
     set(ref: DocRef, data: DocData) {
       const list = pending.get(ref.name) ?? [];

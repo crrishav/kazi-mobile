@@ -1,11 +1,12 @@
 /**
- * Live `finance_purchases` reader (Track B, read-only). Shared by the standalone
- * Purchases screen and Finance › Purchases tab. Writes stay on `mock-api.ts`.
+ * Live `finance_purchases` reader (Track B). Shared by the standalone
+ * Purchases screen and Finance › Purchases tab.
  *
  * Live shape (sampled 2026-08-30): { expenseId, expenseItem, category,
- *   paymentType ("CASH"/"Bank"), bankName?, vatBill, discountAmt?, taxableAmt?,
- *   subtotalNPR?, vatAmountNPR?, amountNPR, date, items[] ({particulars,
- *   quantity, unit, rate, amount}) — sometimes a JSON string, createdAt }
+ *   paymentType ("CASH"/"Bank"/"Credit"), bankName?, vatBill (nullable bool),
+ *   discountAmt?, taxableAmt?, subtotalNPR?, vatAmountNPR?, amountNPR, date,
+ *   region?, items[] ({particulars, quantity, unit, rate, amount}) — sometimes
+ *   a JSON string, createdAt }
  *
  * Gaps handled locally (see plan §Batch 1):
  *   - no `party`/supplier field → falls back to `expenseItem`
@@ -13,19 +14,29 @@
  *   - totals absent on a doc    → recomputed via `computeTotals`
  */
 
-import { bool, num, parseMaybeJson, str, tsToISO } from '@/lib/firestore/normalise';
+import { num, parseMaybeJson, str, tsToISO } from '@/lib/firestore/normalise';
 import { readCollection, type DocData } from '@/lib/supabase/read';
 
-import { PURCHASE_CATEGORIES, type PaymentType, type PurchaseCategory, type PurchaseEntry, type PurchaseLine } from './types';
-import { computeTotals } from './utils';
-
-function mapCategory(raw: unknown): PurchaseCategory {
-  const s = str(raw).trim().toLowerCase();
-  return PURCHASE_CATEGORIES.find((c) => c.toLowerCase() === s) ?? 'Other';
-}
+import type { PaymentType, PurchaseEntry, PurchaseLine, PurchaseRegion, VatBillState } from './types';
+import { computeTotals, lineAmount } from './utils';
 
 function mapPayment(raw: unknown): PaymentType {
-  return /bank/i.test(str(raw)) ? 'Bank' : 'Cash';
+  const s = str(raw);
+  if (/bank/i.test(s)) return 'Bank';
+  if (/credit/i.test(s)) return 'Credit';
+  return 'Cash';
+}
+
+/** `null` is the reference's "N/A" — a real third state, not a missing value. */
+function mapVatBill(raw: unknown): VatBillState {
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'string') return /^(true|yes|1)$/i.test(raw.trim());
+  return Boolean(raw);
+}
+
+function mapRegion(raw: unknown): PurchaseRegion {
+  const s = str(raw).trim().toLowerCase();
+  return s === 'uk' || s === 'nepal' ? s : '';
 }
 
 function mapLines(raw: unknown, fallbackItem: string, fallbackAmount: number): PurchaseLine[] {
@@ -33,14 +44,14 @@ function mapLines(raw: unknown, fallbackItem: string, fallbackAmount: number): P
   const rows: PurchaseLine[] = (Array.isArray(parsed) ? parsed : [])
     .map((e) => {
       const entry = (e ?? {}) as DocData;
-      const quantity = num(entry.quantity, 1);
+      const quantity = num(entry.quantity);
       const rate = num(entry.rate);
       return {
         particulars: str(entry.particulars ?? entry.item ?? entry.name).trim(),
         quantity,
         unit: str(entry.unit).trim() || 'pcs',
         rate,
-        amount: num(entry.amount) || Math.round(quantity * rate),
+        amount: num(entry.amount) || lineAmount(quantity, rate),
       };
     })
     .filter((l) => l.particulars);
@@ -55,33 +66,33 @@ function mapPurchaseDoc(id: string, d: DocData): PurchaseEntry | null {
   const expenseItem = str(d.expenseItem).trim();
   if (!amountNPR && !expenseItem) return null;
 
-  const vatBill = bool(d.vatBill);
+  const vatBill = mapVatBill(d.vatBill);
   const items = mapLines(d.items, expenseItem, amountNPR);
   const liveDiscount = num(d.discountAmt);
-  const computed = computeTotals(items, liveDiscount, vatBill);
-
-  const subtotalNPR = num(d.subtotalNPR) || computed.subtotal;
-  const discountAmt = liveDiscount || computed.discount;
-  const taxableAmt = num(d.taxableAmt) || subtotalNPR - discountAmt;
-  const vatAmountNPR = num(d.vatAmountNPR) || (vatBill ? Math.round((taxableAmt * 13) / 100) : 0);
+  // A live `taxableAmt` of 0 means "no override" — same as the reference.
+  const taxableAmt = num(d.taxableAmt);
+  const computed = computeTotals(items, liveDiscount, vatBill, taxableAmt);
 
   return {
     id,
     expenseId: str(d.expenseId).trim() || `EXP${id.slice(0, 3).toUpperCase()}`,
     party: expenseItem || 'Unnamed party',
-    category: mapCategory(d.category),
+    // Kept verbatim: the column holds strings outside `PURCHASE_CATEGORIES`,
+    // and folding them into "Other" would rewrite them on the next save.
+    category: str(d.category).trim() || 'Other',
     paymentType: mapPayment(d.paymentType),
     bankName: str(d.bankName).trim() || undefined,
     date: str(d.date).trim() || tsToISO(d.createdAt).slice(0, 10),
     vatBill,
-    discountAmt,
+    discountAmt: liveDiscount || computed.discount,
     taxableAmt,
-    subtotalNPR,
-    vatAmountNPR,
-    amountNPR: amountNPR || taxableAmt + vatAmountNPR,
+    subtotalNPR: num(d.subtotalNPR) || computed.subtotal,
+    vatAmountNPR: num(d.vatAmountNPR) || computed.vat,
+    amountNPR: amountNPR || computed.grandTotal,
     items,
     status: 'paid',
     loggedBy: str(d.loggedBy ?? d.createdBy).trim(),
+    region: mapRegion(d.region),
   };
 }
 

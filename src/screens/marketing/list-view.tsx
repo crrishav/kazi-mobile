@@ -4,7 +4,7 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { KINDS, KIND_ORDER, MONTHS_SHORT, PEOPLE, WEEKDAYS } from '@/data/marketing/mock';
+import { KINDS, KIND_ORDER, PEOPLE, WEEKDAYS } from '@/data/marketing/mock';
 import type { CalendarEntry, KindFilter, MonthCursor } from '@/data/marketing/types';
 
 export interface ListViewProps {

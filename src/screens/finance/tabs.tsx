@@ -24,7 +24,7 @@ export function FinanceTabs<T extends string>({ tabs, active, onChange }: Financ
   const theme = useTheme();
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.strip} contentContainerStyle={styles.row}>
       {tabs.map((t) => {
         const on = t.id === active;
         return (
@@ -49,7 +49,10 @@ export function FinanceTabs<T extends string>({ tabs, active, onChange }: Financ
 }
 
 const styles = StyleSheet.create({
-  row: { gap: 7, paddingHorizontal: 20, paddingBottom: 12 },
+  // Without this the strip is a flex sibling of the tab body's ScrollView and gets
+  // squeezed, clipping the bottom of the pills — size it to its content instead.
+  strip: { flexGrow: 0, flexShrink: 0 },
+  row: { alignItems: 'center', gap: 7, paddingHorizontal: 20, paddingBottom: 12 },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 14, borderRadius: 999, borderWidth: 1 },
   label: { fontFamily: fontFamily.semibold, fontSize: 12.5 },
   badge: { minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },

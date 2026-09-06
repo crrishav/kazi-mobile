@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
-import { DualDate } from '@/components/ui/dual-date';
+import { DateField } from '@/components/ui/date-field';
 import { Icon } from '@/components/ui/icon';
-import { NepaliDatePicker } from '@/components/ui/nepali-date-picker';
 import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii, tabularNums } from '@/theme';
@@ -146,7 +144,6 @@ export interface InvoiceSheetProps {
 
 export function InvoiceSheet({ visible, draft, nextNumber, onClose, onChange, onSave, onCancelInvoice }: InvoiceSheetProps) {
   const theme = useTheme();
-  const [datePicker, setDatePicker] = useState<'issued' | 'due' | null>(null);
 
   const editing = draft.id !== null;
   const cur = draft.cur;
@@ -230,20 +227,22 @@ export function InvoiceSheet({ visible, draft, nextNumber, onClose, onChange, on
 
       {/* Dates */}
       <View style={styles.dateRowWrap}>
-        <View style={styles.dateCol}>
-          <Text style={[styles.label, { color: theme.textSecondary }]}>Issued</Text>
-          <Pressable onPress={() => setDatePicker('issued')} style={[styles.dateRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <DualDate iso={draft.issuedISO} inline size={13} secondary={false} />
-            <Icon name="calendar" size={15} color={theme.textSecondary} />
-          </Pressable>
-        </View>
-        <View style={styles.dateCol}>
-          <Text style={[styles.label, { color: theme.textSecondary }]}>Due</Text>
-          <Pressable onPress={() => setDatePicker('due')} style={[styles.dateRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <DualDate iso={draft.dueISO} inline size={13} secondary={false} />
-            <Icon name="calendar" size={15} color={theme.textSecondary} />
-          </Pressable>
-        </View>
+        <DateField
+          label="Issued"
+          value={draft.issuedISO}
+          onChange={(iso) => onChange({ issuedISO: iso })}
+          pickerTitle="Issue date"
+          compact
+          style={styles.dateCol}
+        />
+        <DateField
+          label="Due"
+          value={draft.dueISO}
+          onChange={(iso) => onChange({ dueISO: iso })}
+          pickerTitle="Due date"
+          compact
+          style={styles.dateCol}
+        />
       </View>
 
       <TextField label="Payment terms" value={draft.paymentTerms} onChangeText={(v) => onChange({ paymentTerms: v })} placeholder="Net 30" compact />
@@ -460,13 +459,6 @@ export function InvoiceSheet({ visible, draft, nextNumber, onClose, onChange, on
         </Pressable>
       ) : null}
 
-      <NepaliDatePicker
-        visible={datePicker !== null}
-        onClose={() => setDatePicker(null)}
-        value={datePicker === 'due' ? draft.dueISO : draft.issuedISO}
-        onChange={(iso) => onChange(datePicker === 'due' ? { dueISO: iso } : { issuedISO: iso })}
-        title={datePicker === 'due' ? 'Due date' : 'Issue date'}
-      />
     </BottomSheet>
   );
 }

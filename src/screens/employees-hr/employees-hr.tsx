@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { tintFromSeed } from '@/components/ui/avatar';
 import { HeaderAccount } from '@/components/ui/header-account';
+import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
+import { fontFamily } from '@/theme';
 import {
   useAddEmployee,
   useApprovals,
@@ -302,6 +304,8 @@ export function EmployeesHR() {
     });
   };
 
+  const showDirectory = view === 'directory' || !canViewPayroll;
+
   const openSlip = (id: number) => setSlipId(id);
   const closeSlip = () => setSlipId(null);
 
@@ -322,18 +326,6 @@ export function EmployeesHR() {
     } finally {
       setSharingSlip(false);
     }
-  };
-
-  // Not wired yet. The reference app (kazi-app `createEmployeeLogin`) signs the
-  // person up with a throwaway password, links `people.auth_uid`, then sends a
-  // set-your-password email. Mobile has no signup client, so this only says so
-  // rather than pretending an invite went out.
-  const handleCreateLogin = () => {
-    const p = employees.find((e) => e.id === draft.id);
-    toast.show({
-      message: `Not wired up yet — invite ${p?.name ?? 'this employee'} from the web app for now`,
-      tone: 'bad',
-    });
   };
 
   const handleDeleteEmployee = () => {
@@ -404,7 +396,7 @@ export function EmployeesHR() {
 
       <ScrollView contentContainerStyle={styles.content}>
         <PermissionNotice section="employees-hr" />
-        {view === 'directory' || !canViewPayroll ? (
+        {showDirectory ? (
           <DirectoryView
             activeCount={active.length}
             netPayrollTotal={npr(netTotal)}
@@ -417,7 +409,6 @@ export function EmployeesHR() {
             onFilterChange={setFilter}
             people={list.map((p) => ({ id: p.id, name: p.name, role: p.role, code: p.code, initials: p.avatarInitials, tint: p.avatarTint, active: p.active }))}
             onOpenPerson={openEdit}
-            onAdd={openAdd}
           />
         ) : (
           <PayrollView
@@ -443,6 +434,16 @@ export function EmployeesHR() {
         )}
       </ScrollView>
 
+      {showDirectory && canEdit ? (
+        <Pressable
+          onPress={openAdd}
+          style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}
+        >
+          <Icon name="plus" size={18} color={theme.onDark.accent} />
+          <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>Add employee</Text>
+        </Pressable>
+      ) : null}
+
       <EmployeeSheet
         visible={sheet !== null}
         mode={sheet}
@@ -459,7 +460,6 @@ export function EmployeesHR() {
         changeCount={changes.length}
         onDiscard={discardDraft}
         onViewSlip={() => draft.id && openSlip(draft.id)}
-        onCreateLogin={sheet === 'edit' ? handleCreateLogin : undefined}
         onDelete={sheet === 'edit' ? handleDeleteEmployee : undefined}
       />
 
@@ -479,4 +479,17 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, paddingTop: 4, paddingBottom: 110, gap: 16 },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    height: 52,
+    paddingLeft: 17,
+    paddingRight: 20,
+    borderRadius: 17,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  fabLabel: { fontFamily: fontFamily.semibold, fontSize: 14.5 },
 });

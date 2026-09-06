@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
@@ -79,23 +79,32 @@ export function MemberSheet({ visible, member, canEdit, onClose, onExport }: Mem
   const saveStatus = useSaveDayStatus();
   const saveSchedule = useSaveSchedule();
 
-  // Each time the sheet opens it starts fresh on today, whoever it's for.
-  useEffect(() => {
-    if (!visible) return;
-    const now = nepalToday();
-    setMonthISO(now.slice(0, 7));
-    setSelectedDate(now);
-  }, [visible, member?.staffId]);
+  // Each time the sheet opens it starts fresh on today, whoever it's for. The
+  // re-seed happens during render rather than in an effect so the first paint
+  // is already on the right day instead of flashing the previous staffer's.
+  const openedFor = visible ? `open:${member?.staffId ?? ''}` : 'closed';
+  const [seededFor, setSeededFor] = useState(openedFor);
+  if (seededFor !== openedFor) {
+    setSeededFor(openedFor);
+    if (visible) {
+      const now = nepalToday();
+      setMonthISO(now.slice(0, 7));
+      setSelectedDate(now);
+    }
+  }
 
   const day = report?.days.find((d) => d.date === selectedDate) ?? null;
 
   // --- status draft -------------------------------------------------------
   const [draftStatus, setDraftStatus] = useState<AttendanceStatus | null>(null);
   const [draftCut, setDraftCut] = useState(false);
-  useEffect(() => {
+  const dayKey = `${day?.date}|${day?.status}|${day?.lateCutApplied}`;
+  const [seededDay, setSeededDay] = useState(dayKey);
+  if (seededDay !== dayKey) {
+    setSeededDay(dayKey);
     setDraftStatus(day?.status ?? null);
     setDraftCut(day?.lateCutApplied ?? false);
-  }, [day?.date, day?.status, day?.lateCutApplied]);
+  }
 
   const statusDirty = day != null && (draftStatus !== day.status || draftCut !== day.lateCutApplied);
 
@@ -103,12 +112,18 @@ export function MemberSheet({ visible, member, canEdit, onClose, onExport }: Mem
   const [start, setStart] = useState('09:00');
   const [end, setEnd] = useState('17:00');
   const [workingDays, setWorkingDays] = useState<string[]>([]);
-  useEffect(() => {
-    if (!report) return;
-    setStart(report.schedule.start);
-    setEnd(report.schedule.end);
-    setWorkingDays(report.schedule.workingDays);
-  }, [report?.schedule.start, report?.schedule.end, report?.schedule.workingDays, report]);
+  // Keyed on the schedule's values, not on the report object: a refetch that
+  // returns the same schedule must not throw away what's being typed.
+  const scheduleKey = report ? `${report.schedule.start}|${report.schedule.end}|${report.schedule.workingDays.join()}` : '';
+  const [seededSchedule, setSeededSchedule] = useState(scheduleKey);
+  if (seededSchedule !== scheduleKey) {
+    setSeededSchedule(scheduleKey);
+    if (report) {
+      setStart(report.schedule.start);
+      setEnd(report.schedule.end);
+      setWorkingDays(report.schedule.workingDays);
+    }
+  }
 
   const timesValid = TIME_PATTERN.test(start) && TIME_PATTERN.test(end);
   const scheduleDirty =
@@ -311,7 +326,7 @@ export function MemberSheet({ visible, member, canEdit, onClose, onExport }: Mem
                 })}
               </View>
               <Text style={[styles.hint, { color: theme.textSecondary }]}>
-                Unselected days are weekly offs — they're excluded from working days and rostered hours.
+                Unselected days are weekly offs — they&apos;re excluded from working days and rostered hours.
               </Text>
 
               <Button

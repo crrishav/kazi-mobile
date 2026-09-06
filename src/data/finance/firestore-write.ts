@@ -11,7 +11,9 @@
 import { createDocument, patchDocument, removeDocument } from '@/lib/supabase/write';
 import { getActor } from '@/data/notifications/actor';
 
-import type { BankTransaction, Expense, ExpenseCategoryId, JournalEntry } from './types';
+import { expenseCategory } from './mock';
+
+import type { BankTransaction, Expense, JournalEntry } from './types';
 
 const EXPENSES = 'finance_expenses';
 const JOURNAL = 'journal_entries';
@@ -19,18 +21,10 @@ const BANK = 'bank_transactions';
 
 // ---- Expenses ----
 
-const EXPENSE_CATEGORY_TO_LIVE: Record<ExpenseCategoryId, string> = {
-  power: 'Power / Utilities',
-  wages: 'Wages',
-  freight: 'Freight',
-  rent: 'Rent',
-  repairs: 'Repairs',
-  admin: 'Admin',
-};
-
 function expenseToLive(e: Partial<Expense>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  if (e.category !== undefined) out.category = EXPENSE_CATEGORY_TO_LIVE[e.category];
+  // The live column is free text holding the reference's own category string.
+  if (e.category !== undefined) out.category = expenseCategory(e.category).label;
   if (e.amountNPR !== undefined) out.amountNPR = e.amountNPR;
   if (e.date !== undefined) out.date = e.date;
   if (e.note !== undefined || e.name !== undefined) out.note = e.note || e.name || '';
@@ -99,6 +93,11 @@ function bankToLive(t: Partial<BankTransaction>): Record<string, unknown> {
 
 export async function addBankTransaction(tx: BankTransaction): Promise<void> {
   await createDocument(BANK, bankToLive(tx));
+}
+
+export async function updateBankTransaction(id: string, updates: Partial<BankTransaction>): Promise<void> {
+  const fields = bankToLive(updates);
+  if (Object.keys(fields).length > 0) await patchDocument(BANK, id, fields);
 }
 
 export async function deleteBankTransaction(id: string): Promise<void> {

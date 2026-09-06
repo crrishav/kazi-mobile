@@ -6,8 +6,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Money } from '@/components/ui/money';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { CATEGORIES } from '@/data/finance/mock';
-import type { Expense, ExpenseStatus } from '@/data/finance/types';
+import { expenseCategory } from '@/data/finance/mock';
+import type { Expense } from '@/data/finance/types';
 
 export type ExpensesFilter = 'all' | 'unpaid' | 'has-vat' | 'no-vat';
 
@@ -82,7 +82,7 @@ export function ExpensesView({
         <EmptyState icon="shopping-bag" title="Nothing here" message="Clear the filter to see every expense this month." />
       ) : (
         rows.map((e, i) => {
-          const cat = CATEGORIES.find((c) => c.id === e.category) ?? CATEGORIES[5];
+          const cat = expenseCategory(e.category);
           const paid = e.status === 'Paid';
           return (
             <Animated.View key={e.id} entering={FadeInUp.delay(Math.min(i, 6) * 25).duration(200)}>

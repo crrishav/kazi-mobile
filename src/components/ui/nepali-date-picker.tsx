@@ -1,12 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { BS_MONTHS_EN, bsFromAD, bsToAD, formatAD, type BSParts } from '@/lib/nepaliDate';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 
+import { setCalendarPreference, useCalendarPreference, type DateCalendar } from './calendar-preference';
 import { BottomSheet } from './bottom-sheet';
 import { Button } from './button';
+
+export type { DateCalendar };
 
 export interface NepaliDatePickerProps {
   visible: boolean;
@@ -16,9 +19,34 @@ export interface NepaliDatePickerProps {
   /** Called with the chosen AD ISO string when the user confirms. */
   onChange: (adISO: string) => void;
   title?: string;
-  /** BS years offered around the current selection. Default 4 back / 1 forward. */
+  /** Years offered around the date the picker opened on. Default 4 back / 1 forward. */
   yearsBack?: number;
   yearsForward?: number;
+}
+
+const AD_MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+const pad = (n: number) => String(n).padStart(2, '0');
+
+interface ADParts {
+  year: number;
+  /** 1-indexed, matching `BSParts`. */
+  month: number;
+  date: number;
+}
+
+function adFromISO(iso: string): ADParts {
+  const [year, month, date] = iso.split('-').map(Number);
+  return { year, month, date };
+}
+function adToISO(p: ADParts): string {
+  return `${p.year}-${pad(p.month)}-${pad(p.date)}`;
+}
+
+/** Day 0 of the next month is the last day of this one. */
+function daysInADMonth(year: number, month: number): number {
+  return new Date(year, month, 0).getDate();
 }
 
 function daysInBSMonth(year: number, month: number): number {
@@ -29,7 +57,18 @@ function daysInBSMonth(year: number, month: number): number {
   return Math.round((next.getTime() - start.getTime()) / 86_400_000);
 }
 
-/** BS date picker (year / month / day) — mirrors the reference `DualDateInput` picker; emits an AD ISO string. */
+function yearsAround(year: number, back: number, forward: number): number[] {
+  const out: number[] = [];
+  for (let y = year - back; y <= year + forward; y++) out.push(y);
+  return out;
+}
+
+/**
+ * Date picker with a Bikram Sambat / Gregorian switch — the reference
+ * `DualDateInput` lets every date field be entered in either calendar, with the
+ * stored value staying an AD ISO string either way. The chosen calendar sticks
+ * for the session, so someone who works in AD isn't re-switching on every sheet.
+ */
 export function NepaliDatePicker({
   visible,
   onClose,
@@ -40,27 +79,44 @@ export function NepaliDatePicker({
   yearsForward = 1,
 }: NepaliDatePickerProps) {
   const theme = useTheme();
-  const initial = useMemo<BSParts>(() => bsFromAD(value || new Date().toISOString().slice(0, 10)), [value]);
-  const [draft, setDraft] = useState<BSParts>(initial);
+  // The switch writes straight to the session preference, so flipping it here
+  // also flips every `DateField` chip in the app — one calendar, everywhere.
+  const calendar = useCalendarPreference();
+  const setCalendar = setCalendarPreference;
+  const [iso, setIso] = useState(() => value || todayISO());
+  /** The date the picker opened on — the year columns stay anchored to it. */
+  const [anchor, setAnchor] = useState(iso);
+  const [wasVisible, setWasVisible] = useState(visible);
 
-  const years = useMemo(() => {
-    const out: number[] = [];
-    for (let y = initial.year - yearsBack; y <= initial.year + yearsForward; y++) out.push(y);
-    return out;
-  }, [initial.year, yearsBack, yearsForward]);
+  // The sheets that own this picker stay mounted, so the draft is re-seeded on
+  // each open — otherwise a second open still shows the first open's pick.
+  // Adjusted during render rather than from an effect (see `BottomSheet`).
+  if (visible !== wasVisible) {
+    setWasVisible(visible);
+    if (visible) {
+      const opened = value || todayISO();
+      setIso(opened);
+      setAnchor(opened);
+    }
+  }
 
-  const maxDay = daysInBSMonth(draft.year, draft.month);
-  const days = useMemo(() => Array.from({ length: maxDay }, (_, i) => i + 1), [maxDay]);
+  const bs = bsFromAD(iso);
+  const ad = adFromISO(iso);
 
-  const setPart = (patch: Partial<BSParts>) => {
-    setDraft((d) => {
-      const merged = { ...d, ...patch };
-      const cap = daysInBSMonth(merged.year, merged.month);
-      return { ...merged, date: Math.min(merged.date, cap) };
-    });
+  const bsYears = yearsAround(bsFromAD(anchor).year, yearsBack, yearsForward);
+  const adYears = yearsAround(adFromISO(anchor).year, yearsBack, yearsForward);
+
+  const setBS = (patch: Partial<BSParts>) => {
+    const merged = { ...bs, ...patch };
+    setIso(bsToAD({ ...merged, date: Math.min(merged.date, daysInBSMonth(merged.year, merged.month)) }));
+  };
+  const setAD = (patch: Partial<ADParts>) => {
+    const merged = { ...ad, ...patch };
+    setIso(adToISO({ ...merged, date: Math.min(merged.date, daysInADMonth(merged.year, merged.month)) }));
   };
 
-  const resultISO = bsToAD(draft);
+  const bsDays = Array.from({ length: daysInBSMonth(bs.year, bs.month) }, (_, i) => i + 1);
+  const adDays = Array.from({ length: daysInADMonth(ad.year, ad.month) }, (_, i) => i + 1);
 
   const column = (
     items: (number | string)[],
@@ -94,34 +150,61 @@ export function NepaliDatePicker({
   );
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={title} maxHeight={560}>
+    <BottomSheet visible={visible} onClose={onClose} title={title} maxHeight={600}>
+      <View style={styles.calendarRow}>
+        {([
+          { id: 'bs' as const, label: 'Nepali · BS' },
+          { id: 'ad' as const, label: 'English · AD' },
+        ]).map((c) => {
+          const on = calendar === c.id;
+          return (
+            <Pressable
+              key={c.id}
+              onPress={() => setCalendar(c.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+              style={[
+                styles.calendarButton,
+                { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border },
+              ]}
+            >
+              <Text style={[styles.calendarLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{c.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
       <View style={styles.columns}>
-        {column(years, (y) => y === draft.year, (i) => setPart({ year: years[i] }), 'Year', 1)}
-        {column(
-          BS_MONTHS_EN.map((m) => m),
-          (_, i) => i + 1 === draft.month,
-          (i) => setPart({ month: i + 1 }),
-          'Month',
-          1.4,
+        {calendar === 'bs' ? (
+          <>
+            {column(bsYears, (y) => y === bs.year, (i) => setBS({ year: bsYears[i] }), 'Year', 1)}
+            {column(BS_MONTHS_EN.map((m) => m), (_, i) => i + 1 === bs.month, (i) => setBS({ month: i + 1 }), 'Month', 1.4)}
+            {column(bsDays, (d) => d === bs.date, (i) => setBS({ date: bsDays[i] }), 'Day', 0.8)}
+          </>
+        ) : (
+          <>
+            {column(adYears, (y) => y === ad.year, (i) => setAD({ year: adYears[i] }), 'Year', 1)}
+            {column(AD_MONTHS_EN, (_, i) => i + 1 === ad.month, (i) => setAD({ month: i + 1 }), 'Month', 1.4)}
+            {column(adDays, (d) => d === ad.date, (i) => setAD({ date: adDays[i] }), 'Day', 0.8)}
+          </>
         )}
-        {column(days, (d) => d === draft.date, (i) => setPart({ date: days[i] }), 'Day', 0.8)}
       </View>
 
       <View style={[styles.preview, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Text style={[styles.previewBS, { color: theme.textPrimary }]}>
-          {draft.date} {BS_MONTHS_EN[draft.month - 1]} {draft.year}
+          {bs.date} {BS_MONTHS_EN[bs.month - 1]} {bs.year}
         </Text>
-        <Text style={[styles.previewAD, tabularNums, { color: theme.textSecondary }]}>{formatAD(resultISO)}</Text>
+        <Text style={[styles.previewAD, tabularNums, { color: theme.textSecondary }]}>{formatAD(iso)}</Text>
       </View>
 
       <View style={styles.actions}>
-        <Pressable onPress={() => setDraft(bsFromAD(new Date().toISOString().slice(0, 10)))}>
+        <Pressable onPress={() => setIso(todayISO())}>
           <Text style={[styles.today, { color: theme.link }]}>Today</Text>
         </Pressable>
         <Button
           label="Set date"
           onPress={() => {
-            onChange(resultISO);
+            onChange(iso);
             onClose();
           }}
         />
@@ -131,6 +214,9 @@ export function NepaliDatePicker({
 }
 
 const styles = StyleSheet.create({
+  calendarRow: { flexDirection: 'row', gap: 8 },
+  calendarButton: { flex: 1, height: 42, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  calendarLabel: { fontFamily: fontFamily.semibold, fontSize: 13 },
   columns: { flexDirection: 'row', gap: 10, height: 240 },
   col: { gap: 8 },
   colLabel: {

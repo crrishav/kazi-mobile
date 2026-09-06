@@ -18,7 +18,7 @@ export interface LedgerRow {
   cr: number;
   balance: number;
   /** For deep-linking a row back to its source editor. */
-  link?: { kind: 'purchase' | 'expense' | 'journal'; id: string };
+  link?: { kind: 'purchase' | 'expense' | 'journal' | 'bank'; id: string };
 }
 
 export interface AccountLedger {
@@ -64,6 +64,7 @@ function cashBankMoves({ journal, purchases, expenses, bankTransactions = [] }: 
       account: t.bankAccount,
       dr: t.direction === 'Credit' ? t.amountNPR : 0,
       cr: t.direction === 'Debit' ? t.amountNPR : 0,
+      link: { kind: 'bank', id: t.id },
     });
   });
 
@@ -77,7 +78,8 @@ function cashBankMoves({ journal, purchases, expenses, bankTransactions = [] }: 
   });
 
   purchases
-    .filter((p) => p.status === 'paid')
+    // A Credit purchase moves no cash yet, so it never reaches a cash/bank ledger.
+    .filter((p) => p.status === 'paid' && p.paymentType !== 'Credit')
     .forEach((p) => {
       const account = p.paymentType === 'Cash' ? CASH_ACCOUNT : `Bank - ${p.bankName ?? ''}`;
       if (!isCashBank(account)) return;

@@ -5,8 +5,8 @@ import { RiseIn } from '@/components/ui/rise-in';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import { TEAM_MONTH_STATS } from '@/data/attendance/mock';
-import { todayLabel } from '@/data/attendance/utils';
-import { npr } from '@/data/attendance/utils';
+import { todayLabel , npr } from '@/data/attendance/utils';
+
 import type { AttendanceStatus, TeamFilter, TeamMember } from '@/data/attendance/types';
 
 import { RollCall } from './roll-call';

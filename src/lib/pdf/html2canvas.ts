@@ -10,6 +10,9 @@ import { File } from 'expo-file-system';
 let pending: Promise<string> | null = null;
 
 async function load(): Promise<string> {
+  // `Asset.fromModule` takes a Metro module id — a `require` is the only way
+  // to name the bundled asset.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const asset = Asset.fromModule(require('../../../assets/html2canvas.min.js.txt'));
   if (!asset.localUri) await asset.downloadAsync();
   const uri = asset.localUri ?? asset.uri;

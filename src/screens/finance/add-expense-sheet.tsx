@@ -1,14 +1,12 @@
-import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
-import { DualDate } from '@/components/ui/dual-date';
+import { DateField } from '@/components/ui/date-field';
 import { Icon } from '@/components/ui/icon';
-import { NepaliDatePicker } from '@/components/ui/nepali-date-picker';
 import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii, tabularNums } from '@/theme';
-import { CATEGORIES } from '@/data/finance/mock';
+import { CATEGORIES, expenseCategory } from '@/data/finance/mock';
 import { fmt } from '@/data/finance/utils';
 import type { ExpenseCategoryId, ExpenseSource } from '@/data/finance/types';
 
@@ -35,25 +33,15 @@ const SOURCES: ExpenseSource[] = ['Cash', 'Bank', 'Payable'];
 
 export function AddExpenseSheet({ visible, draft, onClose, onChange, onSave }: AddExpenseSheetProps) {
   const theme = useTheme();
-  const [pickerOpen, setPickerOpen] = useState(false);
   const amountValue = parseInt(draft.amount.replace(/[^0-9]/g, ''), 10) || 0;
   const amountReady = amountValue > 0;
-  const category = CATEGORIES.find((c) => c.id === draft.categoryId) ?? CATEGORIES[0];
+  const category = expenseCategory(draft.categoryId);
 
   return (
     <BottomSheet visible={visible} onClose={onClose} title="Add expense">
       <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Posts to FY 2082/83 · Bhadra</Text>
 
-      <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Date</Text>
-        <Pressable
-          onPress={() => setPickerOpen(true)}
-          style={[styles.dateRow, { backgroundColor: theme.surface, borderColor: theme.border }]}
-        >
-          <DualDate iso={draft.date} inline size={14} />
-          <Icon name="calendar" size={16} color={theme.textSecondary} />
-        </Pressable>
-      </View>
+      <DateField label="Date" value={draft.date} onChange={(iso) => onChange({ date: iso })} pickerTitle="Expense date" />
 
       <View style={styles.group}>
         <Text style={[styles.label, { color: theme.textSecondary }]}>Amount · NPR</Text>
@@ -140,14 +128,6 @@ export function AddExpenseSheet({ visible, draft, onClose, onChange, onSave }: A
           </Text>
         </Pressable>
       </View>
-
-      <NepaliDatePicker
-        visible={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        value={draft.date}
-        onChange={(iso) => onChange({ date: iso })}
-        title="Expense date"
-      />
     </BottomSheet>
   );
 }
@@ -161,7 +141,9 @@ const styles = StyleSheet.create({
   rupeeSign: { fontFamily: fontFamily.mono, fontSize: 15 },
   amountInput: { flex: 1, fontSize: 28, fontWeight: '600', letterSpacing: -0.02 * 28, padding: 0 },
   categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  categoryButton: { width: '47.5%', flexGrow: 1, height: 46, paddingHorizontal: 12, borderRadius: 13, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // 15 categories, several of them long ("Software & Subscriptions") — the
+  // pills size to their label and wrap rather than sitting on a 2-column grid.
+  categoryButton: { height: 40, paddingHorizontal: 12, borderRadius: 13, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 7 },
   categoryTag: { fontFamily: fontFamily.mono, fontSize: 10 },
   categoryLabel: { fontFamily: fontFamily.semibold, fontSize: 13.5 },
   sourceRow: { flexDirection: 'row', gap: 8 },

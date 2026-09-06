@@ -1,10 +1,8 @@
-import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
-import { DualDate } from '@/components/ui/dual-date';
+import { DateField } from '@/components/ui/date-field';
 import { Icon } from '@/components/ui/icon';
-import { NepaliDatePicker } from '@/components/ui/nepali-date-picker';
 import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii, tabularNums } from '@/theme';
@@ -128,7 +126,6 @@ export interface DocSheetProps {
 
 export function DocSheet({ visible, kind, draft, nextNumber, editing = false, onClose, onChange, onSave }: DocSheetProps) {
   const theme = useTheme();
-  const [datePicker, setDatePicker] = useState<'date' | 'validUntil' | null>(null);
 
   const isQuote = kind === 'quotation';
   const cur: DocCurrency = isQuote ? draft.currency : 'NPR';
@@ -184,13 +181,7 @@ export function DocSheet({ visible, kind, draft, nextNumber, editing = false, on
       <TextField label="Client address" value={draft.clientAddress} onChangeText={(v) => onChange({ clientAddress: v })} placeholder="Billing address" compact />
 
       {/* Date + (quotation) currency + valid until */}
-      <View style={styles.group}>
-        <Text style={[styles.label, { color: theme.textSecondary }]}>Date</Text>
-        <Pressable onPress={() => setDatePicker('date')} style={[styles.dateRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <DualDate iso={draft.date} inline size={14} />
-          <Icon name="calendar" size={16} color={theme.textSecondary} />
-        </Pressable>
-      </View>
+      <DateField label="Date" value={draft.date} onChange={(iso) => onChange({ date: iso })} pickerTitle="Document date" />
 
       {isQuote ? (
         <>
@@ -211,13 +202,7 @@ export function DocSheet({ visible, kind, draft, nextNumber, editing = false, on
               })}
             </View>
           </View>
-          <View style={styles.group}>
-            <Text style={[styles.label, { color: theme.textSecondary }]}>Valid until</Text>
-            <Pressable onPress={() => setDatePicker('validUntil')} style={[styles.dateRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <DualDate iso={draft.validUntil} inline size={14} />
-              <Icon name="calendar" size={16} color={theme.textSecondary} />
-            </Pressable>
-          </View>
+          <DateField label="Valid until" value={draft.validUntil} onChange={(iso) => onChange({ validUntil: iso })} pickerTitle="Valid until" />
         </>
       ) : null}
 
@@ -404,13 +389,6 @@ export function DocSheet({ visible, kind, draft, nextNumber, editing = false, on
         </Text>
       </Pressable>
 
-      <NepaliDatePicker
-        visible={datePicker !== null}
-        onClose={() => setDatePicker(null)}
-        value={datePicker === 'validUntil' ? draft.validUntil : draft.date}
-        onChange={(iso) => onChange(datePicker === 'validUntil' ? { validUntil: iso } : { date: iso })}
-        title={datePicker === 'validUntil' ? 'Valid until' : 'Document date'}
-      />
     </BottomSheet>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 
@@ -123,22 +123,25 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
   const [query, setQuery] = useState('');
   const [focusHandled, setFocusHandled] = useState(false);
 
-  // Deep link (item 15): open (and optionally edit) a specific invoice on mount.
-  useEffect(() => {
-    if (focusHandled || !focus || !invoices) return;
+  // Deep link (item 15): open (and optionally edit) a specific invoice as soon
+  // as the invoices arrive. Applied during render — one shot, latched by
+  // `focusHandled` — so the deep-linked document is what the screen first draws
+  // rather than the list flashing past on the way to it.
+  if (!focusHandled && focus && invoices) {
     const key = String(focus).toLowerCase();
     const match = invoices.find((v) => v.id.toLowerCase() === key || v.ref.toLowerCase() === key);
-    if (!match) return;
-    setFocusHandled(true);
-    setDocType('invoice');
-    setView('detail');
-    setSelectedId(match.id);
-    if (autoEdit && can('billing')) {
-      setConvertQuoteId(null);
-      setInvoiceDraft(draftFromInvoice(match));
-      setInvoiceSheetOpen(true);
+    if (match) {
+      setFocusHandled(true);
+      setDocType('invoice');
+      setView('detail');
+      setSelectedId(match.id);
+      if (autoEdit && can('billing')) {
+        setConvertQuoteId(null);
+        setInvoiceDraft(draftFromInvoice(match));
+        setInvoiceSheetOpen(true);
+      }
     }
-  }, [focus, autoEdit, invoices, focusHandled, can]);
+  }
 
   if (isBlocked(invoicesQuery, openChallansQuery, challansQuery, quotationsQuery) || !invoices || !openChallans || !challans || !quotations) return <ScreenGate queries={[invoicesQuery, openChallansQuery, challansQuery, quotationsQuery]} />;
 

@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
+import { DateField } from '@/components/ui/date-field';
 import { DualDate } from '@/components/ui/dual-date';
 import { Icon } from '@/components/ui/icon';
 import { TextField } from '@/components/ui/text-field';
@@ -13,6 +14,8 @@ export interface VatBillDraft {
   expenseId: string;
   fileName: string;
   kind: VatBillKind;
+  /** AD ISO date the bill is filed under. */
+  date: string;
 }
 
 interface UploadProps {
@@ -126,6 +129,8 @@ export function VatBillSheet(props: VatBillSheetProps) {
         onChangeText={(v) => onChange({ fileName: v })}
         placeholder={draft.kind === 'pdf' ? 'e.g. nea-44112.pdf' : 'e.g. bill-photo.jpg'}
       />
+
+      <DateField label="Bill date" value={draft.date} onChange={(iso) => onChange({ date: iso })} pickerTitle="VAT bill date" />
 
       <Button label={ready ? 'Save VAT bill' : 'Pick an expense & file name'} onPress={onSave} disabled={!ready} />
     </BottomSheet>
