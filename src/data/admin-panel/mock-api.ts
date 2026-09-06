@@ -7,11 +7,12 @@
 
 import { simulateLatency } from '../mock/delay';
 
-import { FINANCE_TABS, PEOPLE, PERMS, ROLES, SECTIONS, TAB_PERMS } from './mock';
+import { FINANCE_TABS, GROUP_RIGHTS, PEOPLE, PERMS, ROLES, SECTIONS, TAB_PERMS } from './mock';
 import {
   SUPER_ADMIN_TIER,
   type AccessLevel,
   type AdminMatrix,
+  type GroupRightsRow,
   type PersonRow,
   type RoleDraft,
   type RoleFields,
@@ -24,6 +25,11 @@ let sections: SectionRow[] = SECTIONS.map((s) => ({ ...s }));
 let perms: Record<string, Record<string, AccessLevel>> = clone(PERMS);
 let tabPerms: Record<string, Record<string, AccessLevel>> = clone(TAB_PERMS);
 let people: PersonRow[] = PEOPLE.map((p) => ({ ...p }));
+let groupRights: Record<string, GroupRightsRow> = cloneRights(GROUP_RIGHTS);
+
+function cloneRights(m: Record<string, GroupRightsRow>): Record<string, GroupRightsRow> {
+  return Object.fromEntries(Object.entries(m).map(([k, v]) => [k, { ...v }]));
+}
 
 function clone(m: Record<string, Record<string, AccessLevel>>): Record<string, Record<string, AccessLevel>> {
   const out: Record<string, Record<string, AccessLevel>> = {};
@@ -39,6 +45,7 @@ export async function fetchAdminMatrix(): Promise<AdminMatrix> {
     financeTabs: FINANCE_TABS.map((t) => ({ ...t })),
     perms: clone(perms),
     tabPerms: clone(tabPerms),
+    groupRights: cloneRights(groupRights),
     people: people.map((p) => ({ ...p })),
   };
 }
@@ -51,8 +58,13 @@ export async function saveRoleDraft({ roleId, draft }: { roleId: string; draft: 
   perms[roleId] = { ...perms[roleId], ...draft.levels };
   tabPerms[roleId] = { ...tabPerms[roleId], ...draft.tabs };
   sections = sections.map((s) => (draft.personal[s.id] === undefined ? s : { ...s, isPersonal: draft.personal[s.id] }));
+  groupRights = {
+    ...groupRights,
+    [roleId]: { ...(groupRights[roleId] ?? { create: false, manage: false }), ...draft.groups },
+  };
   if (draft.superAdmin === true) {
     roles = roles.map((r) => (r.id === roleId ? { ...r, tier: SUPER_ADMIN_TIER } : r));
+    groupRights = { ...groupRights, [roleId]: { create: true, manage: true } };
     // The database does this with a trigger; the mock has to do it by hand.
     perms[roleId] = Object.fromEntries(sections.map((s) => [s.id, 'edit' as AccessLevel]));
     tabPerms[roleId] = Object.fromEntries(FINANCE_TABS.map((t) => [t.id, 'edit' as AccessLevel]));
@@ -64,6 +76,7 @@ export async function createRole(fields: RoleFields): Promise<void> {
   roles = [...roles, { ...fields }];
   perms[fields.id] = {};
   tabPerms[fields.id] = {};
+  groupRights[fields.id] = { create: false, manage: false };
 }
 
 export async function updateRole(fields: RoleFields): Promise<void> {
@@ -76,6 +89,7 @@ export async function deleteRole(roleId: string): Promise<void> {
   roles = roles.filter((r) => r.id !== roleId);
   delete perms[roleId];
   delete tabPerms[roleId];
+  delete groupRights[roleId];
 }
 
 export async function setPersonRole({ personId, positionId }: { personId: string; positionId: string | null }): Promise<void> {

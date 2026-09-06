@@ -13,8 +13,10 @@ import { Avatar } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import { ME, type Message } from '@/data/chat/types';
-import { firstName, messageMeta, messageText, personFor } from '@/data/chat/utils';
+import type { Message } from '@/data/chat/types';
+import { firstName, isMe, messageMeta, messageText, personFor } from '@/data/chat/utils';
+
+import { MessageAttachment } from './message-attachment';
 
 /** How far the bubble travels, and how far it must travel to actually arm the reply. */
 const SWIPE_MAX = 84;
@@ -37,6 +39,8 @@ export interface MessageBubbleProps {
   onToggleReaction: (emoji: string) => void;
   /** View-only profiles can read a thread but not reply into or react to it. */
   canPost: boolean;
+  /** Opens the photo viewer, or hands a video / document to the OS. */
+  onOpenAttachment: () => void;
 }
 
 export function MessageBubble({
@@ -52,9 +56,10 @@ export function MessageBubble({
   onReply,
   onToggleReaction,
   canPost,
+  onOpenAttachment,
 }: MessageBubbleProps) {
   const theme = useTheme();
-  const mine = message.authorId === ME;
+  const mine = isMe(message.authorId);
   const author = personFor(message.authorId);
   const newRun = !previous || previous.authorId !== message.authorId || message.at - previous.at > 5 * 60_000;
   const showIdentity = isGroup && !mine && newRun;
@@ -134,7 +139,7 @@ export function MessageBubble({
                 {replyTarget ? (
                   <View style={[styles.quote, { borderLeftColor: quoteAccent }]}>
                     <Text style={[styles.quoteName, { color: quoteAccent }]} numberOfLines={1}>
-                      {replyTarget.authorId === ME ? 'You' : firstName(replyTarget.authorId)}
+                      {isMe(replyTarget.authorId) ? 'You' : firstName(replyTarget.authorId)}
                     </Text>
                     <Text style={[styles.quoteBody, { color: quoteBody }]} numberOfLines={2}>
                       {messageText(replyTarget)}
@@ -142,15 +147,24 @@ export function MessageBubble({
                   </View>
                 ) : null}
 
-                <Text style={[styles.text, message.deleted ? styles.deleted : null, { color: bodyColor }]}>
-                  {messageText(message)}
-                </Text>
+                {message.attachment ? (
+                  <MessageAttachment attachment={message.attachment} mine={mine} onOpen={onOpenAttachment} />
+                ) : null}
+
+                {/* A photo sent without a caption has no text row at all —
+                    `messageText` would otherwise fill it with the filename,
+                    which the tile is already showing. */}
+                {message.deleted || message.text || !message.attachment ? (
+                  <Text style={[styles.text, message.deleted ? styles.deleted : null, { color: bodyColor }]}>
+                    {messageText(message)}
+                  </Text>
+                ) : null}
               </Pressable>
 
               {message.reactions.length > 0 ? (
                 <View style={[styles.reactions, { justifyContent: mine ? 'flex-end' : 'flex-start' }]}>
                   {message.reactions.map((r) => {
-                    const isMine = r.by.includes(ME);
+                    const isMine = r.by.some(isMe);
                     return (
                       <Pressable
                         key={r.emoji}

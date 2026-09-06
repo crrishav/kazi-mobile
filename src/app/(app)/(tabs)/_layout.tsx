@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router/js-tabs';
 
 import { CustomTabBar } from '@/components/tab-bar/custom-tab-bar';
+import { TabBarVisibilityProvider } from '@/components/tab-bar/tab-bar-visibility';
 import { useTheme } from '@/theme/theme-provider';
 
 /**
@@ -9,23 +10,29 @@ import { useTheme } from '@/theme/theme-provider';
  * no button for you is still routable: More and the dashboard cards link
  * straight to it, and because `(tabs)` is a route group the paths are unchanged
  * (`/order-management`, `/billing`, …), so every existing deep link still resolves.
+ *
+ * The provider wraps the navigator so both the bar and the screens sit under
+ * it: an open chat thread folds the bar away while it is on screen (see
+ * `tab-bar-visibility.tsx`).
  */
 export default function TabsLayout() {
   const theme = useTheme();
   return (
-    <Tabs
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: theme.background } }}
-      tabBar={(props) => <CustomTabBar {...props} />}
-    >
-      <Tabs.Screen name="index" />
-      <Tabs.Screen name="chat" />
-      <Tabs.Screen name="tasks" />
-      <Tabs.Screen name="inventory" />
-      <Tabs.Screen name="finance" />
-      <Tabs.Screen name="order-management" />
-      <Tabs.Screen name="billing" />
-      <Tabs.Screen name="marketing" />
-      <Tabs.Screen name="more" />
-    </Tabs>
+    <TabBarVisibilityProvider>
+      <Tabs
+        screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: theme.background } }}
+        tabBar={(props) => <CustomTabBar {...props} />}
+      >
+        <Tabs.Screen name="index" />
+        <Tabs.Screen name="chat" />
+        <Tabs.Screen name="tasks" />
+        <Tabs.Screen name="inventory" />
+        <Tabs.Screen name="finance" />
+        <Tabs.Screen name="order-management" />
+        <Tabs.Screen name="billing" />
+        <Tabs.Screen name="marketing" />
+        <Tabs.Screen name="more" />
+      </Tabs>
+    </TabBarVisibilityProvider>
   );
 }

@@ -22,6 +22,8 @@ export interface Session {
   jobRole?: string;
   /** `positions.id` in Postgres — drives the per-position tab bar and dashboard. */
   positionId?: string;
+  /** `people.id` in Postgres — the foreign key chat threads, members and messages are written against. */
+  personId?: string;
   permissions?: PermissionOverrides;
   /** Firebase Auth UID — set on the real-auth path, absent under mock-auth. */
   uid?: string;

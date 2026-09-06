@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useToast } from '@/components/toast/toast-provider';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import { ME, type Message } from '@/data/chat/types';
-import { firstName, messageText } from '@/data/chat/utils';
+import type { PendingAttachment } from '@/data/chat/attachments';
+import type { Message } from '@/data/chat/types';
+import { clipLength, fileSize, firstName, isMe, messageText } from '@/data/chat/utils';
 
 export interface ComposerProps {
   draft: string;
@@ -20,14 +20,34 @@ export interface ComposerProps {
   onCancelReply: () => void;
   /** View-only profiles get a sentence instead of an input. */
   canPost: boolean;
+  /** Picked, compressed, and waiting to go up with the next send. */
+  attachment: PendingAttachment | null;
+  onAttach: () => void;
+  onClearAttachment: () => void;
+  /** True while a file is being picked, compressed or uploaded. */
+  busy: boolean;
 }
 
-export function Composer({ draft, onChangeDraft, onSend, recipientName, replyTo, onCancelReply, canPost }: ComposerProps) {
+const KIND_ICON = { image: 'image', video: 'film', file: 'file-text' } as const;
+
+export function Composer({
+  draft,
+  onChangeDraft,
+  onSend,
+  recipientName,
+  replyTo,
+  onCancelReply,
+  canPost,
+  attachment,
+  onAttach,
+  onClearAttachment,
+  busy,
+}: ComposerProps) {
   const theme = useTheme();
-  const toast = useToast();
   const insets = useSafeAreaInsets();
   const inputRef = useRef<TextInput>(null);
-  const hasText = draft.trim().length > 0;
+  // An attachment on its own is a message; the caption is optional.
+  const canSend = (draft.trim().length > 0 || !!attachment) && !busy;
 
   // Swiping a message to reply should land you in the input, not leave you to
   // tap it yourself.
@@ -50,14 +70,14 @@ export function Composer({ draft, onChangeDraft, onSend, recipientName, replyTo,
         <Animated.View
           entering={FadeInDown.duration(160)}
           exiting={FadeOutDown.duration(120)}
-          style={[styles.replyStrip, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          style={[styles.strip, { backgroundColor: theme.surface, borderColor: theme.border }]}
         >
           <View style={[styles.replyBar, { backgroundColor: theme.accent }]} />
-          <View style={styles.replyText}>
-            <Text style={[styles.replyName, { color: theme.accentDeep }]} numberOfLines={1}>
-              Replying to {replyTo.authorId === ME ? 'yourself' : firstName(replyTo.authorId)}
+          <View style={styles.stripText}>
+            <Text style={[styles.stripTitle, { color: theme.accentDeep }]} numberOfLines={1}>
+              Replying to {isMe(replyTo.authorId) ? 'yourself' : firstName(replyTo.authorId)}
             </Text>
-            <Text style={[styles.replyBody, { color: theme.textSecondary }]} numberOfLines={1}>
+            <Text style={[styles.stripBody, { color: theme.textSecondary }]} numberOfLines={1}>
               {messageText(replyTo)}
             </Text>
           </View>
@@ -67,33 +87,68 @@ export function Composer({ draft, onChangeDraft, onSend, recipientName, replyTo,
         </Animated.View>
       ) : null}
 
+      {attachment ? (
+        <Animated.View
+          entering={FadeInDown.duration(160)}
+          exiting={FadeOutDown.duration(120)}
+          style={[styles.strip, { backgroundColor: theme.surface, borderColor: theme.border }]}
+        >
+          {attachment.kind === 'image' ? (
+            <Image source={{ uri: attachment.uri }} style={styles.thumb} resizeMode="cover" />
+          ) : (
+            <View style={[styles.thumb, styles.thumbIcon, { backgroundColor: theme.accentWash }]}>
+              <Icon name={KIND_ICON[attachment.kind]} size={17} color={theme.accentWashText} />
+            </View>
+          )}
+          <View style={styles.stripText}>
+            <Text style={[styles.stripTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+              {attachment.name}
+            </Text>
+            <Text style={[styles.stripBody, { color: theme.textSecondary }]} numberOfLines={1}>
+              {fileSize(attachment.size)}
+              {attachment.duration ? ` · ${clipLength(attachment.duration)}` : ''}
+              {attachment.kind === 'image' ? ' · compressed' : ''}
+            </Text>
+          </View>
+          <Pressable onPress={onClearAttachment} hitSlop={10} disabled={busy}>
+            <Icon name="x" size={16} color={theme.textSecondary} />
+          </Pressable>
+        </Animated.View>
+      ) : null}
+
       <View style={styles.row}>
         <Pressable
-          onPress={() => toast.show({ message: "Attachments aren't available yet", tone: 'ok' })}
-          style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          onPress={onAttach}
+          disabled={busy}
+          accessibilityLabel="Attach a photo, video or file"
+          style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.border, opacity: busy ? 0.5 : 1 }]}
         >
-          <Icon name="plus" size={18} color={theme.textPrimary} />
+          {busy ? (
+            <ActivityIndicator size="small" color={theme.textSecondary} />
+          ) : (
+            <Icon name="paperclip" size={18} color={theme.textPrimary} />
+          )}
         </Pressable>
 
         <TextInput
           ref={inputRef}
           value={draft}
           onChangeText={onChangeDraft}
-          placeholder={replyTo ? 'Type your reply' : `Message ${recipientName}`}
+          placeholder={replyTo ? 'Type your reply' : attachment ? 'Add a caption' : `Message ${recipientName}`}
           placeholderTextColor={theme.textSecondary}
           returnKeyType="send"
           multiline
           onSubmitEditing={onSend}
-          blurOnSubmit={false}
+          submitBehavior="submit"
           style={[styles.input, { borderColor: theme.border, backgroundColor: theme.surface, color: theme.textPrimary }]}
         />
 
         <Pressable
           onPress={onSend}
-          disabled={!hasText}
-          style={[styles.iconButton, { backgroundColor: hasText ? theme.accent : theme.surfaceRaised, borderColor: hasText ? theme.accent : theme.border }]}
+          disabled={!canSend}
+          style={[styles.iconButton, { backgroundColor: canSend ? theme.accent : theme.surfaceRaised, borderColor: canSend ? theme.accent : theme.border }]}
         >
-          <Icon name="send" size={17} color={hasText ? theme.accentText : theme.textSecondary} />
+          <Icon name="send" size={17} color={canSend ? theme.accentText : theme.textSecondary} />
         </Pressable>
       </View>
     </View>
@@ -112,7 +167,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 10,
   },
-  replyStrip: {
+  strip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -126,16 +181,26 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     borderRadius: 99,
   },
-  replyText: {
+  thumb: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    flexShrink: 0,
+  },
+  thumbIcon: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stripText: {
     flex: 1,
     gap: 2,
     minWidth: 0,
   },
-  replyName: {
+  stripTitle: {
     fontFamily: fontFamily.semibold,
     fontSize: 12,
   },
-  replyBody: {
+  stripBody: {
     fontSize: 12.5,
   },
   iconButton: {

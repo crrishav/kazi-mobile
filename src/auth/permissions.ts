@@ -80,6 +80,8 @@ export interface Profile {
   jobRole?: string;
   /** `positions.id` in Postgres. Absent on the legacy Firebase path. */
   positionId?: string;
+  /** `people.id` in Postgres. Absent on the legacy Firebase path, where chat falls back to its mock. */
+  personId?: string;
   permissions?: PermissionOverrides;
   /** Firebase Auth UID — present on the real-auth path only. */
   uid?: string;

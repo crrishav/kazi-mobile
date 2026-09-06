@@ -1,10 +1,13 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 
 import { notify } from '@/data/notifications/notify';
+import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 
 import { chatKeys } from './keys';
-import * as api from './mock-api';
-import { ME, type Message, type MessageId, type PersonId, type Thread, type ThreadId } from './types';
+import * as api from './api';
+import { myId, setChatDirectory } from './identity';
+import type { Attachment, GroupRights, Message, MessageId, PersonId, Thread, ThreadId } from './types';
 import { firstName, threadTitle } from './utils';
 
 type MessageMap = Record<ThreadId, Message[]>;
@@ -12,6 +15,25 @@ type UnreadMap = Record<ThreadId, number>;
 
 const parseMentions = (text: string): string[] =>
   [...text.matchAll(/@([\p{L}][\p{L}\d._-]*)/gu)].map((m) => m[1]);
+
+/**
+ * The staff roster. Every name, avatar and job title in chat resolves through
+ * `identity.ts`, which this fills — so it is fetched once and kept fresh
+ * rather than being read per screen.
+ */
+export function useDirectory() {
+  const query = useQuery({ queryKey: chatKeys.directory(), queryFn: api.fetchDirectory, staleTime: 5 * 60_000 });
+  const people = query.data;
+  useEffect(() => {
+    if (people) setChatDirectory(people);
+  }, [people]);
+  return query;
+}
+
+/** Whether this person's position may start a group, and reshape one. */
+export function useGroupRights() {
+  return useQuery<GroupRights>({ queryKey: chatKeys.rights(), queryFn: api.fetchGroupRights, staleTime: 5 * 60_000 });
+}
 
 export function useThreads() {
   return useQuery({ queryKey: chatKeys.threads(), queryFn: api.fetchThreads });
@@ -26,15 +48,59 @@ export function useUnread() {
 }
 
 /**
+ * Live updates, straight from Postgres.
+ *
+ * The four `chat_*` tables are in the `supabase_realtime` publication, so any
+ * insert anywhere reaches every client. The payload is deliberately ignored:
+ * a message row alone cannot say who has read it or how its reactions now
+ * stand, and the reads above already assemble exactly that. So a change just
+ * invalidates, and React Query refetches the parts that moved.
+ *
+ * Realtime carries the RLS of the subscriber, so this only ever wakes on
+ * threads the person is actually in.
+ */
+export function useChatRealtime(enabled = true) {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!enabled || !isSupabaseConfigured) return;
+    const sb = getSupabase();
+
+    const refresh = () => {
+      queryClient.invalidateQueries({ queryKey: chatKeys.messages() });
+      queryClient.invalidateQueries({ queryKey: chatKeys.unread() });
+    };
+
+    const channel = sb
+      .channel('chat-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_reactions' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_members' }, () => {
+        refresh();
+        queryClient.invalidateQueries({ queryKey: chatKeys.threads() });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_threads' }, () => {
+        queryClient.invalidateQueries({ queryKey: chatKeys.threads() });
+      })
+      .subscribe();
+
+    return () => {
+      void sb.removeChannel(channel);
+    };
+  }, [enabled, queryClient]);
+}
+
+/**
  * Every mutation below writes the cache optimistically and rolls back on
  * error: a chat that waits on a round-trip before showing your own tap feels
- * broken even when the round-trip is 150ms of fake latency.
+ * broken even when the round-trip is fast.
  */
 function useOptimistic<TVars, TData>(
   key: QueryKey,
   mutationFn: (vars: TVars) => Promise<unknown>,
   apply: (current: TData | undefined, vars: TVars) => TData,
   onSuccess?: (vars: TVars) => void,
+  invalidate: QueryKey[] = [],
 ) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -49,6 +115,11 @@ function useOptimistic<TVars, TData>(
       if (context?.previous !== undefined) queryClient.setQueryData<TData>(key, context.previous);
     },
     onSuccess: (_data, vars) => onSuccess?.(vars),
+    // The server decides the id, the timestamp and the receipt; a settled
+    // mutation re-reads rather than trusting the optimistic stand-in.
+    onSettled: () => {
+      for (const k of invalidate) queryClient.invalidateQueries({ queryKey: k });
+    },
   });
 }
 
@@ -56,6 +127,7 @@ export interface SendMessageVars {
   threadId: ThreadId;
   text: string;
   replyTo?: MessageId;
+  attachment?: Attachment;
   /** Only used for the notification copy — the thread itself is looked up by id. */
   thread?: Thread;
 }
@@ -63,16 +135,27 @@ export interface SendMessageVars {
 export function useSendMessage() {
   return useOptimistic<SendMessageVars, MessageMap>(
     chatKeys.messages(),
-    ({ threadId, text, replyTo }) => api.sendMessage(threadId, text, replyTo),
-    (current, { threadId, text, replyTo }) => ({
+    ({ threadId, text, replyTo, attachment }) => api.sendMessage(threadId, text, replyTo, attachment),
+    (current, { threadId, text, replyTo, attachment }) => ({
       ...(current ?? {}),
       [threadId]: [
         ...(current?.[threadId] ?? []),
-        { id: `pending-${Date.now()}`, threadId, authorId: ME, text, at: Date.now(), replyTo, reactions: [] },
+        {
+          id: `pending-${Date.now()}`,
+          threadId,
+          authorId: myId(),
+          text,
+          at: Date.now(),
+          replyTo,
+          attachment,
+          reactions: [],
+          pending: true,
+        },
       ],
     }),
-    ({ text, thread }) => {
-      const preview = text.length > 120 ? `${text.slice(0, 117)}…` : text;
+    ({ text, thread, attachment }) => {
+      const body = text || (attachment ? attachment.name : '');
+      const preview = body.length > 120 ? `${body.slice(0, 117)}…` : body;
       notify({
         eventType: 'message.received',
         section: 'messenger',
@@ -83,6 +166,7 @@ export function useSendMessage() {
         notify({ eventType: 'message.mention', section: 'messenger', payload: { mentions, label: preview } });
       }
     },
+    [chatKeys.messages(), chatKeys.threads()],
   );
 }
 
@@ -96,16 +180,19 @@ export function useToggleReaction() {
   return useOptimistic<ReactionVars, MessageMap>(
     chatKeys.messages(),
     ({ threadId, messageId, emoji }) => api.toggleReaction(threadId, messageId, emoji),
-    (current, { threadId, messageId, emoji }) => ({
-      ...(current ?? {}),
-      [threadId]: (current?.[threadId] ?? []).map((m) => {
-        if (m.id !== messageId) return m;
-        const existing = m.reactions.find((r) => r.emoji === emoji);
-        if (!existing) return { ...m, reactions: [...m.reactions, { emoji, by: [ME] }] };
-        const by = existing.by.includes(ME) ? existing.by.filter((id) => id !== ME) : [...existing.by, ME];
-        return { ...m, reactions: m.reactions.map((r) => (r.emoji === emoji ? { ...r, by } : r)).filter((r) => r.by.length > 0) };
-      }),
-    }),
+    (current, { threadId, messageId, emoji }) => {
+      const me = myId();
+      return {
+        ...(current ?? {}),
+        [threadId]: (current?.[threadId] ?? []).map((m) => {
+          if (m.id !== messageId) return m;
+          const existing = m.reactions.find((r) => r.emoji === emoji);
+          if (!existing) return { ...m, reactions: [...m.reactions, { emoji, by: [me] }] };
+          const by = existing.by.includes(me) ? existing.by.filter((id) => id !== me) : [...existing.by, me];
+          return { ...m, reactions: m.reactions.map((r) => (r.emoji === emoji ? { ...r, by } : r)).filter((r) => r.by.length > 0) };
+        }),
+      };
+    },
   );
 }
 
@@ -122,7 +209,9 @@ export function useDeleteMessages() {
       const set = new Set(ids);
       return {
         ...(current ?? {}),
-        [threadId]: (current?.[threadId] ?? []).map((m) => (set.has(m.id) ? { ...m, text: '', deleted: true, reactions: [] } : m)),
+        [threadId]: (current?.[threadId] ?? []).map((m) =>
+          set.has(m.id) ? { ...m, text: '', deleted: true, attachment: undefined, reactions: [] } : m,
+        ),
       };
     },
   );
@@ -141,6 +230,8 @@ export function useSetThreadRead() {
       ...(current ?? {}),
       [threadId]: read ? 0 : Math.max(1, current?.[threadId] ?? 0),
     }),
+    undefined,
+    [chatKeys.unread(), chatKeys.messages()],
   );
 }
 
@@ -163,6 +254,8 @@ export function useDeleteThread() {
     chatKeys.threads(),
     (threadId) => api.deleteThread(threadId),
     (current, threadId) => (current ?? []).filter((t) => t.id !== threadId),
+    undefined,
+    [chatKeys.threads(), chatKeys.messages(), chatKeys.unread()],
   );
 }
 
@@ -188,6 +281,33 @@ export function useCreateThread() {
           payload: { participants: vars.memberIds.map(firstName), label: `${vars.name} created` },
         });
       }
+    },
+    // Re-opening an existing dm brings back its history, which the placeholder
+    // above cannot know about.
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: chatKeys.threads() });
+      queryClient.invalidateQueries({ queryKey: chatKeys.messages() });
+    },
+  });
+}
+
+export interface UpdateGroupVars {
+  threadId: ThreadId;
+  name: string;
+  memberIds: PersonId[];
+}
+
+/**
+ * Rename a group and set who is in it. Not optimistic: removals are a
+ * server-side soft-leave the database may legitimately refuse, and a members
+ * list that briefly shows the wrong people is worse than one that waits.
+ */
+export function useUpdateGroup() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ threadId, name, memberIds }: UpdateGroupVars) => api.updateGroup(threadId, name, memberIds),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: chatKeys.threads() });
     },
   });
 }

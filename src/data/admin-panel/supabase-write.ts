@@ -58,6 +58,34 @@ export async function saveRoleDraft({ roleId, draft }: { roleId: string; draft: 
     check('position_finance_tabs', error);
   }
 
+  // Chat groups. Its own table (see 0105) rather than a `sections` row, so
+  // this is a separate upsert rather than another `position_permissions` row.
+  // Upsert, not update: a role created before the table existed has none.
+  if (Object.keys(draft.groups).length) {
+    // Only the staged half is sent, so an untouched capability keeps whatever
+    // it already had rather than being reset to the column default.
+    const saved = await sb
+      .from('chat_group_permissions')
+      .select('can_create, can_manage')
+      .eq('position_id', roleId)
+      .maybeSingle();
+    check('read chat group rights', saved.error);
+    const current = (saved.data ?? { can_create: false, can_manage: false }) as {
+      can_create: boolean;
+      can_manage: boolean;
+    };
+
+    const { error } = await sb.from('chat_group_permissions').upsert(
+      {
+        position_id: roleId,
+        can_create: draft.groups.create ?? current.can_create,
+        can_manage: draft.groups.manage ?? current.can_manage,
+      },
+      { onConflict: 'position_id' },
+    );
+    check('chat_group_permissions', error);
+  }
+
   // Page annotations are a property of the page, not of this role.
   for (const [sectionId, value] of Object.entries(draft.personal)) {
     const { error } = await sb.from('sections').update({ is_personal: value }).eq('id', sectionId);
@@ -71,13 +99,22 @@ export async function saveRoleDraft({ roleId, draft }: { roleId: string; draft: 
 }
 
 export async function createRole(fields: RoleFields): Promise<void> {
-  const { error } = await getSupabase().from('positions').insert({
+  const sb = getSupabase();
+  const { error } = await sb.from('positions').insert({
     id: fields.id,
     label: fields.label,
     description: fields.description,
     tier: fields.tier,
   });
   check('create role', error);
+
+  // A row of its own, granted nothing. Without it the new role would read as
+  // "no chat-group rights" anyway, but with no switch on screen to change —
+  // the card would have nothing to write to.
+  const rights = await sb
+    .from('chat_group_permissions')
+    .insert({ position_id: fields.id, can_create: false, can_manage: false });
+  check('create chat group rights', rights.error);
 }
 
 export async function updateRole(fields: RoleFields): Promise<void> {

@@ -21,6 +21,10 @@ export interface ThreadActionsSheetProps {
   onTogglePin: () => void;
   onToggleMute: () => void;
   onDelete: () => void;
+  /** Groups only. Absent on the thread list, where the sheet is a shortcut rather than a settings screen. */
+  onGroupSettings?: () => void;
+  /** Whether this position may rename the group and change its membership; the row is offered either way. */
+  canManageGroup?: boolean;
 }
 
 export function ThreadActionsSheet({
@@ -33,6 +37,8 @@ export function ThreadActionsSheet({
   onTogglePin,
   onToggleMute,
   onDelete,
+  onGroupSettings,
+  canManageGroup = false,
 }: ThreadActionsSheetProps) {
   const theme = useTheme();
 
@@ -59,6 +65,14 @@ export function ThreadActionsSheet({
 
           <View style={styles.actions}>
             {showOpen ? <ActionRow icon="message-circle" label="Open conversation" onPress={onOpen} /> : null}
+            {thread.kind === 'group' && onGroupSettings ? (
+              <ActionRow
+                icon="users"
+                label={canManageGroup ? 'Group settings' : 'See who is in this group'}
+                detail={canManageGroup ? 'Rename it, add or remove people' : `${thread.memberIds.length + 1} members`}
+                onPress={onGroupSettings}
+              />
+            ) : null}
             {unread > 0 ? (
               <ActionRow icon="check-circle" label="Mark as read" detail={`${unread} unread`} onPress={() => onSetRead(true)} />
             ) : (
@@ -75,7 +89,13 @@ export function ThreadActionsSheet({
               detail={thread.muted ? 'Currently muted' : 'You will still see unread counts'}
               onPress={onToggleMute}
             />
-            <ActionRow icon="trash-2" label="Delete conversation" detail="Removes it from your list" destructive onPress={onDelete} />
+            <ActionRow
+              icon="trash-2"
+              label={thread.kind === 'group' ? 'Leave group' : 'Delete conversation'}
+              detail="Removes it from your list — everyone else keeps the messages"
+              destructive
+              onPress={onDelete}
+            />
           </View>
         </>
       ) : null}

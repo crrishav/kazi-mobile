@@ -79,6 +79,7 @@ export function sessionFromIdentity(
     appRole: email === 'admin@kazi.com' ? 'super_admin' : roleFromTier(identity.tier, location),
     jobRole: identity.positionLabel ?? '',
     positionId: identity.positionId ?? undefined,
+    personId: identity.personId,
     permissions: identity.permissions,
     uid: fallback.uid,
     location,

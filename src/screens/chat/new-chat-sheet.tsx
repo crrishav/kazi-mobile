@@ -1,24 +1,27 @@
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 
-import { Avatar } from '@/components/ui/avatar';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
 import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import { PEOPLE } from '@/data/chat/mock';
-import type { PersonId } from '@/data/chat/types';
+import type { Person, PersonId } from '@/data/chat/types';
 
 import { ActionRow } from './action-row';
+import { PeoplePicker } from './people-picker';
 
 export interface NewChatSheetProps {
   visible: boolean;
   onClose: () => void;
+  /** Everyone on staff but you — already resolved by the caller from the live directory. */
+  people: Person[];
   onStartDm: (personId: PersonId) => void;
   onCreateGroup: (name: string, memberIds: PersonId[]) => void;
+  /** False when this person's position has no "create groups" grant; the row is then shown as refused, not hidden. */
+  canCreateGroup: boolean;
   busy: boolean;
+  error?: string | null;
 }
 
 type Mode = 'pick' | 'group';
@@ -28,19 +31,20 @@ type Mode = 'pick' | 'group';
  * new group. The caller remounts it on each open (see its `key`), so this
  * state starts clean without an effect resetting it mid-exit-animation.
  */
-export function NewChatSheet({ visible, onClose, onStartDm, onCreateGroup, busy }: NewChatSheetProps) {
+export function NewChatSheet({
+  visible,
+  onClose,
+  people,
+  onStartDm,
+  onCreateGroup,
+  canCreateGroup,
+  busy,
+  error,
+}: NewChatSheetProps) {
   const theme = useTheme();
   const [mode, setMode] = useState<Mode>('pick');
-  const [query, setQuery] = useState('');
   const [groupName, setGroupName] = useState('');
   const [picked, setPicked] = useState<PersonId[]>([]);
-
-  const people = useMemo(() => {
-    const list = Object.values(PEOPLE).sort((a, b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name));
-    const q = query.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((p) => `${p.name} ${p.role} ${p.status}`.toLowerCase().includes(q));
-  }, [query]);
 
   const toggle = (id: PersonId) => setPicked((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
 
@@ -50,7 +54,15 @@ export function NewChatSheet({ visible, onClose, onStartDm, onCreateGroup, busy 
   return (
     <BottomSheet visible={visible} onClose={onClose} title={mode === 'pick' ? 'New message' : 'New group'} maxHeight={680}>
       {mode === 'pick' ? (
-        <ActionRow icon="users" label="New group" detail="Pick two or more people" onPress={() => setMode('group')} />
+        // Shown either way. A position that cannot start groups is told so
+        // here rather than being left to wonder where the option went — and
+        // the database would refuse the write regardless.
+        <ActionRow
+          icon="users"
+          label="New group"
+          detail={canCreateGroup ? 'Pick two or more people' : 'Your role can’t start groups'}
+          onPress={() => canCreateGroup && setMode('group')}
+        />
       ) : (
         <>
           <TextField label="Group name" value={groupName} onChangeText={setGroupName} placeholder="e.g. Line 4 leads" autoCapitalize="sentences" />
@@ -60,58 +72,15 @@ export function NewChatSheet({ visible, onClose, onStartDm, onCreateGroup, busy 
         </>
       )}
 
-      <View style={[styles.search, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Icon name="search" size={16} color={theme.textSecondary} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search people"
-          placeholderTextColor={theme.textSecondary}
-          style={[styles.searchInput, { color: theme.textPrimary, fontFamily: fontFamily.regular }]}
-        />
-        {query.length > 0 ? (
-          <Pressable onPress={() => setQuery('')} hitSlop={8}>
-            <Icon name="x" size={14} color={theme.textSecondary} />
-          </Pressable>
-        ) : null}
-      </View>
+      <PeoplePicker
+        people={people}
+        mode={mode === 'pick' ? 'select' : 'check'}
+        picked={picked}
+        onPress={(id) => (mode === 'pick' ? onStartDm(id) : toggle(id))}
+        emptyNote="No colleagues on the staff list yet"
+      />
 
-      <View style={styles.list}>
-        {people.map((person) => {
-          const selected = picked.includes(person.id);
-          return (
-            <Pressable
-              key={person.id}
-              onPress={() => (mode === 'pick' ? onStartDm(person.id) : toggle(person.id))}
-              style={({ pressed }) => [
-                styles.person,
-                {
-                  backgroundColor: selected ? theme.accentWash : pressed ? theme.background : theme.surface,
-                  borderColor: selected ? theme.accent : theme.border,
-                },
-              ]}
-            >
-              <Avatar initials={person.initials} tint={person.avatarTint} size="md" online={person.online} />
-              <View style={styles.personText}>
-                <Text style={[styles.personName, { color: theme.textPrimary }]} numberOfLines={1}>
-                  {person.name}
-                </Text>
-                <Text style={[styles.personRole, { color: theme.textSecondary }]} numberOfLines={1}>
-                  {person.role} · {person.status}
-                </Text>
-              </View>
-              <Icon
-                name={mode === 'pick' ? 'chevron-right' : selected ? 'check-circle' : 'circle'}
-                size={18}
-                color={selected ? theme.accentWashText : theme.textSecondary}
-              />
-            </Pressable>
-          );
-        })}
-        {people.length === 0 ? (
-          <Text style={[styles.empty, { color: theme.textSecondary }]}>No one matches “{query.trim()}”</Text>
-        ) : null}
-      </View>
+      {error ? <Text style={[styles.error, { color: theme.dangerWashText }]}>{error}</Text> : null}
 
       {mode === 'group' ? (
         <View style={styles.footer}>
@@ -138,51 +107,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: -8,
   },
-  search: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    height: 46,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    padding: 0,
-  },
-  list: {
-    gap: 8,
-  },
-  person: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 11,
-  },
-  personText: {
-    flex: 1,
-    gap: 3,
-    minWidth: 0,
-  },
-  personName: {
-    fontFamily: fontFamily.semibold,
-    fontSize: 14.5,
-  },
-  personRole: {
-    fontFamily: fontFamily.mono,
-    fontSize: 10,
-    letterSpacing: 0.08 * 10,
-    textTransform: 'uppercase',
-  },
-  empty: {
+  error: {
     fontFamily: fontFamily.mono,
     fontSize: 11,
-    textAlign: 'center',
-    paddingVertical: 20,
+    lineHeight: 11 * 1.5,
   },
   footer: {
     gap: 8,

@@ -5,7 +5,7 @@
  * `positions` columns — so the screen never has a mock-only notion of access.
  */
 
-import type { AccessLevel, FinanceTabRow, PersonRow, RoleRow, SectionRow } from './types';
+import type { AccessLevel, FinanceTabRow, GroupRightsRow, PersonRow, RoleRow, SectionRow } from './types';
 
 export const SECTIONS: SectionRow[] = [
   { id: 'dashboard', label: 'Dashboard', isPersonal: false, sortOrder: 0 },
@@ -106,3 +106,11 @@ export const PEOPLE: PersonRow[] = [
   { id: 'p5', name: 'Nisha Gurung', email: 'nisha@kazi.example', department: 'Marketing', positionId: 'content-coordinator', active: true },
   { id: 'p6', name: 'Bimal Rai', email: 'bimal@kazi.example', department: 'Production', positionId: null, active: true },
 ];
+
+/**
+ * Chat-group capabilities per role, mirroring the seed the migration wrote:
+ * everyone may start a group, tier 2 and up may also reshape one.
+ */
+export const GROUP_RIGHTS: Record<string, GroupRightsRow> = Object.fromEntries(
+  ROLES.map((r) => [r.id, { create: true, manage: r.tier >= 2 }]),
+);

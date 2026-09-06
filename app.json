@@ -18,7 +18,16 @@
           "locationWhenInUsePermission": "Kazi uses your location to confirm you're at the workshop when you clock in."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kazi lets you send photos from your library in a chat.",
+          "cameraPermission": "Kazi lets you take a photo to send in a chat.",
+          "microphonePermission": "Kazi records sound with any video you send in a chat."
+        }
+      ],
+      "expo-document-picker"
     ],
     "scheme": "kazimobile",
     "ios": {

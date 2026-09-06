@@ -20,8 +20,10 @@ import {
 } from '@/data/admin-panel/hooks';
 import {
   EMPTY_DRAFT,
+  GROUP_CAPABILITIES,
   type AccessLevel,
   type DiffRow,
+  type GroupCapability,
   type PersonRow,
   type RoleDraft,
   type RoleFields,
@@ -29,6 +31,7 @@ import {
 } from '@/data/admin-panel/types';
 import { countLevels, isDowngrade, isSuperTier, LEVEL_LABEL } from '@/data/admin-panel/utils';
 
+import { ChatGroupsCard } from './chat-groups-card';
 import { ConfirmSheet } from './confirm-sheet';
 import { DirtyBar } from './dirty-bar';
 import { FinanceTabsCard } from './finance-tabs-card';
@@ -102,7 +105,7 @@ export function AdminPanel() {
 
   if (isBlocked(matrixQuery) || !matrix) return <ScreenGate queries={[matrixQuery]} />;
 
-  const { roles, sections, financeTabs, perms, tabPerms, people } = matrix;
+  const { roles, sections, financeTabs, perms, tabPerms, groupRights, people } = matrix;
   const activePeople = people.filter((p) => p.active);
   const selectedRole = roles.find((r) => r.id === selectedId) ?? null;
 
@@ -110,6 +113,7 @@ export function AdminPanel() {
     Object.keys(draft.levels).length +
     Object.keys(draft.tabs).length +
     Object.keys(draft.personal).length +
+    Object.keys(draft.groups).length +
     (draft.superAdmin !== null ? 1 : 0);
   const dirty = changeCount > 0;
 
@@ -128,6 +132,14 @@ export function AdminPanel() {
   const tabLevelFor = (tabId: string): AccessLevel =>
     isSuperAdmin ? 'edit' : draft.tabs[tabId] ?? savedTabLevel(tabId);
   const personalFor = (section: SectionRow): boolean => draft.personal[section.id] ?? section.isPersonal;
+
+  // Chat groups. `app_can_create_group()` short-circuits on tier 4, so a
+  // super admin has both regardless of what its row says — the switches show
+  // that rather than the row, the same way the page matrix reads as all-edit.
+  const savedGroup = (capability: GroupCapability): boolean =>
+    groupRights[selectedId ?? '']?.[capability] ?? false;
+  const groupFor = (capability: GroupCapability): boolean =>
+    isSuperAdmin ? true : (draft.groups[capability] ?? savedGroup(capability));
 
   const resetDraft = () => setDraft(EMPTY_DRAFT);
 
@@ -174,6 +186,17 @@ export function AdminPanel() {
     stage('personal', section.id, value, section.isPersonal);
   };
 
+  const setGroupCapability = (capability: GroupCapability, value: boolean) => {
+    if (locked) return;
+    setError(null);
+    setDraft((d) => {
+      const groups = { ...d.groups };
+      if (value === savedGroup(capability)) delete groups[capability];
+      else groups[capability] = value;
+      return { ...d, groups };
+    });
+  };
+
   /** Every page at once — still only staged. */
   const setAll = (level: AccessLevel) => {
     if (locked) return;
@@ -203,6 +226,7 @@ export function AdminPanel() {
       if (on) {
         next.levels = {};
         next.tabs = {};
+        next.groups = {};
       }
       return next;
     });
@@ -244,6 +268,18 @@ export function AdminPanel() {
       to: to ? 'on' : 'off',
       removal: to,
     })),
+    ...Object.entries(draft.groups).map(([key, to]) => {
+      const capability = GROUP_CAPABILITIES.find((c) => c.key === key);
+      return {
+        key: `group:${key}`,
+        kind: 'group' as const,
+        name: capability?.label ?? key,
+        group: 'Chat groups',
+        from: to ? 'off' : 'on',
+        to: to ? 'on' : 'off',
+        removal: !to,
+      };
+    }),
     ...(draft.superAdmin !== null
       ? [
           {
@@ -570,6 +606,14 @@ export function AdminPanel() {
           isChanged={(id) => draft.tabs[id] !== undefined}
           onLevel={setTabLevel}
           locked={locked}
+        />
+
+        <ChatGroupsCard
+          valueFor={groupFor}
+          isChanged={(capability) => draft.groups[capability] !== undefined}
+          onToggle={setGroupCapability}
+          locked={locked}
+          isSuperAdmin={isSuperAdmin}
         />
 
         <View style={[styles.noteCard, { backgroundColor: theme.surfaceRaised, borderColor: theme.border }]}>

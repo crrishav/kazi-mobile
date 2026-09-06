@@ -1,17 +1,14 @@
 import type { AvatarTint } from '@/components/ui/avatar';
 
-import { CURRENT_USER, PEOPLE } from './mock';
-import { ME, type Message, type Person, type PersonId, type Thread } from './types';
+import { isMe, myId, personFor } from './identity';
+import type { Message, Thread } from './types';
 
 const DAY = 86_400_000;
 
-export function personFor(id: PersonId): Person {
-  if (id === ME) return CURRENT_USER;
-  return PEOPLE[id] ?? { id, name: 'Unknown', role: '', initials: '?', avatarTint: 'draft', online: false, status: '' };
-}
+export { isMe, myId, personFor } from './identity';
 
 /** First name only — group bubbles and typing lines have no room for the rest. */
-export function firstName(id: PersonId): string {
+export function firstName(id: string): string {
   return personFor(id).name.split(' ')[0];
 }
 
@@ -49,7 +46,7 @@ export function threadOnline(thread: Thread): boolean {
 }
 
 export function threadMemberNames(thread: Thread): string {
-  return [CURRENT_USER.name, ...thread.memberIds.map((id) => personFor(id).name)].join(', ');
+  return [personFor(myId()).name, ...thread.memberIds.map((id) => personFor(id).name)].join(', ');
 }
 
 function startOfDay(ms: number): number {
@@ -95,7 +92,8 @@ export function dayLabel(ms: number): string {
 export function messageMeta(message: Message): string {
   const days = daysAgo(message.at);
   const stamp = days === 0 ? clockOf(message.at) : `${dayLabel(message.at)} ${clockOf(message.at)}`;
-  if (message.authorId !== ME || message.deleted) return stamp;
+  if (!isMe(message.authorId) || message.deleted) return stamp;
+  if (message.pending) return `${stamp} · Sending…`;
   return `${stamp} · ${message.read ? 'Read' : 'Sent'}`;
 }
 
@@ -104,8 +102,32 @@ export function messageTimestamp(message: Message): string {
   return `${dayLabel(message.at)} at ${clockOf(message.at)}`;
 }
 
+const ATTACHMENT_LABEL: Record<string, string> = { image: 'Photo', video: 'Video', file: 'File' };
+
+/** What an attachment reads as where there is no room to render it — previews, copies, quotes. */
+export function attachmentLabel(message: Message): string {
+  if (!message.attachment) return '';
+  return ATTACHMENT_LABEL[message.attachment.kind] ?? 'File';
+}
+
 export function messageText(message: Message): string {
-  return message.deleted ? 'This message was deleted' : message.text;
+  if (message.deleted) return 'This message was deleted';
+  if (message.text) return message.text;
+  if (message.attachment) return `${attachmentLabel(message)} · ${message.attachment.name}`;
+  return '';
+}
+
+/** Human file size for the attachment tile — 1 decimal, and never "0.0 KB". */
+export function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** `mm:ss` for a video's duration, from milliseconds. */
+export function clipLength(ms: number): string {
+  const total = Math.round(ms / 1000);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
 /** Thread-list preview. Groups get a sender prefix so an unread row says *who* is waiting on you. */
@@ -113,7 +135,7 @@ export function previewOf(thread: Thread, last: Message | undefined): string {
   if (thread.preview) return thread.preview;
   if (!last) return 'No messages yet';
   const body = messageText(last);
-  if (last.authorId === ME) return `You: ${body}`;
+  if (isMe(last.authorId)) return `You: ${body}`;
   if (thread.kind === 'group') return `${firstName(last.authorId)}: ${body}`;
   return body;
 }

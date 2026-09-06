@@ -1,6 +1,13 @@
-import { ME, type Message, type Person, type PersonId, type Thread, type ThreadId } from './types';
+import type { Message, Person, PersonId, Thread, ThreadId } from './types';
 
 const DAY = 86_400_000;
+
+/**
+ * The signed-in person's id in the seed. Real sessions replace it with a
+ * `people.id` through `setChatIdentity`; this is only what `identity.ts`
+ * starts from so the mock renders before (and without) a session.
+ */
+export const MOCK_ME: PersonId = 'me';
 
 /**
  * Seed timestamps are anchored to *today*, not to a fixed date, so the day
@@ -13,7 +20,19 @@ function at(hour: number, minute: number, daysAgo = 0): number {
   return d.getTime() - daysAgo * DAY;
 }
 
+/** The signed-in user. Listed so `personFor(MOCK_ME)` resolves; the compose sheet filters it back out. */
+export const CURRENT_USER: Person = {
+  id: MOCK_ME,
+  name: 'You',
+  role: 'Floor manager',
+  initials: 'SR',
+  avatarTint: 'dark',
+  online: true,
+  status: 'On shift',
+};
+
 export const PEOPLE: Record<PersonId, Person> = {
+  [MOCK_ME]: CURRENT_USER,
   ak: { id: 'ak', name: 'Anil Karki', role: 'Cutting lead', initials: 'AK', avatarTint: 'mint', online: true, status: 'On shift · Line 2' },
   pt: { id: 'pt', name: 'Pramila Thapa', role: 'QC', initials: 'PT', avatarTint: 'clay', online: true, status: 'On shift · QC bay' },
   rb: { id: 'rb', name: 'Rabin Bhandari', role: 'Stores', initials: 'RB', avatarTint: 'draft', online: false, status: 'Off shift · back 14:00' },
@@ -25,22 +44,13 @@ export const PEOPLE: Record<PersonId, Person> = {
   kd: { id: 'kd', name: 'Kiran Dahal', role: 'Maintenance', initials: 'KD', avatarTint: 'draft', online: true, status: 'On shift · Floor' },
 };
 
-/** The signed-in user. Not in `PEOPLE` — nothing should ever offer "message yourself". */
-export const CURRENT_USER: Person = {
-  id: ME,
-  name: 'You',
-  role: 'Floor manager',
-  initials: 'SR',
-  avatarTint: 'dark',
-  online: true,
-  status: 'On shift',
-};
+const ME = MOCK_ME;
 
 export const SEED_THREADS: Thread[] = [
-  { id: 't-l3', kind: 'group', name: 'Line 3 leads', avatarTint: 'dark', memberIds: ['ak', 'su', 'bk', 'nm', 'mk', 'pt'], pinned: true },
+  { id: 't-l3', kind: 'group', name: 'Line 3 leads', avatarTint: 'dark', memberIds: ['ak', 'su', 'bk', 'nm', 'mk', 'pt'], ownerId: ME, pinned: true },
   { id: 't-ak', kind: 'dm', memberIds: ['ak'] },
   { id: 't-pt', kind: 'dm', memberIds: ['pt'] },
-  { id: 't-floor', kind: 'group', name: 'Floor supervisors', avatarTint: 'mint', memberIds: ['su', 'kd', 'mk'], muted: true },
+  { id: 't-floor', kind: 'group', name: 'Floor supervisors', avatarTint: 'mint', memberIds: ['su', 'kd', 'mk'], ownerId: 'su', muted: true },
   { id: 't-rb', kind: 'dm', memberIds: ['rb'], missing: true, preview: 'Zip stock — checking the back shelf now', previewTime: '08:20', ref: 'THR-0418 · deleted 08:52' },
   { id: 't-mk', kind: 'dm', memberIds: ['mk'] },
   { id: 't-jw', kind: 'dm', memberIds: ['jw'] },

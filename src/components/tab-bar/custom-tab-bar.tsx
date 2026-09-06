@@ -18,6 +18,8 @@ import {
   type NavIconProps,
 } from '@/components/ui/icon';
 
+import { useTabBarHidden } from './tab-bar-visibility';
+
 // Rendered via `Tabs`' `tabBar` prop, which replaces React Navigation's
 // default bar entirely (unlike `layout`, which wraps the whole navigator
 // output — content AND the default bar — and left both stacked on screen).
@@ -56,6 +58,7 @@ const TAB_LABELS: Record<string, string> = {
 export function CustomTabBar({ state, navigation, insets }: CustomTabBarProps) {
   const theme = useTheme();
   const { canView, profile, role } = useAuth();
+  const hidden = useTabBarHidden();
 
   const activeName = state.routes[state.index]?.name;
 
@@ -66,6 +69,10 @@ export function CustomTabBar({ state, navigation, insets }: CustomTabBarProps) {
     .filter((slot) => canView(slot.section))
     .map((slot) => ({ ...slot, route: state.routes.find((r) => r.name === slot.name) }))
     .filter((slot): slot is typeof slot & { route: NonNullable<typeof slot.route> } => !!slot.route);
+
+  // An open chat thread asks for the whole screen — its composer would
+  // otherwise sit on top of a second bottom row.
+  if (hidden) return null;
 
   return (
     <View

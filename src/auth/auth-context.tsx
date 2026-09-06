@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { setChatIdentity } from '@/data/chat/identity';
 import { setActor } from '@/data/notifications/actor';
 
 import * as mockAuth from './mock-auth';
@@ -52,6 +53,7 @@ function toProfile(session: Session | null): Profile | null {
     role: session.appRole,
     jobRole: session.jobRole ?? session.role,
     positionId: session.positionId,
+    personId: session.personId,
     permissions: session.permissions,
     uid: session.uid,
     location: session.location,
@@ -103,6 +105,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // attribute events without prop-drilling the current user.
   useEffect(() => {
     setActor(session ? { name: session.name, email: session.email, role: session.appRole, uid: session.uid } : null);
+  }, [session]);
+
+  // Chat resolves "me" and "them" from a module-level registry rather than
+  // props (see `data/chat/identity.ts`); this is the one write of the "me"
+  // half. Signing out clears it, so a second account on the same device never
+  // inherits the first one's id.
+  useEffect(() => {
+    setChatIdentity(session?.personId ?? null, session ? {
+      id: session.personId ?? 'me',
+      name: session.name,
+      role: session.jobRole ?? session.role,
+      initials: session.initials,
+      avatarTint: 'dark',
+      online: true,
+      status: 'You',
+      email: session.email,
+    } : null);
   }, [session]);
 
   const profile = useMemo(() => toProfile(session), [session]);

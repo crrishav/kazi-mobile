@@ -53,6 +53,25 @@ export interface SectionRow {
   sortOrder: number;
 }
 
+/**
+ * The two chat-group capabilities, as rows of `chat_group_permissions`.
+ *
+ * Not a `sections` row on purpose. `sections` is shared with the web ERP and
+ * drives its permission matrix too; adding a line there would put "Chat
+ * groups" in front of every web admin for a feature the web app does not
+ * have. These live in their own mobile-owned table instead, and the database
+ * enforces them through `app_can_create_group()` / `app_can_manage_group()`
+ * exactly as it enforces the section grants.
+ */
+export type GroupCapability = 'create' | 'manage';
+
+export const GROUP_CAPABILITIES: { key: GroupCapability; label: string; hint: string }[] = [
+  { key: 'create', label: 'Start groups', hint: 'Can gather two or more colleagues into a new group conversation.' },
+  { key: 'manage', label: 'Manage groups', hint: 'Can rename a group they are in, and add or remove its members.' },
+];
+
+export type GroupRightsRow = Record<GroupCapability, boolean>;
+
 /** A row of `finance_tabs` — one tab inside Finance. */
 export interface FinanceTabRow {
   id: string;
@@ -79,6 +98,8 @@ export interface AdminMatrix {
   perms: Record<string, Record<string, AccessLevel>>;
   /** positionId → tabId → level. */
   tabPerms: Record<string, Record<string, AccessLevel>>;
+  /** positionId → the two chat-group capabilities. A missing entry is both false. */
+  groupRights: Record<string, GroupRightsRow>;
   people: PersonRow[];
 }
 
@@ -91,16 +112,18 @@ export interface RoleDraft {
   tabs: Record<string, AccessLevel>;
   /** sectionId → `is_personal`. A property of the screen, not of this role. */
   personal: Record<string, boolean>;
+  /** The chat-group capabilities this role is staged to gain or lose. */
+  groups: Partial<Record<GroupCapability, boolean>>;
   /** null = untouched; true/false = staged tier change. */
   superAdmin: boolean | null;
 }
 
-export const EMPTY_DRAFT: RoleDraft = { levels: {}, tabs: {}, personal: {}, superAdmin: null };
+export const EMPTY_DRAFT: RoleDraft = { levels: {}, tabs: {}, personal: {}, groups: {}, superAdmin: null };
 
 /** One line of the review sheet. */
 export interface DiffRow {
   key: string;
-  kind: 'page' | 'tab' | 'personal' | 'super';
+  kind: 'page' | 'tab' | 'personal' | 'group' | 'super';
   name: string;
   group: string;
   from: string;

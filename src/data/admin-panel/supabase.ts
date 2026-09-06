@@ -17,7 +17,15 @@
 import { getSupabase } from '@/lib/supabase';
 import { num, str } from '@/lib/firestore/normalise';
 
-import type { AccessLevel, AdminMatrix, FinanceTabRow, PersonRow, RoleRow, SectionRow } from './types';
+import type {
+  AccessLevel,
+  AdminMatrix,
+  FinanceTabRow,
+  GroupRightsRow,
+  PersonRow,
+  RoleRow,
+  SectionRow,
+} from './types';
 import { levelOf } from './utils';
 
 function failed(where: string, error: { message: string; code?: string }): Error {
@@ -28,12 +36,13 @@ type Row = Record<string, unknown>;
 
 export async function fetchAdminMatrix(): Promise<AdminMatrix> {
   const sb = getSupabase();
-  const [posRes, secRes, tabRes, permRes, tabPermRes, peopleRes] = await Promise.all([
+  const [posRes, secRes, tabRes, permRes, tabPermRes, groupRes, peopleRes] = await Promise.all([
     sb.from('positions').select('id, label, tier, description'),
     sb.from('sections').select('id, label, is_personal, sort_order'),
     sb.from('finance_tabs').select('id, label, sort_order'),
     sb.from('position_permissions').select('position_id, section_id, can_view, can_edit'),
     sb.from('position_finance_tabs').select('position_id, tab_id, can_view, can_edit'),
+    sb.from('chat_group_permissions').select('position_id, can_create, can_manage'),
     sb.from('fs_employees').select('*'),
   ]);
 
@@ -42,6 +51,7 @@ export async function fetchAdminMatrix(): Promise<AdminMatrix> {
   if (tabRes.error) throw failed('finance_tabs', tabRes.error);
   if (permRes.error) throw failed('position_permissions', permRes.error);
   if (tabPermRes.error) throw failed('position_finance_tabs', tabPermRes.error);
+  if (groupRes.error) throw failed('chat_group_permissions', groupRes.error);
   if (peopleRes.error) throw failed('employees', peopleRes.error);
 
   const roles: RoleRow[] = ((posRes.data ?? []) as Row[])
@@ -88,6 +98,11 @@ export async function fetchAdminMatrix(): Promise<AdminMatrix> {
     });
   }
 
+  const groupRights: Record<string, GroupRightsRow> = {};
+  for (const r of ((groupRes.data ?? []) as Row[])) {
+    groupRights[str(r.position_id).trim()] = { create: r.can_create === true, manage: r.can_manage === true };
+  }
+
   const people: PersonRow[] = ((peopleRes.data ?? []) as Row[])
     .map((r) => ({
       id: str(r.id).trim(),
@@ -100,5 +115,5 @@ export async function fetchAdminMatrix(): Promise<AdminMatrix> {
     .filter((p) => p.id && p.name)
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  return { roles, sections, financeTabs, perms, tabPerms, people };
+  return { roles, sections, financeTabs, perms, tabPerms, groupRights, people };
 }

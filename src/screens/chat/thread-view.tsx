@@ -1,15 +1,29 @@
 import * as Clipboard from 'expo-clipboard';
+import * as Linking from 'expo-linking';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useToast } from '@/components/toast/toast-provider';
+import { useHideTabBar } from '@/components/tab-bar/tab-bar-visibility';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import { ME, type Message, type MessageId, type PersonId, type Thread } from '@/data/chat/types';
-import { firstName, groupByDay, messageText, personFor, threadTitle } from '@/data/chat/utils';
+import { useKeyboardInset } from '@/lib/use-keyboard-inset';
+import {
+  AttachmentError,
+  pickAttachment,
+  uploadAttachment,
+  type PendingAttachment,
+  type PickSource,
+} from '@/data/chat/attachments';
+import type { Attachment, Message, MessageId, Person, PersonId, Thread } from '@/data/chat/types';
+import { attachmentLabel, firstName, groupByDay, isMe, messageText, personFor, threadTitle } from '@/data/chat/utils';
 
+import { AttachmentSheet } from './attachment-sheet';
 import { Composer } from './composer';
+import { GroupSheet } from './group-sheet';
+import { ImageViewer } from './image-viewer';
 import { MessageActionsSheet } from './message-actions-sheet';
 import { MessageBubble } from './message-bubble';
 import { SelectionHeader, ThreadHeader } from './thread-header';
@@ -19,18 +33,25 @@ import { ThreadNotFound } from './thread-not-found';
 export interface ThreadViewProps {
   thread: Thread;
   messages: Message[];
+  /** Everyone on staff but you, for the group editor. */
+  people: Person[];
   /** Whoever is mid-message on the other side, if anyone. */
   typingId?: PersonId;
   canPost: boolean;
+  /** Whether this position may rename the group and change its membership. */
+  canManageGroup: boolean;
   /** Unread count for this thread, so its own options sheet can offer "mark unread". */
   unread: number;
   onBack: () => void;
-  onSend: (text: string, replyTo?: MessageId) => void;
+  onSend: (text: string, replyTo?: MessageId, attachment?: Attachment) => void;
   onToggleReaction: (messageId: MessageId, emoji: string) => void;
   onDeleteMessages: (ids: MessageId[]) => void;
   onSetRead: (read: boolean) => void;
   onSetFlag: (flag: 'pinned' | 'muted', value: boolean) => void;
   onDeleteThread: () => void;
+  onSaveGroup: (name: string, memberIds: PersonId[]) => void;
+  groupSaving: boolean;
+  groupError?: string | null;
   onReplyPrivately: (personId: PersonId) => void;
   onCompose: () => void;
 }
@@ -38,8 +59,10 @@ export interface ThreadViewProps {
 export function ThreadView({
   thread,
   messages,
+  people,
   typingId,
   canPost,
+  canManageGroup,
   unread,
   onBack,
   onSend,
@@ -48,12 +71,26 @@ export function ThreadView({
   onSetRead,
   onSetFlag,
   onDeleteThread,
+  onSaveGroup,
+  groupSaving,
+  groupError,
   onReplyPrivately,
   onCompose,
 }: ThreadViewProps) {
   const theme = useTheme();
   const toast = useToast();
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
+
+  // A conversation takes the whole screen: the composer is pinned to the
+  // bottom, and the tab bar underneath it would be a second competing bottom
+  // row for the keyboard to push around. Back is in the header.
+  useHideTabBar();
+  // The list is pinned to the bottom, so it has to follow the keyboard up
+  // rather than keep an offset that is now behind the composer.
+  const keyboardStyle = useKeyboardInset(insets.bottom, () =>
+    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true })),
+  );
 
   const [draft, setDraft] = useState('');
   const [replyToId, setReplyToId] = useState<MessageId | null>(null);
@@ -61,6 +98,13 @@ export function ThreadView({
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<MessageId[]>([]);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [groupSession, setGroupSession] = useState(0);
+
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [pending, setPending] = useState<PendingAttachment | null>(null);
+  const [attaching, setAttaching] = useState(false);
+  const [viewing, setViewing] = useState<Attachment | null>(null);
 
   const isGroup = thread.kind === 'group';
   const byId = useMemo(() => new Map(messages.map((m) => [m.id, m])), [messages]);
@@ -69,7 +113,7 @@ export function ThreadView({
   const replyTo = replyToId ? (byId.get(replyToId) ?? null) : null;
   const sheetMessage = sheetTarget ? (byId.get(sheetTarget) ?? null) : null;
   const selectedMessages = selected.map((id) => byId.get(id)).filter((m): m is Message => !!m);
-  const canDeleteSelection = selectedMessages.length > 0 && selectedMessages.every((m) => m.authorId === ME && !m.deleted);
+  const canDeleteSelection = selectedMessages.length > 0 && selectedMessages.every((m) => isMe(m.authorId) && !m.deleted);
 
   const exitSelection = useCallback(() => {
     setSelecting(false);
@@ -82,23 +126,85 @@ export function ThreadView({
   /** Group copies carry the sender's name — a bare block of text loses who said what. */
   const copyToClipboard = async (items: Message[]) => {
     const body = items
-      .map((m) => (isGroup ? `${m.authorId === ME ? 'You' : personFor(m.authorId).name}: ${messageText(m)}` : messageText(m)))
+      .map((m) => {
+        const text = m.text || (m.attachment ? `[${attachmentLabel(m)}: ${m.attachment.name}]` : messageText(m));
+        return isGroup ? `${isMe(m.authorId) ? 'You' : personFor(m.authorId).name}: ${text}` : text;
+      })
       .join('\n');
     await Clipboard.setStringAsync(body);
     toast.show({ message: items.length > 1 ? `${items.length} messages copied` : 'Message copied', tone: 'ok' });
   };
 
-  const handleSend = () => {
+  const scrollToEnd = () => requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+
+  /**
+   * Send. The attachment goes up first and only then is the message written,
+   * so a failed upload leaves no bubble pointing at a file that isn't there —
+   * the draft and the picked file both survive for a second try.
+   */
+  const handleSend = async () => {
     const text = draft.trim();
-    if (!text || !canPost) return;
-    onSend(text, replyToId ?? undefined);
+    if ((!text && !pending) || !canPost || attaching) return;
+
+    let attachment: Attachment | undefined;
+    if (pending) {
+      setAttaching(true);
+      try {
+        attachment = await uploadAttachment(thread.id, pending);
+      } catch (err) {
+        setAttaching(false);
+        toast.show({
+          message: err instanceof AttachmentError ? err.message : 'That file could not be uploaded.',
+          tone: 'bad',
+        });
+        return;
+      }
+      setAttaching(false);
+    }
+
+    onSend(text, replyToId ?? undefined, attachment);
     setDraft('');
     setReplyToId(null);
-    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    setPending(null);
+    scrollToEnd();
+  };
+
+  const handlePick = async (source: PickSource) => {
+    setAttachOpen(false);
+    setAttaching(true);
+    try {
+      const picked = await pickAttachment(source);
+      if (picked) setPending(picked);
+    } catch (err) {
+      toast.show({
+        message: err instanceof AttachmentError ? err.message : 'That file could not be attached.',
+        tone: 'bad',
+      });
+    } finally {
+      setAttaching(false);
+    }
+  };
+
+  /** Photos open in the viewer; everything else is handed to whatever the phone uses for it. */
+  const openAttachment = async (attachment: Attachment) => {
+    if (attachment.kind === 'image') {
+      setViewing(attachment);
+      return;
+    }
+    if (!attachment.url) {
+      toast.show({ message: 'That file is still loading — try again in a moment.', tone: 'warn' });
+      return;
+    }
+    try {
+      await Linking.openURL(attachment.url);
+    } catch {
+      toast.show({ message: 'Nothing on this phone can open that file.', tone: 'bad' });
+    }
   };
 
   const handleBubblePress = (message: Message) => {
     if (selecting) toggleSelected(message.id);
+    else if (message.attachment) void openAttachment(message.attachment);
   };
 
   const handleBubbleLongPress = (message: Message) => {
@@ -112,6 +218,12 @@ export function ThreadView({
     setReplyToId(id);
   };
 
+  const openGroup = () => {
+    setOptionsOpen(false);
+    setGroupSession((n) => n + 1);
+    setGroupOpen(true);
+  };
+
   if (thread.missing) {
     return (
       <Animated.View entering={FadeIn.duration(180)} style={styles.flex}>
@@ -122,7 +234,11 @@ export function ThreadView({
   }
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    // The keyboard inset is applied here rather than by a
+    // `KeyboardAvoidingView`: on an edge-to-edge Android window nothing is
+    // resized when the keyboard opens, so the composer has to be lifted by
+    // hand. See `use-keyboard-inset.ts`.
+    <Animated.View style={[styles.flex, keyboardStyle]}>
       <Animated.View entering={FadeIn.duration(180)} style={styles.flex}>
         {selecting ? (
           <SelectionHeader
@@ -176,6 +292,7 @@ export function ThreadView({
                   onLongPress={() => handleBubbleLongPress(m)}
                   onReply={() => startReply(m.id)}
                   onToggleReaction={(emoji) => onToggleReaction(m.id, emoji)}
+                  onOpenAttachment={() => m.attachment && void openAttachment(m.attachment)}
                 />
               ))}
             </View>
@@ -199,18 +316,28 @@ export function ThreadView({
           <Composer
             draft={draft}
             onChangeDraft={setDraft}
-            onSend={handleSend}
+            onSend={() => void handleSend()}
             recipientName={isGroup ? (thread.name ?? 'the group') : firstName(thread.memberIds[0])}
             replyTo={replyTo}
             onCancelReply={() => setReplyToId(null)}
             canPost={canPost}
+            attachment={pending}
+            onAttach={() => setAttachOpen(true)}
+            onClearAttachment={() => setPending(null)}
+            busy={attaching}
           />
         )}
+
+        <AttachmentSheet visible={attachOpen} onClose={() => setAttachOpen(false)} onPick={(s) => void handlePick(s)} />
+
+        <ImageViewer attachment={viewing} onClose={() => setViewing(null)} />
 
         <ThreadActionsSheet
           thread={optionsOpen ? thread : null}
           unread={unread}
           showOpen={false}
+          canManageGroup={canManageGroup}
+          onGroupSettings={openGroup}
           onClose={() => setOptionsOpen(false)}
           onOpen={() => setOptionsOpen(false)}
           onSetRead={(read) => {
@@ -233,6 +360,22 @@ export function ThreadView({
           }}
         />
 
+        <GroupSheet
+          // Remounted per open so the draft starts from the group as it now
+          // stands, rather than from whatever was typed and abandoned before.
+          key={groupSession}
+          thread={groupOpen && isGroup ? thread : null}
+          people={people}
+          canManage={canManageGroup}
+          busy={groupSaving}
+          error={groupError}
+          onClose={() => setGroupOpen(false)}
+          onSave={(name, memberIds) => {
+            onSaveGroup(name, memberIds);
+            setGroupOpen(false);
+          }}
+        />
+
         <MessageActionsSheet
           message={sheetMessage}
           thread={thread}
@@ -240,7 +383,6 @@ export function ThreadView({
           onClose={() => setSheetTarget(null)}
           onReact={(emoji) => {
             if (sheetMessage) onToggleReaction(sheetMessage.id, emoji);
-            setSheetTarget(null);
           }}
           onReply={() => sheetMessage && startReply(sheetMessage.id)}
           onReplyPrivately={() => {
@@ -264,7 +406,7 @@ export function ThreadView({
           }}
         />
       </Animated.View>
-    </KeyboardAvoidingView>
+    </Animated.View>
   );
 }
 

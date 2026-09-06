@@ -1,10 +1,15 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { EmojiPicker } from '@/components/ui/emoji-picker';
+import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
-import { ME, QUICK_REACTIONS, type Message, type Thread } from '@/data/chat/types';
-import { messageText, messageTimestamp, personFor, reactionCount } from '@/data/chat/utils';
+import { useRecentEmoji } from '@/data/chat/recent-emoji';
+import { QUICK_REACTIONS, type Message, type Thread } from '@/data/chat/types';
+import { isMe, messageText, messageTimestamp, personFor, reactionCount } from '@/data/chat/utils';
 
 import { ActionRow } from './action-row';
 
@@ -36,14 +41,29 @@ export function MessageActionsSheet({
   onDelete,
 }: MessageActionsSheetProps) {
   const theme = useTheme();
+  const { recent, remember } = useRecentEmoji();
+  const [picking, setPicking] = useState(false);
 
-  const mine = message?.authorId === ME;
+  const mine = !!message && isMe(message.authorId);
   const author = message ? personFor(message.authorId) : null;
   const canDelete = !!message && mine && !message.deleted;
   const reactable = !!message && canPost && !message.deleted;
 
+  /** Everything I have already put on this message, so a second tap reads as "take it back". */
+  const myReactions = (message?.reactions ?? []).filter((r) => r.by.some(isMe)).map((r) => r.emoji);
+
+  const react = (emoji: string) => {
+    remember(emoji);
+    onReact(emoji);
+  };
+
+  const close = () => {
+    setPicking(false);
+    onClose();
+  };
+
   return (
-    <BottomSheet visible={!!message} onClose={onClose} title="Message" maxHeight={560}>
+    <BottomSheet visible={!!message} onClose={close} title={picking ? 'Pick a reaction' : 'Message'} maxHeight={picking ? 640 : 560}>
       {message ? (
         <>
           <View style={[styles.preview, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -52,7 +72,7 @@ export function MessageActionsSheet({
               {mine && !message.deleted ? ` · ${message.read ? 'Read' : 'Sent'}` : ''}
               {reactionCount(message) > 0 ? ` · ${reactionCount(message)} reactions` : ''}
             </Text>
-            <Text style={[styles.previewBody, { color: theme.textPrimary }]} numberOfLines={4}>
+            <Text style={[styles.previewBody, { color: theme.textPrimary }]} numberOfLines={picking ? 2 : 4}>
               {messageText(message)}
             </Text>
           </View>
@@ -60,11 +80,11 @@ export function MessageActionsSheet({
           {reactable ? (
             <View style={styles.emojiRow}>
               {QUICK_REACTIONS.map((emoji) => {
-                const active = message.reactions.some((r) => r.emoji === emoji && r.by.includes(ME));
+                const active = myReactions.includes(emoji);
                 return (
                   <Pressable
                     key={emoji}
-                    onPress={() => onReact(emoji)}
+                    onPress={() => react(emoji)}
                     style={[
                       styles.emojiButton,
                       {
@@ -77,18 +97,44 @@ export function MessageActionsSheet({
                   </Pressable>
                 );
               })}
+              {/* The six presets cover most reactions; this is the rest of them. */}
+              <Pressable
+                onPress={() => setPicking((on) => !on)}
+                accessibilityLabel={picking ? 'Hide the emoji picker' : 'More reactions'}
+                style={[
+                  styles.emojiButton,
+                  {
+                    backgroundColor: picking ? theme.accentWash : theme.surface,
+                    borderColor: picking ? theme.accent : theme.border,
+                  },
+                ]}
+              >
+                <Icon
+                  name={picking ? 'chevron-up' : 'plus'}
+                  size={18}
+                  color={picking ? theme.accentWashText : theme.textSecondary}
+                />
+              </Pressable>
             </View>
           ) : null}
 
-          <View style={styles.actions}>
-            {canPost && !message.deleted ? <ActionRow icon="corner-up-left" label="Reply" detail="Or swipe the message right" onPress={onReply} /> : null}
-            {canPost && thread.kind === 'group' && !mine ? (
-              <ActionRow icon="user" label={`Reply privately to ${author?.name.split(' ')[0]}`} detail="Opens a direct message" onPress={onReplyPrivately} />
-            ) : null}
-            {!message.deleted ? <ActionRow icon="copy" label="Copy text" onPress={onCopy} /> : null}
-            <ActionRow icon="check-circle" label="Select messages" detail="Copy or delete several at once" onPress={onSelect} />
-            {canDelete ? <ActionRow icon="trash-2" label="Delete message" destructive onPress={onDelete} /> : null}
-          </View>
+          {reactable && picking ? (
+            <Animated.View entering={FadeIn.duration(150)}>
+              <EmojiPicker onPick={react} active={myReactions} recent={recent} height={280} />
+            </Animated.View>
+          ) : null}
+
+          {picking ? null : (
+            <View style={styles.actions}>
+              {canPost && !message.deleted ? <ActionRow icon="corner-up-left" label="Reply" detail="Or swipe the message right" onPress={onReply} /> : null}
+              {canPost && thread.kind === 'group' && !mine ? (
+                <ActionRow icon="user" label={`Reply privately to ${author?.name.split(' ')[0]}`} detail="Opens a direct message" onPress={onReplyPrivately} />
+              ) : null}
+              {!message.deleted ? <ActionRow icon="copy" label="Copy text" onPress={onCopy} /> : null}
+              <ActionRow icon="check-circle" label="Select messages" detail="Copy or delete several at once" onPress={onSelect} />
+              {canDelete ? <ActionRow icon="trash-2" label="Delete message" destructive onPress={onDelete} /> : null}
+            </View>
+          )}
         </>
       ) : null}
     </BottomSheet>
@@ -115,7 +161,7 @@ const styles = StyleSheet.create({
   emojiRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 6,
   },
   emojiButton: {
     flex: 1,
