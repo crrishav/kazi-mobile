@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { ThresholdBar } from '@/components/ui/threshold-bar';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import { stockHistory } from '@/data/inventory/mock';
@@ -23,6 +24,9 @@ export interface DetailViewProps {
 
 export function DetailView({ item, movements, onBack, onRaisePO, onAdjust, onEditDetails }: DetailViewProps) {
   const theme = useTheme();
+  // Keyed on the item: this view stays mounted while you close one item and
+  // open another, so without it the second one opens at the first one's offset.
+  const scrollRef = useScrollTop(item.id);
   const level = stockLevel(item);
   const barColor = level === 'low' ? theme.accent : level === 'near' ? theme.accent : theme.accent;
   const statusLine =
@@ -45,7 +49,7 @@ export function DetailView({ item, movements, onBack, onRaisePO, onAdjust, onEdi
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <ScreenHeader title={item.name} subtitle={`${item.sku} · ${item.supplier}`} onBack={onBack} />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
         <Card elevation="hero" style={styles.onHandCard}>
           <View style={styles.onHandRow}>
             <View style={styles.gap5}>

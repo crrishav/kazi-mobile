@@ -11,6 +11,7 @@ import { PermissionNotice } from '@/components/ui/permission-notice';
 import { RiseIn } from '@/components/ui/rise-in';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useBackHandler } from '@/lib/use-back-handler';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -134,6 +135,7 @@ export function EmployeesHR() {
   const { data: attendanceTeam } = useTeamRoster();
 
   const [view, setView] = useState<EmployeeView>('directory');
+  const scrollRef = useScrollTop(view);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [monthKey, setMonthKey] = useState<MonthKey>('aug');
@@ -415,7 +417,7 @@ export function EmployeesHR() {
       <ScreenHeader title="Employees" subtitle={`${employees.length} on roll · Balaju plant`} rightSlot={<HeaderAccount />} />
       <TabsHeader view={view} onChange={setView} showPayroll={canViewPayroll} />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
         <PermissionNotice section="employees-hr" />
         {/* Directory and Payroll are alternatives in the same frame — they
             rise in place rather than travelling. */}

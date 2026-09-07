@@ -10,6 +10,7 @@ import { CollapsedSection } from '@/components/ui/collapsed-section';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useModulePresentation } from '@/components/tab-bar/use-own-tab';
 import { useBackHandler } from '@/lib/use-back-handler';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { Button } from '@/components/ui/button';
 import { StatusPill, type StatusKind } from '@/components/ui/status-pill';
@@ -114,6 +115,10 @@ export function Production() {
   const [sheetMode, setSheetMode] = useState<'new' | 'edit' | null>(null);
   const [draft, setDraft] = useState<OrderDraft | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Keyed on the open order: the detail body sits at the same place in the
+  // tree as the list, so React hands it the same ScrollView — and with it the
+  // offset the list was left at.
+  const scrollRef = useScrollTop(selectedId ?? 'list');
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // The order detail is a view inside this route, not a route of its own, so
@@ -267,7 +272,7 @@ export function Production() {
           }}
           rightSlot={<StatusPill status={pill.kind} label={pill.label} />}
         />
-        <ScrollView contentContainerStyle={[styles.detailContent, { paddingBottom: 120 + bottomInset }]}>
+        <ScrollView ref={scrollRef} contentContainerStyle={[styles.detailContent, { paddingBottom: 120 + bottomInset }]}>
           <PermissionNotice section="order-management" />
           <OrderDetail
             order={selected}
@@ -354,7 +359,7 @@ export function Production() {
         showBack={showBack}
       />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 110 + bottomInset }]}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.content, { paddingBottom: 110 + bottomInset }]}>
         <PermissionNotice section="order-management" />
         <PipelineSummary orders={orders} />
         <StageChips filters={filters} active={filter} onChange={setFilter} />

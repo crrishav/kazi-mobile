@@ -12,6 +12,7 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { TabStrip, type TabDef } from '@/components/ui/tab-strip';
 import { useModulePresentation } from '@/components/tab-bar/use-own-tab';
 import { useBackHandler } from '@/lib/use-back-handler';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { useTheme } from '@/theme/theme-provider';
 import * as haptics from '@/lib/haptics';
 import { fontFamily } from '@/theme';
@@ -195,6 +196,10 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
 
   const [tab, setTab] = useState<FinanceTabId>(isAccounting ? 'journal' : 'overview');
   const [drill, setDrill] = useState<Drill>(null);
+  // One ref for all three bodies below — only ever one of them is mounted,
+  // and the drill-downs reuse the hub's ScrollView instance rather than
+  // getting a fresh one, so the key has to name the drill as well as the tab.
+  const scrollRef = useScrollTop(`${drill ?? 'hub'}:${tab}`);
   const [yearId, setYearId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<LedgerFilter>('all');
   const [expensesFilter, setExpensesFilter] = useState<ExpensesFilter>('all');
@@ -723,7 +728,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
     return (
       <View style={[styles.flex, { backgroundColor: theme.background }]}>
         <ScreenHeader title="Browse by fiscal year" subtitle="Shrawan – Ashad · Nepal" onBack={() => setDrill(null)} />
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
           <YearsView
             years={YEARS}
             onOpen={(y) => {
@@ -754,7 +759,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
             </Pressable>
           }
         />
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
           <LedgerView
             filters={ledgerFilters}
             activeFilter={typeFilter}
@@ -806,7 +811,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
       </View>
       <TabStrip tabs={tabs} active={tab} onChange={setTab} />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 110 + bottomInset }]}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.content, { paddingBottom: 110 + bottomInset }]}>
         {!canEdit ? <PermissionNotice section={section} /> : null}
 
         {tab === 'overview' ? (

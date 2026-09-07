@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useAuth } from '@/auth/auth-context';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { RoleSwitcher } from '@/screens/more/role-switcher';
 import { useTheme } from '@/theme/theme-provider';
 
@@ -18,13 +19,14 @@ import { AccountActions } from './session-actions';
  */
 export function Account() {
   const theme = useTheme();
+  const scrollRef = useScrollTop();
   const { profile } = useAuth();
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <ScreenHeader title="Account" subtitle={profile?.email} />
       {profile ? (
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
           <IdentityCard profile={profile} />
           <AccessSummary />
           {isSupabaseConfigured ? null : <RoleSwitcher />}

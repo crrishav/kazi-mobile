@@ -12,6 +12,7 @@ import { SearchField } from '@/components/ui/search-field';
 import { TabStrip, type TabDef } from '@/components/ui/tab-strip';
 import { useModulePresentation } from '@/components/tab-bar/use-own-tab';
 import { useBackHandler } from '@/lib/use-back-handler';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import {
@@ -160,6 +161,7 @@ export function Inventory() {
   const { showBack, bottomInset } = useModulePresentation('inventory');
 
   const [tab, setTab] = useState<InventoryTabId>(HOME_TAB);
+  const scrollRef = useScrollTop(tab);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<StockFilter>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -602,6 +604,7 @@ export function Inventory() {
       </View>
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.content, { paddingBottom: 110 + bottomInset }]}
         keyboardShouldPersistTaps="handled"
       >

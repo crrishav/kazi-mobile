@@ -12,6 +12,7 @@ import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import { useCalendarPreference } from '@/lib/calendar-preference';
 import { dateText, isoDay } from '@/lib/date-display';
+import { useScrollTop } from '@/lib/use-scroll-top';
 
 import { FilterChips, type NotifFilter } from './filter-chips';
 import { NotificationRow } from './notification-row';
@@ -33,6 +34,7 @@ export function Notifications() {
   useCalendarPreference();
   const { records, loading, error, unreadCount, markAllRead, markReadById } = useNotifications();
   const [filter, setFilter] = useState<NotifFilter>('all');
+  const scrollRef = useScrollTop();
   const [refreshing, setRefreshing] = useState(false);
 
   const visible = useMemo(() => {
@@ -91,6 +93,7 @@ export function Notifications() {
         </View>
       ) : (
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.content}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}
         >

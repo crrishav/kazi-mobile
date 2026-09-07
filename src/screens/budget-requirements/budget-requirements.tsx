@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useBackHandler } from '@/lib/use-back-handler';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { ViewSwap } from '@/components/ui/view-swap';
 import { toGBP } from '@/lib/currency';
@@ -94,6 +95,7 @@ export function BudgetRequirements() {
   const [reqStatus, setReqStatus] = useState<'all' | ReviewStatus>('all');
   const [reqUrgency, setReqUrgency] = useState<string>('all');
   const [view, setView] = useState<RequirementsView>('list');
+  const scrollRef = useScrollTop(`${view}:${tab}`);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedReqId, setSelectedReqId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -276,7 +278,7 @@ export function BudgetRequirements() {
     return (
       <ViewSwap viewKey="requirement" order={BUDGET_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
         <ScreenHeader title={selected.item} subtitle={`${selected.ref} · ${selected.cat}`} onBack={backToList} />
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
           <DetailView
             item={selected}
             canDecide={selected.status === 'pending' && isAdmin}
@@ -293,7 +295,7 @@ export function BudgetRequirements() {
     return (
       <ViewSwap viewKey="request" order={BUDGET_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
         <ScreenHeader title={selectedRequest.title} subtitle={`${selectedRequest.ref} · ${selectedRequest.category}`} onBack={backToList} />
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
           <RequestDetailView
             item={selectedRequest}
             canDecide={selectedRequest.status === 'Pending' && isAdmin}
@@ -340,7 +342,7 @@ export function BudgetRequirements() {
             onFilterChange={setFilter}
           />
 
-          <ScrollView contentContainerStyle={styles.content}>
+          <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
             <PermissionNotice section="budget-requirements" message="View only — you can’t raise or decide requests." />
             {rows.length === 0 ? (
               <EmptyState icon="file-text" title="Nothing waiting here" message={`Clear the filter to see all ${requirements.length} requests raised this month.`} />
@@ -363,7 +365,7 @@ export function BudgetRequirements() {
         </>
       ) : (
         <>
-          <ScrollView contentContainerStyle={styles.content}>
+          <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
             <PermissionNotice section="budget-requirements" message="View only — you can’t raise or decide requests." />
 
             <View style={[styles.requestStat, { backgroundColor: theme.surface, borderColor: theme.border }]}>

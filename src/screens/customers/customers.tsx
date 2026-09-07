@@ -10,6 +10,7 @@ import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { SearchField } from '@/components/ui/search-field';
 import { useBackHandler } from '@/lib/use-back-handler';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import * as haptics from '@/lib/haptics';
@@ -44,6 +45,7 @@ function sameDraft(a: CustomerDraft, b: CustomerDraft): boolean {
 
 export function Customers() {
   const theme = useTheme();
+  const scrollRef = useScrollTop();
   // Money is formatted by plain functions (`@/lib/money`), so this is what
   // re-renders the screen when the currency preference or the rate changes.
   useMoneySignature();
@@ -206,7 +208,7 @@ export function Customers() {
           ) : undefined
         }
       />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
         <PermissionNotice section="customers" />
         <SearchField value={query} onChange={setQuery} placeholder="Name, contact or city" />
 

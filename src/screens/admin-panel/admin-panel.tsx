@@ -8,6 +8,7 @@ import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useBackHandler } from '@/lib/use-back-handler';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import * as haptics from '@/lib/haptics';
@@ -95,6 +96,8 @@ export function AdminPanel() {
   const setPersonRole = useSetPersonRole();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // The role editor and the role list draw into the same ScrollView slot.
+  const scrollRef = useScrollTop(selectedId ?? 'roles');
   const [draft, setDraft] = useState<RoleDraft>(EMPTY_DRAFT);
   const [roleQuery, setRoleQuery] = useState('');
   const [pageQuery, setPageQuery] = useState('');
@@ -517,7 +520,7 @@ export function AdminPanel() {
             )
           }
         />
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
           <PermissionNotice
             section="admin-panel"
             message="View only — you can see how roles are configured, but only roles with edit access to the Admin Panel can change them."
@@ -584,7 +587,7 @@ export function AdminPanel() {
         }
       />
 
-      <ScrollView contentContainerStyle={[styles.content, dirty ? styles.contentDirty : null]}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.content, dirty ? styles.contentDirty : null]}>
         <PermissionNotice
           section="admin-panel"
           message="View only — you can see how this role is configured, but only roles with edit access to the Admin Panel can change it."

@@ -10,6 +10,7 @@ import { RiseIn } from '@/components/ui/rise-in';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useModulePresentation } from '@/components/tab-bar/use-own-tab';
 import { useBackHandler } from '@/lib/use-back-handler';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -39,6 +40,7 @@ export function Marketing() {
   const restoreEntry = useRestoreEntry();
 
   const [view, setView] = useState<MarketingView>('calendar');
+  const scrollRef = useScrollTop(view);
   const [cursor, setCursor] = useState<MonthCursor>({ y: TODAY.y, m: TODAY.m });
   const [selected, setSelected] = useState<SelectedDay>({ y: TODAY.y, m: TODAY.m, d: TODAY.d });
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
@@ -134,7 +136,7 @@ export function Marketing() {
         }
       />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 100 + bottomInset }]}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.content, { paddingBottom: 100 + bottomInset }]}>
         <PermissionNotice section="marketing" />
         {/* Month and List are alternatives in the same frame, so they rise in
             place rather than travelling — the same treatment the attendance

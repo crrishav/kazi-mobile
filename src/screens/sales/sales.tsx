@@ -6,6 +6,7 @@ import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { useOrders } from '@/data/sales/hooks';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { useMoneySignature } from '@/lib/money';
 
 import { StageBreakdown } from './stage-breakdown';
@@ -18,6 +19,7 @@ import { TopCustomers } from './top-customers';
  */
 export function Sales() {
   const theme = useTheme();
+  const scrollRef = useScrollTop();
   // Money is formatted by plain functions (`@/lib/money`), so this is what
   // re-renders the screen when the currency preference or the rate changes.
   useMoneySignature();
@@ -36,7 +38,7 @@ export function Sales() {
         rightSlot={<HeaderAccount />}
       />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
         {orders.length === 0 ? (
           <EmptyState icon="shopping-bag" title="No orders yet" message="Orders created in Order Management will appear here." />
         ) : (

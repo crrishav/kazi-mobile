@@ -13,6 +13,7 @@ import { CollapsedSection } from '@/components/ui/collapsed-section';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useModulePresentation } from '@/components/tab-bar/use-own-tab';
 import { useBackHandler } from '@/lib/use-back-handler';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { ViewSwap } from '@/components/ui/view-swap';
 import { TextField } from '@/components/ui/text-field';
@@ -119,6 +120,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
   const restoreQuotations = useRestoreQuotations();
 
   const [docType, setDocType] = useState<DocType>('invoice');
+  const scrollRef = useScrollTop(docType);
   const [view, setView] = useState<BillingView>('list');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<BillingFilter>('all');
@@ -714,7 +716,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
           </View>
         }
       />
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 100 + bottomInset }]}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.content, { paddingBottom: 100 + bottomInset }]}>
         <DocTypeSwitch
           active={docType}
           counts={docCounts}

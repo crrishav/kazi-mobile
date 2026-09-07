@@ -7,6 +7,7 @@ import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import * as haptics from '@/lib/haptics';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { fontFamily } from '@/theme';
 import type { Message, Thread, ThreadId } from '@/data/chat/types';
 import { previewOf, threadMemberNames, threadRole, threadTitle } from '@/data/chat/utils';
@@ -48,6 +49,7 @@ export function ThreadListView({
   onDeleteThread,
 }: ThreadListViewProps) {
   const theme = useTheme();
+  const scrollRef = useScrollTop();
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   const [optionsFor, setOptionsFor] = useState<ThreadId | null>(null);
@@ -132,6 +134,7 @@ export function ThreadListView({
       ) : null}
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}

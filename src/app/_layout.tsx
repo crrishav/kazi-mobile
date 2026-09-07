@@ -1,3 +1,4 @@
+import { LogBox } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { IBMPlexMono_400Regular, IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
@@ -28,6 +29,26 @@ import { ThemeProvider, useTheme } from '@/theme/theme-provider';
 SplashScreen.preventAutoHideAsync();
 
 if (__DEV__) {
+  /**
+   * Keep LogBox's toasts off the screen.
+   *
+   * The yellow warning and red error cards sit on top of the app in the exact
+   * corner the tab bar and the floating actions live in, so a single noisy
+   * dependency makes whole screens untappable while it is being looked at.
+   * Nothing is silenced, only un-drawn: every one of these is still printed to
+   * the Metro terminal and to the debugger console, which is where a warning
+   * can actually be read next to its stack. Flip this to `false` when you want
+   * them back on the device.
+   *
+   * Dev-only either way — LogBox does not exist in a release build.
+   *
+   * A *fatal* error still takes over the screen. That one is not noise: the
+   * alternative is a white screen with no explanation, and it means the app has
+   * already stopped running rather than merely complained.
+   */
+  const HIDE_LOGBOX_TOASTS = true;
+  LogBox.ignoreAllLogs(HIDE_LOGBOX_TOASTS);
+
   // Boot diagnostic: if this logs `false`, the `.env` was not picked up —
   // restart Metro with `npx expo start --clear`. When `true`, watch for
   // `[supabase] <module>: live read OK` / `... live read FAILED` lines.

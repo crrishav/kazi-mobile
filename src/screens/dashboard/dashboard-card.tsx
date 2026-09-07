@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { Card } from '@/components/ui/card';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
@@ -61,6 +62,7 @@ export interface DashboardScrollProps {
 /** Shared scroll container + pull-to-refresh + first-load spinner for every variant. */
 export function DashboardScroll({ isRefetching, onRefresh, loading, children }: DashboardScrollProps) {
   const theme = useTheme();
+  const scrollRef = useScrollTop();
 
   if (loading) {
     return (
@@ -72,6 +74,7 @@ export function DashboardScroll({ isRefetching, onRefresh, loading, children }: 
 
   return (
     <ScrollView
+      ref={scrollRef}
       contentContainerStyle={styles.content}
       refreshControl={
         <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={theme.accent} />

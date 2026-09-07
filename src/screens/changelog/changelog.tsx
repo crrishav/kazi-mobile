@@ -6,6 +6,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import { useCommitFeed } from '@/data/changelog/hooks';
@@ -19,6 +20,7 @@ import { FilterChipsBar } from './filter-chips-bar';
 
 export function Changelog() {
   const theme = useTheme();
+  const scrollRef = useScrollTop();
   const { data: feed, isLoading, isError, error, refetch, isRefetching } = useCommitFeed();
 
   const [filter, setFilter] = useState<FilterKey>('All');
@@ -60,6 +62,7 @@ export function Changelog() {
       <FilterChipsBar filters={filters} active={filter} onPick={setFilter} />
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={theme.accent} />}
       >

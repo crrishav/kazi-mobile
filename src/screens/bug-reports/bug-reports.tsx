@@ -8,6 +8,7 @@ import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { useTheme } from '@/theme/theme-provider';
 import {
   useAddBugReport,
@@ -27,6 +28,7 @@ const EMPTY_DRAFT: BugReportDraft = { title: '', area: 'Other', severity: 'mediu
 
 export function BugReports() {
   const theme = useTheme();
+  const scrollRef = useScrollTop();
   const toast = useToast();
   const { can, profile } = useAuth();
   const canEdit = can('bug-report');
@@ -83,7 +85,7 @@ export function BugReports() {
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <ScreenHeader title="Bug Report" subtitle={`${openCount} open · ${reports.length} total`} />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
         {!canEdit ? <PermissionNotice section="bug-report" message="View only — you can’t file or update reports here." /> : null}
 
         <FilterBar

@@ -2,6 +2,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { RoleSwitcher } from '@/screens/more/role-switcher';
 import { useTheme } from '@/theme/theme-provider';
 
@@ -19,11 +20,12 @@ import { HapticsCard } from './haptics-card';
  */
 export function Settings() {
   const theme = useTheme();
+  const scrollRef = useScrollTop();
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <ScreenHeader title="Settings" subtitle="Appearance · currency · dates · haptics" />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
         <AppearanceCard />
         <CurrencyCard />
         <CalendarCard />

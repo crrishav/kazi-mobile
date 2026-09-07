@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
@@ -50,8 +50,32 @@ export function NewChatSheet({
 
   const toggle = (id: PersonId) => setPicked((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
 
+  // The name field scrolls away above a long staff list, so a Create held back
+  // by an empty name has to be able to send you back to it.
+  const scrollRef = useRef<ScrollView | null>(null);
+  const nameRef = useRef<TextInput | null>(null);
+
+  const trimmedName = groupName.trim();
   // A "group" of one is just a dm, so the second member is what unlocks Create.
-  const canCreate = groupName.trim().length > 0 && picked.length >= 2;
+  const enoughPeople = picked.length >= 2;
+  const canCreate = trimmedName.length > 0 && enoughPeople;
+  /** The one condition still holding Create back — what the button says, and what a press acts on. */
+  const missing = enoughPeople ? (trimmedName ? null : 'name') : 'people';
+
+  function focusName() {
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+    nameRef.current?.focus();
+  }
+
+  const createLabel = busy
+    ? 'Creating…'
+    : missing === 'people'
+      ? picked.length === 1
+        ? 'Pick 1 more'
+        : 'Pick 2 people'
+      : missing === 'name'
+        ? 'Name your group'
+        : `Create · ${picked.length}`;
 
   /**
    * Create floats over the list rather than sitting under it.
@@ -66,15 +90,24 @@ export function NewChatSheet({
     mode === 'group' ? (
       <Animated.View entering={FadeInDown.duration(180)} exiting={FadeOutDown.duration(120)}>
         <Pressable
-          onPress={() => canCreate && !busy && onCreateGroup(groupName.trim(), picked)}
-          disabled={!canCreate || busy}
-          accessibilityLabel={canCreate ? `Create ${groupName.trim()} with ${picked.length} people` : 'Pick a name and two people first'}
+          onPress={() => {
+            if (busy) return;
+            if (canCreate) onCreateGroup(trimmedName, picked);
+            // Greyed out but not inert: the only thing left to do is name it,
+            // so the press does the going-back-up for you.
+            else if (missing === 'name') focusName();
+          }}
+          // Only truly refused while the list itself is what is unfinished —
+          // and that list is the thing already under the thumb.
+          disabled={busy || missing === 'people'}
+          accessibilityLabel={canCreate ? `Create ${trimmedName} with ${picked.length} people` : createLabel}
           style={({ pressed }) => [
             styles.fab,
             {
               backgroundColor: canCreate ? theme.accent : theme.surface,
               borderColor: canCreate ? theme.accent : theme.border,
-              opacity: pressed && canCreate ? 0.85 : 1,
+              // Dims on press whenever the press does something — creating, or going up to the name.
+              opacity: pressed && missing !== 'people' ? 0.85 : 1,
               boxShadow: theme.shadows.floating,
             },
           ]}
@@ -82,10 +115,14 @@ export function NewChatSheet({
           {busy ? (
             <ActivityIndicator size="small" color={canCreate ? theme.accentText : theme.textSecondary} />
           ) : (
-            <Icon name="check" size={18} color={canCreate ? theme.accentText : theme.textSecondary} />
+            <Icon
+              name={missing === 'name' ? 'arrow-up' : 'check'}
+              size={18}
+              color={canCreate ? theme.accentText : theme.textSecondary}
+            />
           )}
           <Text style={[styles.fabLabel, { color: canCreate ? theme.accentText : theme.textSecondary }]}>
-            {busy ? 'Creating…' : picked.length > 0 ? `Create · ${picked.length}` : 'Create group'}
+            {createLabel}
           </Text>
         </Pressable>
       </Animated.View>
@@ -97,6 +134,7 @@ export function NewChatSheet({
       onClose={onClose}
       title={mode === 'pick' ? 'New message' : 'New group'}
       maxHeight={680}
+      scrollRef={scrollRef}
       overlay={createAction}
     >
       {mode === 'pick' ? (
@@ -111,7 +149,14 @@ export function NewChatSheet({
         />
       ) : (
         <>
-          <TextField label="Group name" value={groupName} onChangeText={setGroupName} placeholder="e.g. Line 4 leads" autoCapitalize="sentences" />
+          <TextField
+            label="Group name"
+            inputRef={nameRef}
+            value={groupName}
+            onChangeText={setGroupName}
+            placeholder="e.g. Line 4 leads"
+            autoCapitalize="sentences"
+          />
           <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
             Members · {picked.length} selected
           </Text>

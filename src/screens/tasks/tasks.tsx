@@ -10,6 +10,7 @@ import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { Switch } from '@/components/ui/switch';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useModulePresentation } from '@/components/tab-bar/use-own-tab';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import { STATUS_LABEL, STATUS_ORDER } from '@/data/tasks/mock';
@@ -39,6 +40,7 @@ export function Tasks() {
   const undoDeleteTask = useUndoDeleteTask();
 
   const [filter, setFilter] = useState<TaskFilter>('all');
+  const scrollRef = useScrollTop();
   const [query, setQuery] = useState('');
   const [dueTodayOnly, setDueTodayOnly] = useState(false);
   const [sheetMode, setSheetMode] = useState<'new' | 'edit' | null>(null);
@@ -139,7 +141,7 @@ export function Tasks() {
         <Switch value={dueTodayOnly} onValueChange={() => setDueTodayOnly((v) => !v)} />
       </View>
 
-      <ScrollView contentContainerStyle={[styles.list, { paddingBottom: 110 + bottomInset }]}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.list, { paddingBottom: 110 + bottomInset }]}>
         <PermissionNotice section="tasks" message="Tap a task to move its progress. Everything else is set by an admin." />
         {visible.length === 0 ? (
           <EmptyState

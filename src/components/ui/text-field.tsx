@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type RefObject } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, type KeyboardTypeOptions } from 'react-native';
 
 import { useTheme } from '@/theme/theme-provider';
@@ -17,6 +17,8 @@ export interface TextFieldProps {
   rightAccessory?: React.ReactNode;
   /** 46px / mono font, for secondary fields like a reference code — matches the design's smaller reference input. */
   compact?: boolean;
+  /** Hands the underlying input back, so a caller can focus it — e.g. a blocked submit sending you to the field it is waiting on. */
+  inputRef?: RefObject<TextInput | null>;
 }
 
 /** 52px height / 16px value size (so iOS never zooms on focus), focus ring = accent at ~22% opacity. */
@@ -31,6 +33,7 @@ export function TextField({
   autoCapitalize = 'none',
   rightAccessory,
   compact = false,
+  inputRef,
 }: TextFieldProps) {
   const theme = useTheme();
   const [focused, setFocused] = useState(false);
@@ -52,6 +55,7 @@ export function TextField({
       ) : null}
       <View style={styles.inputWrap}>
         <TextInput
+          ref={inputRef}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}

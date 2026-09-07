@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/auth/auth-context';
 import type { SectionId } from '@/auth/permissions';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import { MORE_MODULES } from '@/constants';
@@ -17,6 +18,7 @@ import { SettingsCard } from './settings-card';
 
 export function More() {
   const theme = useTheme();
+  const scrollRef = useScrollTop();
   const insets = useSafeAreaInsets();
   const { canView } = useAuth();
 
@@ -28,7 +30,7 @@ export function More() {
         <Text style={[styles.title, { color: theme.textPrimary }]}>More</Text>
         <Text style={[styles.meta, { color: theme.textSecondary }]}>{modules.length} modules</Text>
       </View>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.content}>
         <AccountCard />
         <NotificationsCard />
         <SettingsCard />

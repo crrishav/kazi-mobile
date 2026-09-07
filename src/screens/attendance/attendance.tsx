@@ -11,6 +11,7 @@ import { ScreenHeader } from '@/components/ui/screen-header';
 import { toCSV } from '@/lib/export/csv';
 import * as haptics from '@/lib/haptics';
 import { useBackHandler } from '@/lib/use-back-handler';
+import { useScrollTop } from '@/lib/use-scroll-top';
 import { useTheme } from '@/theme/theme-provider';
 import {
   useClockStatus,
@@ -69,6 +70,7 @@ export function Attendance() {
   const today = useMemo(() => todayLabel(), []);
 
   const [view, setView] = useState<AttendanceView>('mine');
+  const scrollRef = useScrollTop(view);
   const [filter, setFilter] = useState<TeamFilter>('all');
   const [elapsed, setElapsed] = useState(0);
   const [rollEdit, setRollEdit] = useState(false);
@@ -272,7 +274,7 @@ export function Attendance() {
       />
       {twoTabs ? <TabsHeader view={view} onChange={setView} /> : null}
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}>
         {!canEdit || (twoTabs && view === 'mine') ? (
           <MineView
             clockedIn={clockStatus.clockedIn}
