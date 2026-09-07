@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 
+import { HeaderAccount } from './header-account';
 import { Icon } from './icon';
 
 export interface ScreenHeaderProps {
@@ -13,6 +14,11 @@ export interface ScreenHeaderProps {
   showBack?: boolean;
   /** Overrides the default `router.back()` — e.g. a detail view stepping back to its own list instead of exiting the module. */
   onBack?: () => void;
+  /**
+   * Trailing controls. A root header falls back to the standard bell + avatar
+   * when none is given; a back header shows nothing, because the chevron is
+   * the only affordance that belongs on a pushed screen.
+   */
   rightSlot?: React.ReactNode;
 }
 
@@ -20,9 +26,18 @@ export interface ScreenHeaderProps {
  * Used by every module screen (the design's headers aren't native-header
  * shapes, so native headers stay off throughout).
  *
+ * Two shapes, chosen by whether there is a back chevron:
+ *
+ * - **Root** — you are at a module's front door, so the title is the page's
+ *   own name and carries it at full size, with no rule under it and no gap
+ *   held open on the left. There used to be an empty bordered box standing in
+ *   for the missing chevron, which read as a dead button.
+ * - **Back** — a pushed screen or a detail view: chevron, smaller title, and a
+ *   hairline separating it from the content it belongs to.
+ *
  * Back falls through to the dashboard when there is nothing to pop. Some
- * modules — Production, Orders, Billing, Marketing, Chat — are tab routes for
- * the positions that live in them, and navigating to a tab switches rather than
+ * modules — Production, Billing, Marketing, Chat — are tab routes for the
+ * positions that live in them, and navigating to a tab switches rather than
  * pushes, so anyone arriving from More or a dashboard quick link has no stack
  * entry behind them. Without the fallback that chevron would be dead.
  */
@@ -31,20 +46,30 @@ export function ScreenHeader({ title, subtitle, showBack = true, onBack, rightSl
   const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.row, { paddingTop: insets.top + 12, borderBottomColor: theme.border, backgroundColor: theme.background }]}>
+    <View
+      style={[
+        styles.row,
+        {
+          paddingTop: insets.top + 12,
+          backgroundColor: theme.background,
+          borderBottomColor: theme.border,
+          borderBottomWidth: showBack ? StyleSheet.hairlineWidth : 0,
+        },
+      ]}
+    >
       {showBack ? (
         <Pressable
           onPress={onBack ?? (() => (router.canGoBack() ? router.back() : router.navigate('/')))}
           hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
           style={[styles.backButton, { backgroundColor: theme.surface, borderColor: theme.border }]}
         >
-          <Icon name="chevron-left" size={20} color={theme.textPrimary} />
+          <Icon name="chevron-left" size={18} color={theme.textPrimary} />
         </Pressable>
-      ) : (
-        <View style={styles.backButton} />
-      )}
+      ) : null}
       <View style={styles.titleWrap}>
-        <Text style={[styles.title, { color: theme.textPrimary }]} numberOfLines={1}>
+        <Text style={[styles.title, { color: theme.textPrimary, fontSize: showBack ? 18 : 26 }]} numberOfLines={1}>
           {title}
         </Text>
         {subtitle ? (
@@ -53,7 +78,7 @@ export function ScreenHeader({ title, subtitle, showBack = true, onBack, rightSl
           </Text>
         ) : null}
       </View>
-      <View style={styles.rightSlot}>{rightSlot}</View>
+      {rightSlot ?? (showBack ? null : <HeaderAccount />)}
     </View>
   );
 }
@@ -63,35 +88,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 13,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   titleWrap: {
     flex: 1,
-    gap: 1,
+    gap: 2,
+    minWidth: 0,
   },
   title: {
     fontFamily: fontFamily.semibold,
-    fontSize: 20,
-    letterSpacing: -0.015 * 20,
+    letterSpacing: -0.02 * 20,
   },
   subtitle: {
     fontFamily: fontFamily.mono,
-    fontSize: 10.5,
-    letterSpacing: 0.1 * 10.5,
+    fontSize: 10,
+    letterSpacing: 0.12 * 10,
     textTransform: 'uppercase',
-  },
-  rightSlot: {
-    minWidth: 36,
-    alignItems: 'flex-end',
   },
 });

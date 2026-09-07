@@ -15,7 +15,7 @@ export interface DualDateProps {
   inline?: boolean;
   /** Primary font size; secondary scales to ~0.78 of it. Default 13. */
   size?: number;
-  onDark?: boolean;
+  hero?: boolean;
   align?: 'left' | 'right';
   style?: StyleProp<ViewStyle>;
   primaryStyle?: StyleProp<TextStyle>;
@@ -32,14 +32,14 @@ export function DualDate({
   secondary = true,
   inline = false,
   size = 13,
-  onDark = false,
+  hero = false,
   align = 'left',
   style,
   primaryStyle,
 }: DualDateProps) {
   const theme = useTheme();
-  const primaryColor = onDark ? theme.onDark.text : theme.textPrimary;
-  const secondaryColor = onDark ? theme.onDark.textMuted : theme.textSecondary;
+  const primaryColor = hero ? theme.onHero.text : theme.textPrimary;
+  const secondaryColor = hero ? theme.onHero.textMuted : theme.textSecondary;
 
   const bs = formatBS(iso, bsStyle);
   const ad = formatAD(iso);

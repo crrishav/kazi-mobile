@@ -20,9 +20,13 @@ import { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-nati
  * with it; Android only has `keyboardDidShow`, so it gets a short timing of
  * its own rather than snapping.
  *
- * `safeBottom` is subtracted because the view is usually already padding for
- * the home indicator — an open keyboard covers that area, so paying for it
- * twice leaves a visible gap between the input and the keys.
+ * `safeBottom` is the floor, not a discount. The inset resolves to
+ * `max(safeBottom, keyboardHeight)`: with the keyboard down the view still
+ * clears the home indicator, and with it up the keyboard already covers that
+ * area so its own height is the whole requirement. Subtracting `safeBottom`
+ * from the keyboard height — which is what this did before — leaves the
+ * composer sitting exactly one home-indicator's worth of pixels too low, i.e.
+ * partly behind the keys, which is precisely the gap it was meant to close.
  *
  * `onOpen` fires as the keyboard appears. Shrinking the view keeps the scroll
  * offset where it was, which quietly hides the newest messages behind the
@@ -30,7 +34,7 @@ import { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-nati
  * follow.
  */
 export function useKeyboardInset(safeBottom = 0, onOpen?: () => void) {
-  const inset = useSharedValue(0);
+  const inset = useSharedValue(safeBottom);
   // Kept in a ref so a caller can pass an inline arrow without re-subscribing
   // the listeners on every render. Written from an effect, not during render.
   const onOpenRef = useRef(onOpen);
@@ -42,7 +46,7 @@ export function useKeyboardInset(safeBottom = 0, onOpen?: () => void) {
     const ios = Platform.OS === 'ios';
 
     const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', (event) => {
-      const height = Math.max(0, event.endCoordinates.height - safeBottom);
+      const height = Math.max(safeBottom, event.endCoordinates.height);
       inset.value = withTiming(height, {
         duration: event.duration || (ios ? 250 : 180),
         easing: Easing.out(Easing.quad),
@@ -51,11 +55,15 @@ export function useKeyboardInset(safeBottom = 0, onOpen?: () => void) {
     });
 
     const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', (event) => {
-      inset.value = withTiming(0, {
+      inset.value = withTiming(safeBottom, {
         duration: event?.duration || (ios ? 250 : 180),
         easing: Easing.out(Easing.quad),
       });
     });
+
+    // A safe-area inset that arrives late (it is 0 on the very first frame)
+    // must move the resting value with it, or the composer keeps a stale floor.
+    if (inset.value < safeBottom && !Keyboard.isVisible()) inset.value = safeBottom;
 
     return () => {
       show.remove();

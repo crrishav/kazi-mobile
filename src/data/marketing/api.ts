@@ -10,8 +10,8 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { liveRead } from '@/lib/supabase/read';
 import { liveWrite } from '@/lib/supabase/write';
 
-import * as live from './firestore';
-import * as writeLive from './firestore-write';
+import * as live from './supabase';
+import * as writeLive from './supabase-write';
 import * as mock from './mock-api';
 
 export const fetchEntries = isSupabaseConfigured

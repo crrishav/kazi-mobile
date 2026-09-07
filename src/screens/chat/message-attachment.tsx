@@ -10,7 +10,16 @@ export interface MessageAttachmentProps {
   attachment: Attachment;
   /** Own bubbles are ink; the caption under the tile has to flip with them. */
   mine: boolean;
-  onOpen: () => void;
+  /**
+   * The enclosing bubble's handlers, not the tile's own. A nested `Pressable`
+   * takes the touch responder from its parent, so a tile with its own `onPress`
+   * swallowed the bubble's long-press — you could never open the actions sheet
+   * (and so never reply to) a message carrying a photo or a file. Routing both
+   * gestures back to the bubble also makes tapping a tile select the message
+   * while selection mode is on, as tapping its text already did.
+   */
+  onPress: () => void;
+  onLongPress: () => void;
 }
 
 /** The widest a media tile gets. The bubble caps at 82% of the screen, so this sits just inside it. */
@@ -30,7 +39,7 @@ const KIND_ICON = { image: 'image', video: 'film', file: 'file-text' } as const;
  *
  * A document has no preview to show, so it gets a row: type, name, size.
  */
-export function MessageAttachment({ attachment, mine, onOpen }: MessageAttachmentProps) {
+export function MessageAttachment({ attachment, mine, onPress, onLongPress }: MessageAttachmentProps) {
   const theme = useTheme();
   const media = attachment.kind === 'image' || attachment.kind === 'video';
 
@@ -42,7 +51,12 @@ export function MessageAttachment({ attachment, mine, onOpen }: MessageAttachmen
     const height = Math.min(MAX_HEIGHT, Math.round(width / Math.max(ratio, 0.5)));
 
     return (
-      <Pressable onPress={onOpen} style={[styles.media, { width, height, backgroundColor: theme.draftWash }]}>
+      <Pressable
+        onPress={onPress}
+        onLongPress={onLongPress}
+        delayLongPress={280}
+        style={[styles.media, { width, height, backgroundColor: theme.draftWash }]}
+      >
         {attachment.url ? (
           <Image source={{ uri: attachment.url }} style={StyleSheet.absoluteFill} resizeMode="cover" />
         ) : (
@@ -71,7 +85,9 @@ export function MessageAttachment({ attachment, mine, onOpen }: MessageAttachmen
 
   return (
     <Pressable
-      onPress={onOpen}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={280}
       style={[
         styles.file,
         {

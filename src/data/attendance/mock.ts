@@ -24,6 +24,7 @@ export const STATUS_LABELS: Record<AttendanceStatus, string> = {
   absent: 'Absent',
   half: 'Half-day',
   leave: 'Leave',
+  off: 'Off',
 };
 
 /** Per-status dot/chip/cell tones — not centralized in the shared theme, same reasoning as Production's own stage ramp: a fixed 5-state enum with no equivalent shared semantic role for "half-day". */
@@ -34,6 +35,7 @@ export const STATUS_RAMP: Record<'light' | 'dark', Record<AttendanceStatus, { do
     absent: { dot: '#C0603C', chipBg: '#F8E7DF', chipFg: '#8E4327', cellBg: '#F8E7DF', cellFg: '#8E4327' },
     half: { dot: '#2FA97C', chipBg: '#D6F0E3', chipFg: '#0E5E43', cellBg: '#A5E0C4', cellFg: '#0B4A35' },
     leave: { dot: '#8A9A92', chipBg: '#EDEFEC', chipFg: '#4A5A53', cellBg: '#EDEFEC', cellFg: '#4A5A53' },
+    off: { dot: '#B6BFB9', chipBg: '#F2F4F1', chipFg: '#6B7A72', cellBg: '#F2F4F1', cellFg: '#6B7A72' },
   },
   dark: {
     present: { dot: '#6FDDA9', chipBg: 'rgba(111,221,169,0.16)', chipFg: '#6FDDA9', cellBg: 'rgba(111,221,169,0.16)', cellFg: '#6FDDA9' },
@@ -41,6 +43,7 @@ export const STATUS_RAMP: Record<'light' | 'dark', Record<AttendanceStatus, { do
     absent: { dot: '#E8A183', chipBg: 'rgba(224,138,99,0.18)', chipFg: '#E8A183', cellBg: 'rgba(224,138,99,0.18)', cellFg: '#E8A183' },
     half: { dot: '#3FE0A8', chipBg: 'rgba(63,224,168,0.22)', chipFg: '#6FDDA9', cellBg: 'rgba(63,224,168,0.22)', cellFg: '#6FDDA9' },
     leave: { dot: '#7E958A', chipBg: 'rgba(126,149,138,0.18)', chipFg: '#9DB2A7', cellBg: 'rgba(126,149,138,0.18)', cellFg: '#9DB2A7' },
+    off: { dot: '#5D6B64', chipBg: 'rgba(126,149,138,0.10)', chipFg: '#7E958A', cellBg: 'rgba(126,149,138,0.10)', cellFg: '#7E958A' },
   },
 };
 
@@ -65,13 +68,13 @@ export const DEFAULT_CLOCK_STATUS: ClockStatus = { clockedIn: true, inTime: '08:
 export const TODAY_LABEL = 'Tue 26 Aug';
 
 export const TEAM: TeamMember[] = [
-  { id: 1, staffId: 'mock-1', staffIds: ['mock-1'], employeeDocId: null, name: 'Anil Karki', role: 'Cutting', initials: 'AK', avatarTint: 'mint', status: 'present', times: '08:04 → —', hours: '6h 50m', month: { present: 22, late: 1, absent: 0, half: 1, leave: 0, otHours: '9h 20m', hoursMTD: '176h 10m' } },
-  { id: 2, staffId: 'mock-2', staffIds: ['mock-2'], employeeDocId: null, name: 'Pramila Thapa', role: 'Sewing', initials: 'PT', avatarTint: 'clay', status: 'late', times: '09:22 → —', hours: '5h 32m', month: { present: 18, late: 4, absent: 1, half: 1, leave: 0, otHours: '3h 05m', hoursMTD: '162h 40m' } },
-  { id: 3, staffId: 'mock-3', staffIds: ['mock-3'], employeeDocId: null, name: 'Rabin Bhandari', role: 'Finishing', initials: 'RB', avatarTint: 'draft', status: 'present', times: '07:58 → —', hours: '6h 56m', month: { present: 23, late: 0, absent: 0, half: 0, leave: 1, otHours: '11h 45m', hoursMTD: '181h 05m' } },
-  { id: 4, staffId: 'mock-4', staffIds: ['mock-4'], employeeDocId: null, name: 'Manisha Gurung', role: 'Packing', initials: 'MG', avatarTint: 'amber', status: 'half', times: '08:10 → 12:30', hours: '4h 20m', month: { present: 20, late: 2, absent: 0, half: 2, leave: 0, otHours: '1h 30m', hoursMTD: '156h 20m' } },
-  { id: 5, staffId: 'mock-5', staffIds: ['mock-5'], employeeDocId: null, name: 'Deepak Shrestha', role: 'QC', initials: 'DS', avatarTint: 'draft', status: 'absent', times: '— → —', hours: '0h 00m', month: { present: 19, late: 1, absent: 3, half: 0, leave: 1, otHours: '0h 00m', hoursMTD: '148h 00m' } },
-  { id: 6, staffId: 'mock-6', staffIds: ['mock-6'], employeeDocId: null, name: 'Sunita Rai', role: 'Sewing', initials: 'SR', avatarTint: 'mint', status: 'leave', times: 'Approved leave', hours: '0h 00m', month: { present: 17, late: 0, absent: 0, half: 0, leave: 6, otHours: '2h 10m', hoursMTD: '133h 15m' } },
-  { id: 7, staffId: 'mock-7', staffIds: ['mock-7'], employeeDocId: null, name: 'Bimal Katwal', role: 'Cutting', initials: 'BK', avatarTint: 'dark', status: 'present', times: '08:01 → —', hours: '6h 53m', month: { present: 24, late: 0, absent: 0, half: 0, leave: 0, otHours: '14h 00m', hoursMTD: '188h 30m' } },
+  { id: 1, staffId: 'mock-1', employeeDocId: null, name: 'Anil Karki', role: 'Cutting', initials: 'AK', avatarTint: 'mint', status: 'present', times: '08:04 → —', hours: '6h 50m', month: { present: 22, late: 1, absent: 0, half: 1, leave: 0, otHours: '9h 20m', hoursMTD: '176h 10m', hoursMTDValue: 0, cutNPR: 0 } },
+  { id: 2, staffId: 'mock-2', employeeDocId: null, name: 'Pramila Thapa', role: 'Sewing', initials: 'PT', avatarTint: 'clay', status: 'late', times: '09:22 → —', hours: '5h 32m', month: { present: 18, late: 4, absent: 1, half: 1, leave: 0, otHours: '3h 05m', hoursMTD: '162h 40m', hoursMTDValue: 0, cutNPR: 0 } },
+  { id: 3, staffId: 'mock-3', employeeDocId: null, name: 'Rabin Bhandari', role: 'Finishing', initials: 'RB', avatarTint: 'draft', status: 'present', times: '07:58 → —', hours: '6h 56m', month: { present: 23, late: 0, absent: 0, half: 0, leave: 1, otHours: '11h 45m', hoursMTD: '181h 05m', hoursMTDValue: 0, cutNPR: 0 } },
+  { id: 4, staffId: 'mock-4', employeeDocId: null, name: 'Manisha Gurung', role: 'Packing', initials: 'MG', avatarTint: 'amber', status: 'half', times: '08:10 → 12:30', hours: '4h 20m', month: { present: 20, late: 2, absent: 0, half: 2, leave: 0, otHours: '1h 30m', hoursMTD: '156h 20m', hoursMTDValue: 0, cutNPR: 0 } },
+  { id: 5, staffId: 'mock-5', employeeDocId: null, name: 'Deepak Shrestha', role: 'QC', initials: 'DS', avatarTint: 'draft', status: 'absent', times: '— → —', hours: '0h 00m', month: { present: 19, late: 1, absent: 3, half: 0, leave: 1, otHours: '0h 00m', hoursMTD: '148h 00m', hoursMTDValue: 0, cutNPR: 0 } },
+  { id: 6, staffId: 'mock-6', employeeDocId: null, name: 'Sunita Rai', role: 'Sewing', initials: 'SR', avatarTint: 'mint', status: 'leave', times: 'Approved leave', hours: '0h 00m', month: { present: 17, late: 0, absent: 0, half: 0, leave: 6, otHours: '2h 10m', hoursMTD: '133h 15m', hoursMTDValue: 0, cutNPR: 0 } },
+  { id: 7, staffId: 'mock-7', employeeDocId: null, name: 'Bimal Katwal', role: 'Cutting', initials: 'BK', avatarTint: 'dark', status: 'present', times: '08:01 → —', hours: '6h 53m', month: { present: 24, late: 0, absent: 0, half: 0, leave: 0, otHours: '14h 00m', hoursMTD: '188h 30m', hoursMTDValue: 0, cutNPR: 0 } },
 ];
 
 /** The signed-in "Mine" view persona — schedule + late-cut key into `schedule.ts`. */

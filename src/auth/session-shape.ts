@@ -1,10 +1,10 @@
 /**
  * Turning an identity into the `Session` the app renders.
  *
- * Lives on its own because both session sources need it: the Supabase-Auth
- * path builds a Session straight from `me()`, and the Firebase/Firestore
- * fallback chain reuses the same initials and role derivation so the two can
- * never drift apart.
+ * Lives on its own because both entry points need it: `sessionFromIdentity`
+ * builds a Session straight from `me()`, and `minimalSession` — the degraded
+ * one used when the identity lookup cannot be reached — reuses the same
+ * initials and role derivation so the two can never drift apart.
  */
 
 import type { Session } from './mock-auth';
@@ -59,7 +59,7 @@ export function minimalSession(input: {
 
 /**
  * The preferred path: Postgres knows who this is and what their position
- * grants. `uid` is the auth uid the rest of the app keys off — the Firebase
+ * grants. `uid` is the Supabase auth user id — the
  * one when both sessions exist (older rows reference it), otherwise the
  * Supabase user id.
  */

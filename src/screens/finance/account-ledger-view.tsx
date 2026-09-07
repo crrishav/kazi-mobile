@@ -55,12 +55,12 @@ export function AccountLedgerView({
             <Pressable
               key={f.id}
               onPress={() => onFilterChange(f.id)}
-              style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+              style={[styles.chip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
             >
-              <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]} numberOfLines={1}>
+              <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]} numberOfLines={1}>
                 {f.label}
               </Text>
-              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{f.count}</Text>
+              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{f.count}</Text>
             </Pressable>
           );
         })}

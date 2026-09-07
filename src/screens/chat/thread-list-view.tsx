@@ -6,6 +6,7 @@ import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
+import * as haptics from '@/lib/haptics';
 import { fontFamily } from '@/theme';
 import type { Message, Thread, ThreadId } from '@/data/chat/types';
 import { previewOf, threadMemberNames, threadRole, threadTitle } from '@/data/chat/utils';
@@ -88,18 +89,23 @@ export function ThreadListView({
         subtitle={unreadSummary}
         showBack={false}
         rightSlot={
-          <View style={styles.headerActions}>
-            <Pressable
-              onPress={toggleSearch}
-              style={[
-                styles.searchButton,
-                { backgroundColor: searching ? theme.accent : theme.surface, borderColor: searching ? theme.accent : theme.border },
-              ]}
-            >
-              <Icon name={searching ? 'x' : 'search'} size={17} color={searching ? theme.accentText : theme.textSecondary} />
-            </Pressable>
-            <HeaderAccount size="sm" />
-          </View>
+          // `leading` rather than a wrapper of our own, so search sits in the
+          // same 40px row as the bell and avatar every other header uses.
+          <HeaderAccount
+            leading={
+              <Pressable
+                onPress={toggleSearch}
+                accessibilityRole="button"
+                accessibilityLabel={searching ? 'Close search' : 'Search conversations'}
+                style={[
+                  styles.searchButton,
+                  { backgroundColor: searching ? theme.accent : theme.surface, borderColor: searching ? theme.accent : theme.border },
+                ]}
+              >
+                <Icon name={searching ? 'x' : 'search'} size={17} color={searching ? theme.accentText : theme.textSecondary} />
+              </Pressable>
+            }
+          />
         }
       />
 
@@ -152,7 +158,10 @@ export function ThreadListView({
             unread={unread[t.id] ?? 0}
             index={i}
             onPress={() => onOpen(t.id)}
-            onLongPress={() => setOptionsFor(t.id)}
+            onLongPress={() => {
+              haptics.pressed();
+              setOptionsFor(t.id);
+            }}
           />
         ))}
 
@@ -206,11 +215,6 @@ export function ThreadListView({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
   searchButton: {
     width: 40,
     height: 40,

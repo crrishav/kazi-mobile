@@ -13,6 +13,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
+import * as haptics from '@/lib/haptics';
 import type { Message } from '@/data/chat/types';
 import { firstName, isMe, messageMeta, messageText, personFor } from '@/data/chat/utils';
 
@@ -39,8 +40,6 @@ export interface MessageBubbleProps {
   onToggleReaction: (emoji: string) => void;
   /** View-only profiles can read a thread but not reply into or react to it. */
   canPost: boolean;
-  /** Opens the photo viewer, or hands a video / document to the OS. */
-  onOpenAttachment: () => void;
 }
 
 export function MessageBubble({
@@ -56,7 +55,6 @@ export function MessageBubble({
   onReply,
   onToggleReaction,
   canPost,
-  onOpenAttachment,
 }: MessageBubbleProps) {
   const theme = useTheme();
   const mine = isMe(message.authorId);
@@ -65,22 +63,49 @@ export function MessageBubble({
   const showIdentity = isGroup && !mine && newRun;
 
   const translateX = useSharedValue(0);
+  /**
+   * Whether the swipe is currently past the point of no return. Tracked so the
+   * tick fires once on crossing rather than on every frame beyond it — and
+   * fires again if you drag back under and over.
+   */
+  const armed = useSharedValue(false);
+
+  // Each bubble swipes towards the middle of the screen — your own messages
+  // are on the right and drag left, everyone else's are on the left and drag
+  // right. Swiping a bubble away from its own edge is the direction there is
+  // actually room to move in, and it keeps the gesture symmetrical rather than
+  // asking you to drag your own message further off screen.
+  const direction = mine ? -1 : 1;
 
   const pan = Gesture.Pan()
-    .enabled(canPost && !selectionMode && !message.deleted)
-    // Right-only, and it gives up the moment the drag looks vertical so the
-    // message list keeps scrolling normally.
-    .activeOffsetX(14)
+    // `pending` is excluded because the message has no server id yet — see
+    // `startReply` in `thread-view.tsx`.
+    .enabled(canPost && !selectionMode && !message.deleted && !message.pending)
+    // One direction only, and it gives up the moment the drag looks vertical
+    // so the message list keeps scrolling normally.
+    .activeOffsetX(mine ? -14 : 14)
     .failOffsetY([-14, 14])
     .onUpdate((e) => {
-      translateX.value = Math.max(0, Math.min(SWIPE_MAX, e.translationX));
+      // Measured as distance travelled the allowed way; the sign goes back on
+      // at render time, so both sides share one set of thresholds.
+      const travel = e.translationX * direction;
+      translateX.value = Math.max(0, Math.min(SWIPE_MAX, travel));
+
+      // You are watching your thumb, not the bubble, so the moment the swipe
+      // becomes a reply is announced rather than shown.
+      const past = translateX.value >= SWIPE_ARM;
+      if (past !== armed.value) {
+        armed.value = past;
+        if (past) runOnJS(haptics.armed)();
+      }
     })
     .onEnd(() => {
       if (translateX.value >= SWIPE_ARM) runOnJS(onReply)();
+      armed.value = false;
       translateX.value = withTiming(0, { duration: 180 });
     });
 
-  const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: translateX.value }] }));
+  const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: translateX.value * direction }] }));
   const hintStyle = useAnimatedStyle(() => ({
     opacity: interpolate(translateX.value, [0, SWIPE_ARM], [0, 1], 'clamp'),
     transform: [{ scale: interpolate(translateX.value, [0, SWIPE_ARM], [0.6, 1], 'clamp') }],
@@ -95,9 +120,11 @@ export function MessageBubble({
       entering={FadeInUp.delay(Math.min(index, 6) * 30).duration(200)}
       style={[styles.outer, selected ? { backgroundColor: theme.accentWash } : null]}
     >
-      <Animated.View style={[styles.hint, hintStyle]}>
+      {/* The hint sits in the edge the bubble is pulling away from, so it is
+          revealed by the swipe rather than chased by it. */}
+      <Animated.View style={[styles.hint, mine ? styles.hintRight : styles.hintLeft, hintStyle]}>
         <View style={[styles.hintCircle, { backgroundColor: theme.accentWash }]}>
-          <Icon name="corner-up-left" size={14} color={theme.accentWashText} />
+          <Icon name={mine ? 'corner-up-right' : 'corner-up-left'} size={14} color={theme.accentWashText} />
         </View>
       </Animated.View>
 
@@ -147,8 +174,14 @@ export function MessageBubble({
                   </View>
                 ) : null}
 
+                {/* The tile shares the bubble's gestures — see `MessageAttachment`. */}
                 {message.attachment ? (
-                  <MessageAttachment attachment={message.attachment} mine={mine} onOpen={onOpenAttachment} />
+                  <MessageAttachment
+                    attachment={message.attachment}
+                    mine={mine}
+                    onPress={onPress}
+                    onLongPress={onLongPress}
+                  />
                 ) : null}
 
                 {/* A photo sent without a caption has no text row at all —
@@ -207,11 +240,12 @@ const styles = StyleSheet.create({
   },
   hint: {
     position: 'absolute',
-    left: 18,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
   },
+  hintLeft: { left: 18 },
+  hintRight: { right: 18 },
   hintCircle: {
     width: 28,
     height: 28,

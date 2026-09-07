@@ -14,7 +14,7 @@
  */
 
 import { getSupabase } from '@/lib/supabase';
-import { str } from '@/lib/firestore/normalise';
+import { str } from '@/lib/data/normalise';
 
 import { myId } from './identity';
 import type { Attachment, Message, MessageId, PersonId, Thread, ThreadId } from './types';

@@ -5,7 +5,6 @@ import { useAuth } from '@/auth/auth-context';
 import { ScreenGate } from '@/components/ui/screen-gate';
 import { useDirectorDashboard } from '@/data/dashboard/hooks';
 
-import { ApprovalsSection } from '../approvals-section';
 import { AttendanceCard } from '../attendance-card';
 import { DashboardScroll } from '../dashboard-card';
 import { InvoicesCard } from '../invoices-card';
@@ -19,8 +18,7 @@ import { QuickLinks } from '../quick-links';
  *
  * Their bar is Dashboard / Orders / Chat / Finance, so Production has no button
  * of its own: the orders-by-stage card below is how they watch the floor, and
- * the quick links reach everything else. Directors deliberately isn't among
- * them — that module lives in More and nowhere else.
+ * the quick links reach everything else.
  */
 export function OwnerDashboard() {
   const { canView } = useAuth();
@@ -38,7 +36,7 @@ export function OwnerDashboard() {
       {canView('billing') ? <InvoicesCard counts={c} /> : null}
 
       {canView('order-management') ? (
-        <Pressable onPress={() => router.push('/order-management')} style={pressStyle}>
+        <Pressable onPress={() => router.push('/production')} style={pressStyle}>
           <OrdersByStageCard stages={data.stages} total={data.activeOrdersTotal} />
         </Pressable>
       ) : null}
@@ -48,8 +46,6 @@ export function OwnerDashboard() {
           <AttendanceCard breakdown={data.attendance} onRoll={data.attendanceOnRoll} />
         </Pressable>
       ) : null}
-
-      <ApprovalsSection />
 
       <QuickLinks
         sections={[

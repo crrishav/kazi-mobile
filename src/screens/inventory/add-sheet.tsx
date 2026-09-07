@@ -85,9 +85,9 @@ export function AddSheet({ visible, isFabric, step, draft, uploads, onClose, onC
                       <Pressable
                         key={u}
                         onPress={() => onChange({ unit: u })}
-                        style={[styles.optionButton, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                        style={[styles.optionButton, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
                       >
-                        <Text style={[styles.optionButtonLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{u}</Text>
+                        <Text style={[styles.optionButtonLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{u}</Text>
                       </Pressable>
                     );
                   })}
@@ -104,9 +104,9 @@ export function AddSheet({ visible, isFabric, step, draft, uploads, onClose, onC
                     <Pressable
                       key={k}
                       onPress={() => onChange({ kind: k })}
-                      style={[styles.optionButton, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                      style={[styles.optionButton, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
                     >
-                      <Text style={[styles.optionButtonLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{k}</Text>
+                      <Text style={[styles.optionButtonLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{k}</Text>
                     </Pressable>
                   );
                 })}

@@ -39,9 +39,9 @@ export function CustomerForm({ draft, touched, nameOk, isEditing, onChange, onDe
             <Pressable
               key={t}
               onPress={() => onChange({ type: t })}
-              style={[styles.typeTab, { backgroundColor: on ? theme.surface : 'transparent', boxShadow: on ? theme.shadows.card : undefined }]}
+              style={[styles.typeTab, { backgroundColor: on ? theme.segmentSurface : 'transparent', borderColor: on ? theme.segmentBorder : 'transparent', boxShadow: on ? theme.shadows.card : undefined }]}
             >
-              <Text style={[styles.typeTabLabel, { color: on ? theme.textPrimary : theme.textSecondary }]}>{t === 'company' ? 'Company' : 'Individual'}</Text>
+              <Text style={[styles.typeTabLabel, { color: on ? theme.segmentText : theme.textSecondary }]}>{t === 'company' ? 'Company' : 'Individual'}</Text>
             </Pressable>
           );
         })}
@@ -74,9 +74,9 @@ export function CustomerForm({ draft, touched, nameOk, isEditing, onChange, onDe
                 <Pressable
                   key={t}
                   onPress={() => onChange({ terms: t })}
-                  style={[styles.termChip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                  style={[styles.termChip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
                 >
-                  <Text style={[styles.termChipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{t}</Text>
+                  <Text style={[styles.termChipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{t}</Text>
                 </Pressable>
               );
             })}
@@ -96,7 +96,7 @@ export function CustomerForm({ draft, touched, nameOk, isEditing, onChange, onDe
 const styles = StyleSheet.create({
   wrap: { gap: 12 },
   typeTabs: { flexDirection: 'row', padding: 4, borderRadius: 14, gap: 6 },
-  typeTab: { flex: 1, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  typeTab: { flex: 1, height: 38, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   typeTabLabel: { fontFamily: fontFamily.semibold, fontSize: 13.5 },
   fieldsCard: { padding: 16, gap: 14 },
   requiredNote: { fontFamily: fontFamily.mono, fontSize: 9.5 },

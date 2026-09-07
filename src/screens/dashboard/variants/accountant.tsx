@@ -7,7 +7,6 @@ import { useAccountantDashboard } from '@/data/dashboard/hooks';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 
-import { ApprovalsSection } from '../approvals-section';
 import { DashboardClockInCard } from '../clock-in-card';
 import { DashboardCard, DashboardScroll } from '../dashboard-card';
 import { InvoicesCard } from '../invoices-card';
@@ -48,8 +47,6 @@ export function AccountantDashboard() {
           </Text>
         </DashboardCard>
       ) : null}
-
-      <ApprovalsSection />
 
       <QuickLinks
         sections={[

@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { ViewSwap } from '@/components/ui/view-swap';
 import { useTheme } from '@/theme/theme-provider';
 import {
   useChatRealtime,
@@ -29,6 +30,9 @@ import { myId, sortThreads, threadTitle } from '@/data/chat/utils';
 import { NewChatSheet } from './new-chat-sheet';
 import { ThreadListView } from './thread-list-view';
 import { ThreadView } from './thread-view';
+
+/** Outermost first — `ViewSwap` reads the direction of travel from this. */
+const CHAT_VIEW_ORDER: readonly ChatView[] = ['list', 'thread'];
 
 const messageOf = (err: unknown): string => (err instanceof Error ? err.message : String(err ?? 'Something went wrong'));
 
@@ -206,7 +210,7 @@ export function Chat() {
 
   if (view === 'thread' && activeThread) {
     return (
-      <View style={[styles.flex, { backgroundColor: theme.background }]}>
+      <ViewSwap viewKey="thread" order={CHAT_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
         <ThreadView
           // Keyed by thread so the draft, reply and selection reset when you
           // move between conversations rather than leaking across them.
@@ -222,7 +226,12 @@ export function Chat() {
           unread={unread[activeThread.id] ?? 0}
           onBack={handleBack}
           onSend={(text, replyTo, attachment: Attachment | undefined) =>
-            sendMessage.mutate({ threadId: activeThread.id, text, replyTo, attachment, thread: activeThread })
+            sendMessage.mutate(
+              { threadId: activeThread.id, text, replyTo, attachment, thread: activeThread },
+              // The optimistic bubble is rolled back on failure; without this the
+              // message just disappears and the send looks like it never happened.
+              { onError: (err) => toast.show({ message: messageOf(err), tone: 'bad' }) },
+            )
           }
           onToggleReaction={(messageId, emoji) => toggleReaction.mutate({ threadId: activeThread.id, messageId, emoji })}
           onDeleteMessages={(ids: MessageId[]) => deleteMessages.mutate({ threadId: activeThread.id, ids })}
@@ -239,12 +248,12 @@ export function Chat() {
           }}
         />
         {composeSheet}
-      </View>
+      </ViewSwap>
     );
   }
 
   return (
-    <View style={[styles.flex, { backgroundColor: theme.background }]}>
+    <ViewSwap viewKey="list" order={CHAT_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
       <ThreadListView
         threads={ordered}
         lastByThread={lastByThread}
@@ -260,7 +269,7 @@ export function Chat() {
         onDeleteThread={handleDeleteThread}
       />
       {composeSheet}
-    </View>
+    </ViewSwap>
   );
 }
 

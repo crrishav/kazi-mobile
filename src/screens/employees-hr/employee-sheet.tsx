@@ -7,6 +7,7 @@ import { Icon } from '@/components/ui/icon';
 import { Switch } from '@/components/ui/switch';
 import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
+import * as haptics from '@/lib/haptics';
 import { fontFamily, radii, tabularNums } from '@/theme';
 import { BANKS, DEPTS } from '@/data/employees-hr/mock';
 import { DAY_NAMES } from '@/data/attendance/live-shared';
@@ -125,13 +126,13 @@ function ChipPicker<T extends string | number | null>({
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
       {options.map((o) => {
         const on = o.id === value;
-        const bg = on ? (accent ? theme.accentWash : theme.surfaceInverted) : accent ? theme.surfaceRaised : theme.surface;
-        const fg = on ? (accent ? theme.accentWashText : theme.onDark.text) : theme.textPrimary;
+        const bg = on ? (accent ? theme.accentWash : theme.selectedSurface) : accent ? theme.surfaceRaised : theme.surface;
+        const fg = on ? (accent ? theme.accentWashText : theme.selectedText) : theme.textPrimary;
         return (
           <Pressable
             key={String(o.id)}
             onPress={() => onSelect(o.id)}
-            style={[styles.chip, { backgroundColor: bg, borderColor: on ? (accent ? theme.accent : theme.surfaceInverted) : theme.border }]}
+            style={[styles.chip, { backgroundColor: bg, borderColor: on ? (accent ? theme.accent : theme.selectedBorder) : theme.border }]}
           >
             <Text style={[styles.chipLabel, { color: fg }]}>{o.label}</Text>
           </Pressable>
@@ -222,12 +223,16 @@ export function EmployeeSheet({
   const handleDelete = () => {
     if (!onDelete) return;
     if (!confirmDelete) {
+      // Armed, not done — the button now means something different from the
+      // one that was there a moment ago.
+      haptics.warned();
       setConfirmingId(draft.id);
       confirmTimer.current = setTimeout(() => setConfirmingId(null), 4000);
       return;
     }
     if (confirmTimer.current) clearTimeout(confirmTimer.current);
     setConfirmingId(null);
+    haptics.committed();
     onDelete();
   };
 
@@ -348,10 +353,10 @@ export function EmployeeSheet({
               <Pressable
                 key={l.id}
                 onPress={() => onChange({ location: l.id })}
-                style={[styles.segmentItem, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.segmentItem, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
-                <Text style={[styles.segmentLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{l.label}</Text>
-                <Text style={[styles.segmentNote, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{l.note}</Text>
+                <Text style={[styles.segmentLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{l.label}</Text>
+                <Text style={[styles.segmentNote, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{l.note}</Text>
               </Pressable>
             );
           })}

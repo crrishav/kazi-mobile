@@ -27,9 +27,9 @@ export function VatBillsView({ bills, canEdit, focusExpenseId, onOpen, onDelete,
           {bills.length} {bills.length === 1 ? 'bill' : 'bills'} on file
         </Text>
         {canEdit ? (
-          <Pressable onPress={onUpload} style={[styles.uploadButton, { backgroundColor: theme.surfaceInverted }]}>
-            <Icon name="upload" size={14} color={theme.onDark.accent} />
-            <Text style={[styles.uploadLabel, { color: theme.onDark.text }]}>Upload</Text>
+          <Pressable onPress={onUpload} style={[styles.uploadButton, { backgroundColor: theme.accent }]}>
+            <Icon name="upload" size={14} color={theme.accentText} />
+            <Text style={[styles.uploadLabel, { color: theme.accentText }]}>Upload</Text>
           </Pressable>
         ) : null}
       </View>

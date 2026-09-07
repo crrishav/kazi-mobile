@@ -33,7 +33,7 @@ export function LevelPicker({ value, onChange, disabled = false }: LevelPickerPr
           ? l.key === 'edit'
             ? { bg: theme.accent, fg: theme.accentText }
             : l.key === 'view'
-              ? { bg: theme.surfaceInverted, fg: theme.onDark.text }
+              ? { bg: theme.selectedSurface, fg: theme.selectedText }
               : { bg: theme.surface, fg: theme.textSecondary }
           : { bg: 'transparent', fg: theme.textSecondary };
 

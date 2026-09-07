@@ -220,10 +220,10 @@ export function PurchasesPane({
       {showFab && canEdit ? (
         <Pressable
           onPress={openAdd}
-          style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}
+          style={[styles.fab, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined }]}
         >
-          <Icon name="plus" size={18} color={theme.onDark.accent} />
-          <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>Add purchase</Text>
+          <Icon name="plus" size={18} color={theme.accentText} />
+          <Text style={[styles.fabLabel, { color: theme.accentText }]}>Add purchase</Text>
         </Pressable>
       ) : null}
 

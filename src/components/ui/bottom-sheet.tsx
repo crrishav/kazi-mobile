@@ -150,10 +150,12 @@ const styles = StyleSheet.create({
   },
   headerAccessory: {
     flexShrink: 0,
-    marginLeft: 'auto',
   },
+  // Takes the slack in the header row, so the close button is pinned to the
+  // right edge whether or not an accessory sits between them.
   title: {
-    flexShrink: 1,
+    flex: 1,
+    minWidth: 0,
     fontFamily: fontFamily.semibold,
     fontSize: 18,
     letterSpacing: -0.015 * 18,
@@ -165,6 +167,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   content: {
     paddingHorizontal: 22,

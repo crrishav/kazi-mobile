@@ -1,7 +1,13 @@
 import type { AvatarTint } from '@/components/ui/avatar';
 
 export type AttendanceView = 'mine' | 'team';
-export type AttendanceStatus = 'present' | 'late' | 'absent' | 'half' | 'leave';
+/**
+ * `off` is display-only: the workshop is shut or the day isn't in that person's
+ * roster, so there is nothing to mark them as. It is never written to
+ * `attendance` and never offered in the roll-call editor — it mirrors the
+ * reference page's "Closed" placeholder, which it also declines to save.
+ */
+export type AttendanceStatus = 'present' | 'late' | 'absent' | 'half' | 'leave' | 'off';
 export type TeamFilter = 'all' | AttendanceStatus;
 
 export interface ClockStatus {
@@ -43,7 +49,7 @@ export interface DayCell {
   day: number | null;
   /** `YYYY-MM-DD`, or null for the leading blanks that pad the first week. */
   dateISO: string | null;
-  status: AttendanceStatus | 'off' | 'future' | null;
+  status: AttendanceStatus | 'future' | null;
   isToday: boolean;
 }
 
@@ -78,6 +84,30 @@ export interface DayDetail {
   isWeeklyOff: boolean;
 }
 
+/**
+ * One person's line in a single day's workshop-wide roll call — the admin
+ * calendar's day sheet. Unlike {@link DayDetail} this carries no schedule: the
+ * sheet lists everyone at once, and their shifts differ.
+ */
+export interface DayRosterEntry {
+  staffId: string;
+  name: string;
+  role: string;
+  /** From the `attendance` row; null when only a punch exists. */
+  status: AttendanceStatus | null;
+  /** `HH:MM` in Asia/Kathmandu, null when they never punched in. */
+  clockIn: string | null;
+  /** `HH:MM`, null while still on the clock or when they never punched. */
+  clockOut: string | null;
+  /** Real clocked hours, null while the punch is still open. */
+  workedHours: number | null;
+  lateMinutes: number;
+  lateCutApplied: boolean;
+  note: string;
+  /** Metres from the workshop when the punch carried a GPS fix. */
+  distanceToSiteM: number | null;
+}
+
 /** A staffer's rostered week, as stored on their `employees` doc. */
 export interface WorkSchedule {
   /** `HH:MM`. */
@@ -99,15 +129,17 @@ export interface MemberMonth {
   leave: number;
   otHours: string;
   hoursMTD: string;
+  /** {@link hoursMTD} as a number, so a caller can total the roster. */
+  hoursMTDValue: number;
+  /** NPR forfeited to late cuts this month — 0 when the salary isn't readable. */
+  cutNPR: number;
 }
 
 export interface TeamMember {
   id: number;
-  /** Primary `staffId` — the one a status edit is written under. */
+  /** `people.id` — what every attendance row for this person is filed under. */
   staffId: string;
-  /** Every `staffId` this person's rows are filed under (the live data has duplicates). */
-  staffIds: string[];
-  /** `employees` doc id, when the staffer has a directory entry (schedule edits need it). */
+  /** Same value as {@link staffId}; the schedule editor writes to the directory by it. */
   employeeDocId: string | null;
   name: string;
   role: string;

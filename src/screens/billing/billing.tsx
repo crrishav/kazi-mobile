@@ -11,8 +11,10 @@ import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { CollapsedSection } from '@/components/ui/collapsed-section';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
-import { useIsOwnTab } from '@/components/tab-bar/use-own-tab';
+import { useModulePresentation } from '@/components/tab-bar/use-own-tab';
+import { useBackHandler } from '@/lib/use-back-handler';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { ViewSwap } from '@/components/ui/view-swap';
 import { TextField } from '@/components/ui/text-field';
 import { toCSV } from '@/lib/export/csv';
 import { challanDocData, invoiceDocData, quotationDocData } from '@/lib/pdf/doc-data';
@@ -76,6 +78,12 @@ export interface BillingProps {
   autoEdit?: boolean;
 }
 
+/**
+ * Outermost first — `ViewSwap` reads the direction of travel from this. An
+ * invoice and a challan/quotation are both one level down from the list.
+ */
+const BILLING_VIEW_ORDER = ['list', 'detail', 'doc'] as const;
+
 export function Billing({ focus, autoEdit }: BillingProps = {}) {
   const theme = useTheme();
   const toast = useToast();
@@ -83,7 +91,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
   const canEdit = can('billing');
   // A tab for this position means this screen is a root destination, so the
   // header's back chevron would have nothing to go back to.
-  const isOwnTab = useIsOwnTab('billing');
+  const { showBack, bottomInset } = useModulePresentation('billing');
   const createdBy = profile?.name ?? 'You';
 
   const invoicesQuery = useInvoices();
@@ -122,6 +130,27 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
   const [convertQuoteId, setConvertQuoteId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [focusHandled, setFocusHandled] = useState(false);
+
+  // Detail, document viewer and the invoice/challan/quotation switch are all
+  // views inside this one route, so system back has to unwind them itself —
+  // outermost layer first, mirroring the order they are rendered in below.
+  useBackHandler(() => {
+    if (view === 'detail') {
+      setView('list');
+      setSelectedId(null);
+      setSheet(null);
+      return true;
+    }
+    if (openDoc) {
+      setOpenDoc(null);
+      return true;
+    }
+    if (docType !== 'invoice') {
+      setDocType('invoice');
+      return true;
+    }
+    return false;
+  });
 
   // Deep link (item 15): open (and optionally edit) a specific invoice as soon
   // as the invoices arrive. Applied during render — one shot, latched by
@@ -598,7 +627,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
     const payDisabled = selected.cancelled || balance(selected) < 0.5;
 
     return (
-      <View style={styles.flex}>
+      <ViewSwap viewKey="detail" order={BILLING_VIEW_ORDER} style={styles.flex}>
         <DocViewer
           data={invoiceDocData(selected)}
           docType="invoice"
@@ -615,7 +644,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
           }
         />
         {paySheet}
-      </View>
+      </ViewSwap>
     );
   }
 
@@ -624,7 +653,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
     const quote = isQuote ? (activeDoc as Quotation) : null;
     const canConvert = !!quote && canEdit && !quote.relatedInvoice && quote.status !== 'Cancelled' && quote.status !== 'Rejected';
     return (
-      <View style={styles.flex}>
+      <ViewSwap viewKey="doc" order={BILLING_VIEW_ORDER} style={styles.flex}>
         <DocViewer
           data={isQuote ? quotationDocData(activeDoc as Quotation) : challanDocData(activeDoc as Challan)}
           docType={isQuote ? 'quotation' : 'challan'}
@@ -652,16 +681,16 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
           }
         />
         {docSheetNode}
-      </View>
+      </ViewSwap>
     );
   }
 
   return (
-    <View style={[styles.flex, { backgroundColor: theme.background }]}>
+    <ViewSwap viewKey="list" order={BILLING_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
       <ScreenHeader
         title="Billing"
         subtitle="23 Aug 2026 · invoice FX"
-        showBack={!isOwnTab}
+        showBack={showBack}
         rightSlot={
           <View style={styles.headerRight}>
             {docType === 'invoice' ? (
@@ -676,7 +705,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
           </View>
         }
       />
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 100 + bottomInset }]}>
         <DocTypeSwitch
           active={docType}
           counts={docCounts}
@@ -725,10 +754,10 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
               <Pressable
                 key={f.id}
                 onPress={() => setFilter(f.id)}
-                style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.chip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
-                <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{f.label}</Text>
-                <Text style={[styles.chipCount, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{f.count}</Text>
+                <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{f.label}</Text>
+                <Text style={[styles.chipCount, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{f.count}</Text>
               </Pressable>
             );
           })}
@@ -768,10 +797,17 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
       {canEdit ? (
         <Pressable
           onPress={() => (docType === 'invoice' ? openNewInvoice() : openNewDoc(docType === 'challan' ? 'challan' : 'quotation'))}
-          style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}
+          style={[
+            styles.fab,
+            {
+              bottom: 24 + bottomInset,
+              backgroundColor: theme.accent,
+              boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined,
+            },
+          ]}
         >
-          <Icon name="plus" size={18} color={theme.onDark.accent} />
-          <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>
+          <Icon name="plus" size={18} color={theme.accentText} />
+          <Text style={[styles.fabLabel, { color: theme.accentText }]}>
             {docType === 'invoice' ? 'New invoice' : docType === 'challan' ? 'New challan' : 'New quotation'}
           </Text>
         </Pressable>
@@ -787,7 +823,7 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
         onChange={(patch) => setInvoiceDraft((d) => ({ ...d, ...patch }))}
         onSave={handleSaveInvoice}
       />
-    </View>
+    </ViewSwap>
   );
 }
 

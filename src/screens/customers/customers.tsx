@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { ViewSwap } from '@/components/ui/view-swap';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { useBackHandler } from '@/lib/use-back-handler';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
+import * as haptics from '@/lib/haptics';
 import { useInvoices } from '@/data/billing/hooks';
 import { useAddCustomer, useCustomers, useDeleteCustomer, useRestoreCustomers, useUpdateCustomer } from '@/data/customers/hooks';
 import { invoicesForCustomer, ordersForCustomer } from '@/data/customers/joins';
@@ -23,6 +26,9 @@ import { CustomerRow } from './customer-row';
 import { DetailView } from './detail-view';
 import { FormHeader } from './form-header';
 import { ListSummary } from './list-summary';
+
+/** Outermost first — `ViewSwap` reads the direction of travel from this. */
+const CUSTOMER_VIEW_ORDER: readonly CustomersView[] = ['list', 'detail', 'form'];
 
 export function Customers() {
   const theme = useTheme();
@@ -48,6 +54,27 @@ export function Customers() {
   const [draft, setDraft] = useState<CustomerDraft | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
+
+  // Form and detail are views inside this route, so system back has to step
+  // through them — same route the Cancel and chevron buttons take.
+  useBackHandler(() => {
+    if (view === 'form') {
+      setView(editingId ? 'detail' : 'list');
+      setDraft(null);
+      setEditingId(null);
+      return true;
+    }
+    if (view === 'detail') {
+      setView('list');
+      setSelectedId(null);
+      return true;
+    }
+    if (swipeOpenId) {
+      setSwipeOpenId(null);
+      return true;
+    }
+    return false;
+  });
 
   if (isBlocked(customersQuery) || !customers) return <ScreenGate queries={[customersQuery]} />;
 
@@ -179,6 +206,7 @@ export function Customers() {
   };
   const confirmDelete = () => {
     if (!pending) return;
+    haptics.committed();
     const before = customers;
     deleteCustomer.mutate(pending.id);
     setPendingId(null);
@@ -198,7 +226,7 @@ export function Customers() {
 
   if (view === 'form' && draft) {
     return (
-      <View style={[styles.flex, { backgroundColor: theme.background }]}>
+      <ViewSwap viewKey="form" order={CUSTOMER_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
         <FormHeader
           title={editingId ? 'Edit customer' : 'New customer'}
           saveLabel="Save"
@@ -210,13 +238,13 @@ export function Customers() {
           <CustomerForm draft={draft} touched={touched} nameOk={nameOk} isEditing={!!editingId} onChange={patchDraft} onDelete={() => editingId && askDelete(editingId)} />
         </ScrollView>
         <ConfirmDeleteSheet visible={!!pending} name={pending?.name ?? ''} warning={pendingWarning} onCancel={cancelDelete} onConfirm={confirmDelete} />
-      </View>
+      </ViewSwap>
     );
   }
 
   if (view === 'detail' && selected && detailCustomer) {
     return (
-      <View style={[styles.flex, { backgroundColor: theme.background }]}>
+      <ViewSwap viewKey="detail" order={CUSTOMER_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
         <ScreenHeader
           title={selected.name}
           subtitle={selected.type === 'company' ? `${selected.city} · ${selected.terms}` : `Individual · ${selected.city}`}
@@ -234,12 +262,12 @@ export function Customers() {
           <DetailView customer={detailCustomer} onDelete={canEdit ? () => askDelete(selected.id) : undefined} />
         </ScrollView>
         <ConfirmDeleteSheet visible={!!pending} name={pending?.name ?? ''} warning={pendingWarning} onCancel={cancelDelete} onConfirm={confirmDelete} />
-      </View>
+      </ViewSwap>
     );
   }
 
   return (
-    <View style={[styles.flex, { backgroundColor: theme.background }]}>
+    <ViewSwap viewKey="list" order={CUSTOMER_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
       <ScreenHeader
         title="Customers"
         subtitle={`${customers.length} accounts · KTM + LDN book`}
@@ -291,7 +319,7 @@ export function Customers() {
       </ScrollView>
 
       <ConfirmDeleteSheet visible={!!pending} name={pending?.name ?? ''} warning={pendingWarning} onCancel={cancelDelete} onConfirm={confirmDelete} />
-    </View>
+    </ViewSwap>
   );
 }
 

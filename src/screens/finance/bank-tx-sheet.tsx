@@ -46,9 +46,9 @@ export function BankTxSheet({ visible, draft, onClose, onChange, onSave }: BankT
               <Pressable
                 key={b}
                 onPress={() => onChange({ bankChoice: b })}
-                style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.chip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
-                <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{b.replace('Bank - ', '')}</Text>
+                <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{b.replace('Bank - ', '')}</Text>
               </Pressable>
             );
           })}

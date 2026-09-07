@@ -42,10 +42,10 @@ export function RequestSheet({ visible, draft, who, onClose, onChange, onSubmit 
               <Pressable
                 key={c}
                 onPress={() => onChange({ category: c })}
-                style={[styles.categoryButton, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.categoryButton, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
                 <View style={[styles.categoryMark, { backgroundColor: on ? theme.accent : BUDGET_CATEGORY[c].mark }]} />
-                <Text style={[styles.categoryLabel, { color: on ? theme.onDark.text : theme.textPrimary }]} numberOfLines={1}>
+                <Text style={[styles.categoryLabel, { color: on ? theme.selectedText : theme.textPrimary }]} numberOfLines={1}>
                   {c}
                 </Text>
               </Pressable>
@@ -82,14 +82,14 @@ export function RequestSheet({ visible, draft, who, onClose, onChange, onSubmit 
               <Pressable
                 key={p}
                 onPress={() => onChange({ urgency: p })}
-                style={[styles.priorityButton, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.priorityButton, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
                 <View style={styles.bars}>
                   <View style={[styles.bar, { height: 6, backgroundColor: bars[0] }]} />
                   <View style={[styles.bar, { height: 9, backgroundColor: bars[1] }]} />
                   <View style={[styles.bar, { height: 12, backgroundColor: bars[2] }]} />
                 </View>
-                <Text style={[styles.priorityLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{p}</Text>
+                <Text style={[styles.priorityLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{p}</Text>
               </Pressable>
             );
           })}

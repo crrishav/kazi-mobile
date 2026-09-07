@@ -7,8 +7,10 @@ import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { useBackHandler } from '@/lib/use-back-handler';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
+import * as haptics from '@/lib/haptics';
 import { fontFamily, radii } from '@/theme';
 import {
   useAdminMatrix,
@@ -103,12 +105,8 @@ export function AdminPanel() {
   const [busyPersonId, setBusyPersonId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (isBlocked(matrixQuery) || !matrix) return <ScreenGate queries={[matrixQuery]} />;
-
-  const { roles, sections, financeTabs, perms, tabPerms, groupRights, people } = matrix;
-  const activePeople = people.filter((p) => p.active);
-  const selectedRole = roles.find((r) => r.id === selectedId) ?? null;
-
+  // Both read only from `draft`, so they sit above the data gate — the back
+  // handler below is a hook and has to be declared before it.
   const changeCount =
     Object.keys(draft.levels).length +
     Object.keys(draft.tabs).length +
@@ -116,6 +114,35 @@ export function AdminPanel() {
     Object.keys(draft.groups).length +
     (draft.superAdmin !== null ? 1 : 0);
   const dirty = changeCount > 0;
+
+  /** Flash at someone trying to walk away mid-edit. */
+  const nudge = () => toast.show({ message: 'Save or discard your changes first', tone: 'warn' });
+
+  const backToRoles = () => {
+    setSelectedId(null);
+    setPageQuery('');
+    setPeopleOpen(false);
+    setError(null);
+  };
+
+  // A role's matrix is a view inside this route, so system back has to close
+  // it — through the same unsaved-changes guard the header chevron uses, not
+  // around it.
+  useBackHandler(() => {
+    if (!selectedId) return false;
+    if (dirty) {
+      nudge();
+      return true;
+    }
+    backToRoles();
+    return true;
+  });
+
+  if (isBlocked(matrixQuery) || !matrix) return <ScreenGate queries={[matrixQuery]} />;
+
+  const { roles, sections, financeTabs, perms, tabPerms, groupRights, people } = matrix;
+  const activePeople = people.filter((p) => p.active);
+  const selectedRole = roles.find((r) => r.id === selectedId) ?? null;
 
   const savedSuper = isSuperTier(selectedRole?.tier ?? 0);
   const isSuperAdmin = draft.superAdmin ?? savedSuper;
@@ -142,9 +169,6 @@ export function AdminPanel() {
     isSuperAdmin ? true : (draft.groups[capability] ?? savedGroup(capability));
 
   const resetDraft = () => setDraft(EMPTY_DRAFT);
-
-  /** Flash at someone trying to walk away mid-edit. */
-  const nudge = () => toast.show({ message: 'Save or discard your changes first', tone: 'warn' });
 
   /** Wrap anything that would throw the draft away. */
   const guard = (fn: () => void) => () => {
@@ -454,6 +478,7 @@ export function AdminPanel() {
       onConfirm={() => {
         const pending = confirm;
         setConfirm(null);
+        haptics.committed();
         pending?.run();
         // The action is in flight; whatever it does on success (closing the
         // review sheet, dropping the selected role) lands after this.
@@ -536,13 +561,6 @@ export function AdminPanel() {
 
   // ---- One role's matrix ---------------------------------------------------
 
-  const backToRoles = guard(() => {
-    setSelectedId(null);
-    setPageQuery('');
-    setPeopleOpen(false);
-    setError(null);
-  });
-
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <ScreenHeader
@@ -550,7 +568,7 @@ export function AdminPanel() {
         subtitle={`${holders.length} ${holders.length === 1 ? 'person' : 'people'} · ${
           isSuperAdmin ? 'all pages' : `${draftCounts.edit} edit · ${draftCounts.view} view`
         }`}
-        onBack={backToRoles}
+        onBack={guard(backToRoles)}
         rightSlot={
           canAdminister && !isSuperAdmin ? (
             <Pressable

@@ -74,7 +74,7 @@ export function MonthGrid({ entries, cursor, selected, onPrevMonth, onNextMonth,
               style={[
                 styles.cell,
                 {
-                  backgroundColor: c.isSelected ? theme.surfaceInverted : hasEntries ? theme.draftWash : 'transparent',
+                  backgroundColor: c.isSelected ? theme.selectedSurface : hasEntries ? theme.draftWash : 'transparent',
                   borderWidth: c.isToday && !c.isSelected ? 1.5 : 0,
                   borderColor: theme.accent,
                 },
@@ -87,7 +87,7 @@ export function MonthGrid({ entries, cursor, selected, onPrevMonth, onNextMonth,
                       styles.cellLabel,
                       tabularNums,
                       {
-                        color: c.isSelected ? theme.onDark.text : hasEntries ? theme.textPrimary : theme.textSecondary,
+                        color: c.isSelected ? theme.selectedText : hasEntries ? theme.textPrimary : theme.textSecondary,
                         fontFamily: hasEntries || c.isToday ? fontFamily.semibold : fontFamily.regular,
                       },
                     ]}

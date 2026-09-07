@@ -4,7 +4,7 @@
  * `financeTabAllowed` + `NAV_BY_ROLE` + `DEFAULT_NEPAL_ADMIN_PERMISSIONS`).
  *
  * Mock-era: the profile comes from `mock-auth` (role derived from the email,
- * plus a dev role switcher). When Firebase Auth lands, only the profile
+ * plus a dev role switcher). When real auth lands, only the profile
  * *source* changes — every function below stays as-is.
  *
  * Per-user overrides (`profile.permissions`, shape mirrors the live
@@ -36,7 +36,6 @@ export type SectionId =
   // Chat. The id stays `messenger`: it is the primary key of `sections` in
   // Postgres and the join key in `position_permissions` — only the label moved.
   | 'messenger'
-  | 'directors'
   | 'admin-panel'
   | 'changelog'
   | 'bug-report';
@@ -78,12 +77,12 @@ export interface Profile {
   role: Role;
   /** Free-text job title (reference `jobRole`), display-only. */
   jobRole?: string;
-  /** `positions.id` in Postgres. Absent on the legacy Firebase path. */
+  /** `positions.id` in Postgres. Absent under mock-auth. */
   positionId?: string;
-  /** `people.id` in Postgres. Absent on the legacy Firebase path, where chat falls back to its mock. */
+  /** `people.id` in Postgres. Absent under mock-auth, where chat falls back to its mock. */
   personId?: string;
   permissions?: PermissionOverrides;
-  /** Firebase Auth UID — present on the real-auth path only. */
+  /** Supabase Auth user id — present on the real-auth path only. */
   uid?: string;
   /** Operating location (`nepal` / `uk`), display-only. */
   location?: 'nepal' | 'uk';
@@ -96,7 +95,7 @@ export interface Profile {
 export const ALL_SECTIONS: SectionId[] = [
   'dashboard', 'tasks', 'inventory', 'finance', 'sales', 'order-management', 'customers', 'billing',
   'purchases', 'production', 'accounting', 'budget-requirements',
-  'employees-hr', 'attendance', 'marketing', 'messenger', 'directors', 'admin-panel', 'changelog',
+  'employees-hr', 'attendance', 'marketing', 'messenger', 'admin-panel', 'changelog',
   'bug-report',
 ];
 

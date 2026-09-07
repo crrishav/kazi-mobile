@@ -35,9 +35,17 @@ export const lightColors = {
   onTrackDot: '#22A97A',
 
   // Foreground used on an ink900 surface *within an otherwise light screen*
-  // (the one inverted "highlight" card per screen) — e.g. avatar initials.
+  // — e.g. avatar initials on a selected chip or the toast pill.
   onInvertedMutedText: '#9DB2A7',
   onInvertedAvatarText: '#BFE9D5',
+
+  // The one "highlight" (hero) card per screen. In light mode it is simply an
+  // ordinary white card — the design originally inverted it to ink900, but a
+  // near-black block in an otherwise light page just read as dark mode leaking
+  // in. Its foreground palette is therefore the ordinary one (wired up in
+  // `index.ts`); only dark mode still lifts the hero above `surface`.
+  /** An inactive column in a chart drawn on the hero card. */
+  heroMutedBar: '#D5E0DA',
 } as const;
 
 export const darkColors = {
@@ -54,10 +62,27 @@ export const darkColors = {
   mintWashRgba: 'rgba(111,221,169,0.16)',
   mintWashTextOnDark: '#6FDDA9',
 
+  // Selected chip / segment / tab. Dark mode has no ink block to invert to —
+  // `raised` is already the sheet's own colour — so a selection reads as an
+  // accent-tinted fill behind a solid mint outline instead. Kept translucent
+  // so it lifts off `surface` and `surfaceRaised` alike.
+  mintSelectedWash: 'rgba(111,221,169,0.22)',
+  mintSelectedText: '#C6F5DF',
+  mintSelectedTextMuted: '#8FC7AF',
+
   clay: '#E08A63',
   clayWashRgba: 'rgba(224,138,99,0.18)',
   clayWashTextOnDark: '#E8A183',
 
   amberWashRgba: 'rgba(185,133,20,0.18)',
   amberWashTextOnDark: '#DBB55C',
+
+  // Hero-card extras. Dark mode's hero *is* `raised`, so these keep the exact
+  // values the hand-written rgba literals used before they were tokenised —
+  // the dark theme is unchanged by the light-mode hero rework.
+  heroDivider: 'rgba(233,241,236,0.14)',
+  heroTrack: 'rgba(233,241,236,0.16)',
+  heroMutedBar: 'rgba(191,233,213,0.42)',
+  heroWarning: '#DBB55C',
+  heroDanger: '#D98466',
 } as const;

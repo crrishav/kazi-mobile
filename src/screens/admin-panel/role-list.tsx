@@ -89,11 +89,11 @@ export function RoleList({
 
   return (
     <View style={styles.wrap}>
-      <Card elevation="inverted" style={styles.statsCard}>
+      <Card elevation="hero" style={styles.statsCard}>
         <Stat label="Roles" value={roles.length} />
-        <View style={[styles.statDivider, { backgroundColor: theme.onDark.textMuted }]} />
+        <View style={[styles.statDivider, { backgroundColor: theme.onHero.divider }]} />
         <Stat label="People" value={peopleCount} />
-        <View style={[styles.statDivider, { backgroundColor: theme.onDark.textMuted }]} />
+        <View style={[styles.statDivider, { backgroundColor: theme.onHero.divider }]} />
         <Stat label="Pages" value={sectionCount} />
       </Card>
 
@@ -147,8 +147,8 @@ function Stat({ label, value }: { label: string; value: number }) {
   const theme = useTheme();
   return (
     <View style={styles.stat}>
-      <Text style={[styles.statValue, tabularNums, { color: theme.onDark.text }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: theme.onDark.textMuted }]}>{label}</Text>
+      <Text style={[styles.statValue, tabularNums, { color: theme.onHero.text }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: theme.onHero.textMuted }]}>{label}</Text>
     </View>
   );
 }

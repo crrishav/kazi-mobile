@@ -45,7 +45,7 @@ export function Dashboard() {
   const { profile, role } = useAuth();
   const unreadCount = useUnreadCount();
 
-  // No position on the session (the legacy Firebase path, or the dev role
+  // No position on the session (a minimal session, or the dev role
   // switcher under mock auth) — fall back to the coarse role, same as the bar.
   const byRole =
     role === 'uk_admin' || role === 'super_admin'

@@ -27,11 +27,8 @@ const TAB_MODULE_LINKS: Partial<Record<SectionId, { label: string; route: string
   tasks: { label: 'Tasks', route: '/tasks', icon: 'check-square' },
 };
 
-/**
- * Sections that never earn a shortcut: reached elsewhere, or not a destination.
- * `directors` sits here deliberately — it belongs in More and nowhere else.
- */
-const NEVER_LINK: SectionId[] = ['dashboard', 'messenger', 'directors', 'changelog', 'bug-report', 'admin-panel'];
+/** Sections that never earn a shortcut: reached elsewhere, or not a destination. */
+const NEVER_LINK: SectionId[] = ['dashboard', 'messenger', 'changelog', 'bug-report', 'admin-panel'];
 
 function linkFor(id: SectionId): { label: string; route: string; icon: IconName } | null {
   const tabLink = TAB_MODULE_LINKS[id];

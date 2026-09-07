@@ -7,7 +7,7 @@ import { Icon } from '@/components/ui/icon';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useNotifications } from '@/data/notifications/context';
 import type { NotificationRecord } from '@/data/notifications/types';
-import { isFirebaseConfigured } from '@/lib/firebase';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 
@@ -90,7 +90,7 @@ export function Notifications() {
           contentContainerStyle={styles.content}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}
         >
-          {!isFirebaseConfigured ? (
+          {!isSupabaseConfigured ? (
             <View style={[styles.banner, { backgroundColor: theme.warningWash, borderColor: theme.border }]}>
               <Icon name="wifi-off" size={14} color={theme.warningWashText} />
               <Text style={[styles.bannerText, { color: theme.warningWashText }]}>

@@ -8,6 +8,8 @@ import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { Switch } from '@/components/ui/switch';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { useModulePresentation } from '@/components/tab-bar/use-own-tab';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import { STATUS_LABEL, STATUS_ORDER } from '@/data/tasks/mock';
@@ -15,7 +17,6 @@ import { useDeleteTask, useSaveTask, useTasks, useUndoDeleteTask } from '@/data/
 import type { Task, TaskStatus } from '@/data/tasks/types';
 
 import { FilterChips, type TaskFilter } from './filter-chips';
-import { TasksHeader } from './header';
 import { TaskEditSheet } from './task-edit-sheet';
 import { TaskProgressSheet } from './task-progress-sheet';
 import { TaskRow } from './task-row';
@@ -29,6 +30,7 @@ export function Tasks() {
   const toast = useToast();
   const { can } = useAuth();
   const canEdit = can('tasks');
+  const { showBack, bottomInset } = useModulePresentation('tasks');
 
   const tasksQuery = useTasks();
   const { data: tasks } = tasksQuery;
@@ -105,7 +107,7 @@ export function Tasks() {
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <TasksHeader openCount={openCount} />
+      <ScreenHeader title="Tasks" subtitle={`${openCount} open · Line 3`} showBack={showBack} />
 
       <View style={styles.searchWrap}>
         <View style={[styles.searchRow, { backgroundColor: theme.surface, borderColor: theme.border, boxShadow: theme.shadows.card }]}>
@@ -137,7 +139,7 @@ export function Tasks() {
         <Switch value={dueTodayOnly} onValueChange={() => setDueTodayOnly((v) => !v)} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.list}>
+      <ScrollView contentContainerStyle={[styles.list, { paddingBottom: 110 + bottomInset }]}>
         <PermissionNotice section="tasks" message="Tap a task to move its progress. Everything else is set by an admin." />
         {visible.length === 0 ? (
           <EmptyState
@@ -169,7 +171,14 @@ export function Tasks() {
       {canEdit ? (
         <Pressable
           onPress={openNew}
-          style={[styles.fab, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined }]}
+          style={[
+            styles.fab,
+            {
+              bottom: 24 + bottomInset,
+              backgroundColor: theme.accent,
+              boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined,
+            },
+          ]}
         >
           <Text style={[styles.fabPlus, { color: theme.accentText }]}>+</Text>
         </Pressable>

@@ -7,6 +7,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { useModulePresentation } from '@/components/tab-bar/use-own-tab';
+import { useBackHandler } from '@/lib/use-back-handler';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import {
@@ -54,6 +56,8 @@ export function Inventory() {
   const updateStockItem = useUpdateStockItem();
   const restoreInventory = useRestoreInventory();
 
+  const { showBack, bottomInset } = useModulePresentation('inventory');
+
   const [tab, setTab] = useState<InventoryTab>('inventory');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<InventoryFilter>('all');
@@ -68,6 +72,20 @@ export function Inventory() {
   const [moveDraft, setMoveDraft] = useState<StockMovementDraft>(emptyMovementDraft());
   const [editOpen, setEditOpen] = useState(false);
   const [detailsDraft, setDetailsDraft] = useState<StockDetailsDraft>({ threshold: '', lead: '', location: '', cost: '', supplier: '' });
+
+  // Item detail and the Inventory/Library switch are views inside this route.
+  useBackHandler(() => {
+    if (selectedId) {
+      setSelectedId(null);
+      return true;
+    }
+    if (tab !== 'inventory') {
+      setTab('inventory');
+      setQuery('');
+      return true;
+    }
+    return false;
+  });
 
   if (isBlocked(stockQuery, libraryQuery, movementsQuery) || !stock || !library || !movements) return <ScreenGate queries={[stockQuery, libraryQuery, movementsQuery]} />;
 
@@ -254,9 +272,10 @@ export function Inventory() {
         filters={isFabric ? filters : undefined}
         activeFilter={filter}
         onFilterChange={setFilter}
+        showBack={showBack}
       />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 110 + bottomInset }]}>
         <PermissionNotice section="inventory" />
         {isFabric ? (
           <>
@@ -284,9 +303,19 @@ export function Inventory() {
       </ScrollView>
 
       {canEdit ? (
-        <Pressable onPress={openAdd} style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}>
-          <Icon name="plus" size={18} color={theme.onDark.accent} />
-          <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>{isFabric ? 'Add fabric' : 'Add item'}</Text>
+        <Pressable
+          onPress={openAdd}
+          style={[
+            styles.fab,
+            {
+              bottom: 24 + bottomInset,
+              backgroundColor: theme.accent,
+              boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined,
+            },
+          ]}
+        >
+          <Icon name="plus" size={18} color={theme.accentText} />
+          <Text style={[styles.fabLabel, { color: theme.accentText }]}>{isFabric ? 'Add fabric' : 'Add item'}</Text>
         </Pressable>
       ) : null}
 

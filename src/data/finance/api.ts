@@ -12,8 +12,8 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { liveRead } from '@/lib/supabase/read';
 import { liveWrite } from '@/lib/supabase/write';
 
-import * as live from './firestore';
-import * as writeLive from './firestore-write';
+import * as live from './supabase';
+import * as writeLive from './supabase-write';
 import * as mock from './mock-api';
 
 // Mock-only: no live collection / field, or the rules forbid it.

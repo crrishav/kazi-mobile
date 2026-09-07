@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useIsFocused } from 'expo-router';
 
 /**
  * Lets a screen inside `(tabs)` fold the bottom bar away while it is showing
@@ -48,13 +49,20 @@ export function useTabBarHidden(): boolean {
  * Hide the bar for as long as this component is mounted, or while `active`.
  * Releases on unmount, so a back gesture mid-animation cannot leave the bar
  * folded away.
+ *
+ * Also released the moment the screen loses focus. Tab screens stay mounted
+ * once visited, so an open chat thread left behind on the Chat tab used to go
+ * on hiding the bar from every other tab — you would land on the dashboard
+ * with no bar at all and nothing to press. Whoever is on screen now decides.
  */
 export function useHideTabBar(active = true): void {
   const ctx = useContext(TabBarVisibilityContext);
   const hide = ctx?.hide;
+  const isFocused = useIsFocused();
+  const on = active && isFocused;
 
   useEffect(() => {
-    if (!active || !hide) return;
+    if (!on || !hide) return;
     return hide();
-  }, [active, hide]);
+  }, [on, hide]);
 }

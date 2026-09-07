@@ -1,8 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 
@@ -19,6 +18,8 @@ export interface ListHeaderProps {
   filters?: { id: InventoryFilter; label: string; count: number }[];
   activeFilter?: InventoryFilter;
   onFilterChange?: (f: InventoryFilter) => void;
+  /** Inventory is a tab for some positions and a More-hub screen for the rest. */
+  showBack?: boolean;
 }
 
 export function ListHeader({
@@ -31,72 +32,68 @@ export function ListHeader({
   filters,
   activeFilter,
   onFilterChange,
+  showBack = false,
 }: ListHeaderProps) {
   const theme = useTheme();
-  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.wrap, { paddingTop: insets.top + 12, backgroundColor: theme.background }]}>
-      <View style={styles.titleRow}>
-        <View style={styles.titleTextWrap}>
-          <Text style={[styles.title, { color: theme.textPrimary }]}>Inventory</Text>
-          <Text style={[styles.meta, { color: theme.textSecondary }]} numberOfLines={1}>
-            {headerMeta}
-          </Text>
-        </View>
-        <HeaderAccount />
-      </View>
+    <View style={{ backgroundColor: theme.background }}>
+      {/* The title row is the app's standard root/back header — only the
+          controls below it are Inventory's own. */}
+      <ScreenHeader title="Inventory" subtitle={headerMeta} showBack={showBack} />
 
-      <View style={[styles.segmented, { backgroundColor: theme.draftWash, borderColor: theme.border }]}>
-        <Pressable
-          onPress={() => onTabChange('inventory')}
-          style={[
-            styles.segmentButton,
-            { backgroundColor: tab === 'inventory' ? theme.surface : 'transparent', boxShadow: tab === 'inventory' ? theme.shadows.card : undefined },
-          ]}
-        >
-          <Text style={[styles.segmentLabel, { color: tab === 'inventory' ? theme.textPrimary : theme.textSecondary }]}>Inventory</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => onTabChange('library')}
-          style={[
-            styles.segmentButton,
-            { backgroundColor: tab === 'library' ? theme.surface : 'transparent', boxShadow: tab === 'library' ? theme.shadows.card : undefined },
-          ]}
-        >
-          <Text style={[styles.segmentLabel, { color: tab === 'library' ? theme.textPrimary : theme.textSecondary }]}>Library</Text>
-        </Pressable>
-      </View>
-
-      <View style={[styles.searchRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Icon name="search" size={16} color={theme.textSecondary} />
-        <View style={styles.searchInputWrap}>
-          <SearchInput value={query} onChangeText={onQueryChange} placeholder={searchPlaceholder} />
-        </View>
-        {query.length > 0 ? (
-          <Pressable onPress={() => onQueryChange('')} hitSlop={8}>
-            <Text style={[styles.clearLabel, { color: theme.accentDeep }]}>Clear</Text>
+      <View style={styles.wrap}>
+        <View style={[styles.segmented, { backgroundColor: theme.draftWash, borderColor: theme.border }]}>
+          <Pressable
+            onPress={() => onTabChange('inventory')}
+            style={[
+              styles.segmentButton,
+              { backgroundColor: tab === 'inventory' ? theme.surface : 'transparent', boxShadow: tab === 'inventory' ? theme.shadows.card : undefined },
+            ]}
+          >
+            <Text style={[styles.segmentLabel, { color: tab === 'inventory' ? theme.textPrimary : theme.textSecondary }]}>Inventory</Text>
           </Pressable>
+          <Pressable
+            onPress={() => onTabChange('library')}
+            style={[
+              styles.segmentButton,
+              { backgroundColor: tab === 'library' ? theme.surface : 'transparent', boxShadow: tab === 'library' ? theme.shadows.card : undefined },
+            ]}
+          >
+            <Text style={[styles.segmentLabel, { color: tab === 'library' ? theme.textPrimary : theme.textSecondary }]}>Library</Text>
+          </Pressable>
+        </View>
+
+        <View style={[styles.searchRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <Icon name="search" size={16} color={theme.textSecondary} />
+          <View style={styles.searchInputWrap}>
+            <SearchInput value={query} onChangeText={onQueryChange} placeholder={searchPlaceholder} />
+          </View>
+          {query.length > 0 ? (
+            <Pressable onPress={() => onQueryChange('')} hitSlop={8}>
+              <Text style={[styles.clearLabel, { color: theme.accentDeep }]}>Clear</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {filters ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+            {filters.map((f) => {
+              const on = activeFilter === f.id;
+              return (
+                <Pressable
+                  key={f.id}
+                  onPress={() => onFilterChange?.(f.id)}
+                  style={[styles.chip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
+                >
+                  <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{f.label}</Text>
+                  <Text style={[styles.chipCount, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{f.count}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         ) : null}
       </View>
-
-      {filters ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-          {filters.map((f) => {
-            const on = activeFilter === f.id;
-            return (
-              <Pressable
-                key={f.id}
-                onPress={() => onFilterChange?.(f.id)}
-                style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
-              >
-                <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{f.label}</Text>
-                <Text style={[styles.chipCount, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{f.count}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      ) : null}
     </View>
   );
 }
@@ -121,28 +118,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 20,
     paddingBottom: 12,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  titleTextWrap: {
-    flex: 1,
-    gap: 3,
-    minWidth: 0,
-  },
-  title: {
-    fontFamily: fontFamily.semibold,
-    fontSize: 26,
-    letterSpacing: -0.025 * 26,
-  },
-  meta: {
-    fontFamily: fontFamily.mono,
-    fontSize: 10,
-    letterSpacing: 0.12 * 10,
-    textTransform: 'uppercase',
   },
   segmented: {
     flexDirection: 'row',

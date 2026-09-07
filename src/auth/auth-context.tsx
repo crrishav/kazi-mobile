@@ -41,7 +41,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/** Real auth (Supabase session, Firebase fallback) when configured; the in-memory mock otherwise. */
+/** Real auth (Supabase session) when configured; the in-memory mock otherwise. */
 const impl = isRealAuthConfigured ? realAuth : mockAuth;
 
 function toProfile(session: Session | null): Profile | null {
@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Keep the notifications module's "who am I" in sync so mutation hooks can
   // attribute events without prop-drilling the current user.
   useEffect(() => {
-    setActor(session ? { name: session.name, email: session.email, role: session.appRole, uid: session.uid } : null);
+    setActor(session ? { name: session.name, email: session.email, role: session.appRole, uid: session.uid, personId: session.personId } : null);
   }, [session]);
 
   // Chat resolves "me" and "them" from a module-level registry rather than

@@ -71,10 +71,10 @@ export function PayrollView({
             <Pressable
               key={m.key}
               onPress={() => onMonthChange(m.key)}
-              style={[styles.monthChip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+              style={[styles.monthChip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
             >
-              <Text style={[styles.monthLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{m.label}</Text>
-              <Text style={[styles.monthState, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{m.state}</Text>
+              <Text style={[styles.monthLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{m.label}</Text>
+              <Text style={[styles.monthState, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{m.state}</Text>
             </Pressable>
           );
         })}

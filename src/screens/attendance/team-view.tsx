@@ -1,13 +1,13 @@
+import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
 import { RiseIn } from '@/components/ui/rise-in';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { TEAM_MONTH_STATS } from '@/data/attendance/mock';
 import { todayLabel , npr } from '@/data/attendance/utils';
 
-import type { AttendanceStatus, TeamFilter, TeamMember } from '@/data/attendance/types';
+import type { AttendanceStatus, TeamFilter, TeamMember, TeamMonthStats } from '@/data/attendance/types';
 
 import { RollCall } from './roll-call';
 import { TeamRow } from './team-row';
@@ -23,6 +23,14 @@ export interface TeamViewProps {
   onSetStatus: (id: number, status: AttendanceStatus) => void;
   onOpenReport: (member: TeamMember) => void;
   onExportPayroll: () => void;
+  /** Month-to-date figures for the whole roster, derived from the same rows. */
+  monthStats: TeamMonthStats;
+  /**
+   * Rendered above the roll call, inside the same rise-in. Used by the merged
+   * single-tab layout to put the month calendar at the top of this view rather
+   * than animating it separately.
+   */
+  header?: ReactNode;
 }
 
 export function TeamView({
@@ -36,12 +44,16 @@ export function TeamView({
   onSetStatus,
   onOpenReport,
   onExportPayroll,
+  monthStats,
+  header,
 }: TeamViewProps) {
   const theme = useTheme();
 
   return (
     <RiseIn viewKey="team">
       <View style={styles.wrap}>
+        {header}
+
         <RollCall filter={filter} onFilterChange={onFilterChange} counts={counts} />
 
         <Pressable
@@ -67,20 +79,20 @@ export function TeamView({
           ))}
         </View>
 
-        <View style={[styles.monthCard, { backgroundColor: theme.surfaceInverted }]}>
-          <Text style={[styles.monthTitle, { color: theme.onDark.text }]}>{TEAM_MONTH_STATS.lineLabel}</Text>
+        <View style={[styles.monthCard, { backgroundColor: theme.surfaceHero, borderColor: theme.surfaceHeroBorder, borderWidth: theme.scheme === 'dark' ? 1 : 0, boxShadow: theme.shadows.raised }]}>
+          <Text style={[styles.monthTitle, { color: theme.onHero.text }]}>{monthStats.lineLabel}</Text>
           <View style={styles.monthGrid}>
             <View style={styles.gap4}>
-              <Text style={[styles.monthValue, tabularNums, { color: theme.onDark.text }]}>{TEAM_MONTH_STATS.teamHours}</Text>
-              <Text style={[styles.monthCaption, { color: theme.onDark.textMuted }]}>Team hours</Text>
+              <Text style={[styles.monthValue, tabularNums, { color: theme.onHero.text }]}>{monthStats.teamHours}</Text>
+              <Text style={[styles.monthCaption, { color: theme.onHero.textMuted }]}>Team hours</Text>
             </View>
             <View style={styles.gap4}>
-              <Text style={[styles.monthValue, tabularNums, { color: theme.onDark.dangerWashText }]}>{npr(TEAM_MONTH_STATS.attendanceCuts)}</Text>
-              <Text style={[styles.monthCaption, { color: theme.onDark.textMuted }]}>Attendance cuts</Text>
+              <Text style={[styles.monthValue, tabularNums, { color: theme.onHero.dangerWashText }]}>{npr(monthStats.attendanceCuts)}</Text>
+              <Text style={[styles.monthCaption, { color: theme.onHero.textMuted }]}>Attendance cuts</Text>
             </View>
           </View>
-          <Pressable onPress={onExportPayroll} style={[styles.exportButton, { borderColor: 'rgba(233,241,236,0.14)' }]}>
-            <Text style={[styles.exportLabel, { color: theme.onDark.text }]}>Export roll call (CSV)</Text>
+          <Pressable onPress={onExportPayroll} style={[styles.exportButton, { borderColor: theme.onHero.divider }]}>
+            <Text style={[styles.exportLabel, { color: theme.onHero.text }]}>Export roll call (CSV)</Text>
           </Pressable>
         </View>
       </View>

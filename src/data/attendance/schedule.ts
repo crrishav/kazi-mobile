@@ -3,11 +3,10 @@
  * Ported from the reference `src/constants.js` — `EMPLOYEE_SCHEDULES`,
  * `getEmployeeScheduleForDate`, `calculateAttendanceStatus`.
  *
- * Mobile adaptation: the reference keys schedules by employee name and, when a
- * name is absent, falls back to an "arrived at/after 10:00 → Late" heuristic.
- * Here every staffer resolves to a shift (roster names below, else `DEFAULT_SHIFT`)
- * so the late-cut is deterministic. The > 10-minute grace → salary cut rule is
- * unchanged.
+ * **Mock-only.** The lookup table below is keyed by the seeded roster's names,
+ * so no real staffer ever matched it — which is why the live path now grades
+ * arrivals with `live-shared.ts`'s `gradeArrival`, against the shift actually
+ * stored on that person's directory entry.
  */
 
 export interface Shift {

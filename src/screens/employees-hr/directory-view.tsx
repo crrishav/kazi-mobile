@@ -39,21 +39,21 @@ export function DirectoryView({
 
   return (
     <View style={styles.wrap}>
-      <Card elevation="inverted" style={styles.summaryCard}>
+      <Card elevation="hero" style={styles.summaryCard}>
         <View style={styles.summaryTopRow}>
           <View style={styles.gap6}>
-            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Active staff</Text>
-            <Text style={[styles.activeValue, tabularNums, { color: theme.onDark.text }]}>{activeCount}</Text>
+            <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Active staff</Text>
+            <Text style={[styles.activeValue, tabularNums, { color: theme.onHero.text }]}>{activeCount}</Text>
           </View>
           <View style={[styles.gap6, styles.alignEnd]}>
-            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Aug net payroll</Text>
-            <Text style={[styles.netValue, tabularNums, { color: theme.onDark.text }]}>{netPayrollTotal}</Text>
+            <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Aug net payroll</Text>
+            <Text style={[styles.netValue, tabularNums, { color: theme.onHero.text }]}>{netPayrollTotal}</Text>
           </View>
         </View>
-        <View style={[styles.divider, { backgroundColor: 'rgba(233,241,236,0.14)' }]} />
+        <View style={[styles.divider, { backgroundColor: theme.onHero.divider }]} />
         <View style={styles.rollRow}>
-          <Text style={[styles.rollNote, { color: theme.onDark.textMuted }]}>{rollNote}</Text>
-          <Text style={[styles.runStatus, { color: theme.onDark.accent }]}>{runStatusNote}</Text>
+          <Text style={[styles.rollNote, { color: theme.onHero.textMuted }]}>{rollNote}</Text>
+          <Text style={[styles.runStatus, { color: theme.onHero.accent }]}>{runStatusNote}</Text>
         </View>
       </Card>
 
@@ -80,10 +80,10 @@ export function DirectoryView({
             <Pressable
               key={f.id}
               onPress={() => onFilterChange(f.id)}
-              style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+              style={[styles.chip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
             >
-              <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{f.label}</Text>
-              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{f.count}</Text>
+              <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{f.label}</Text>
+              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{f.count}</Text>
             </Pressable>
           );
         })}

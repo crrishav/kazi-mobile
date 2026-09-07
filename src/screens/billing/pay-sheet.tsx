@@ -98,9 +98,9 @@ export function PaySheet({ visible, invoice: v, draft, onClose, onChange, onSave
                 <Pressable
                   key={cu}
                   onPress={() => onChange({ cur: cu, amount: '' })}
-                  style={[styles.curButton, { backgroundColor: on ? theme.surface : 'transparent', boxShadow: on ? theme.shadows.card : undefined }]}
+                  style={[styles.curButton, { backgroundColor: on ? theme.segmentSurface : 'transparent', borderColor: on ? theme.segmentBorder : 'transparent', boxShadow: on ? theme.shadows.card : undefined }]}
                 >
-                  <Text style={[styles.curLabel, { color: on ? theme.textPrimary : theme.textSecondary }]}>{cu === 'NPR' ? 'Paid in NPR' : `Paid in ${cu}`}</Text>
+                  <Text style={[styles.curLabel, { color: on ? theme.segmentText : theme.textSecondary }]}>{cu === 'NPR' ? 'Paid in NPR' : `Paid in ${cu}`}</Text>
                 </Pressable>
               );
             })}
@@ -117,9 +117,9 @@ export function PaySheet({ visible, invoice: v, draft, onClose, onChange, onSave
               <Pressable
                 key={m.id}
                 onPress={() => onChange({ method: m.id })}
-                style={[styles.methodButton, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.methodButton, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
-                <Text style={[styles.methodLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{m.label}</Text>
+                <Text style={[styles.methodLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{m.label}</Text>
               </Pressable>
             );
           })}
@@ -136,10 +136,10 @@ export function PaySheet({ visible, invoice: v, draft, onClose, onChange, onSave
                 <Pressable
                   key={a.id}
                   onPress={() => onChange({ acct: a.id })}
-                  style={[styles.acctButton, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                  style={[styles.acctButton, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
                 >
-                  <Text style={[styles.acctCode, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{a.code}</Text>
-                  <Text style={[styles.acctLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{a.label}</Text>
+                  <Text style={[styles.acctCode, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{a.code}</Text>
+                  <Text style={[styles.acctLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{a.label}</Text>
                 </Pressable>
               );
             })}
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   currencySign: { fontFamily: fontFamily.mono, fontSize: 15 },
   amountInput: { flex: 1, fontSize: 28, fontWeight: '600', letterSpacing: -0.02 * 28, padding: 0 },
   curToggle: { flexDirection: 'row', padding: 4, borderRadius: 13, borderWidth: 1, gap: 4 },
-  curButton: { flex: 1, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  curButton: { flex: 1, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   curLabel: { fontFamily: fontFamily.semibold, fontSize: 13 },
   methodRow: { flexDirection: 'row', gap: 8 },
   methodButton: { flex: 1, height: 52, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },

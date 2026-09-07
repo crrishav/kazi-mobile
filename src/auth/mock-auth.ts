@@ -25,7 +25,7 @@ export interface Session {
   /** `people.id` in Postgres — the foreign key chat threads, members and messages are written against. */
   personId?: string;
   permissions?: PermissionOverrides;
-  /** Firebase Auth UID — set on the real-auth path, absent under mock-auth. */
+  /** Supabase Auth user id — set on the real-auth path, absent under mock-auth. */
   uid?: string;
   /** `employees`/`users` location field — the Account screen shows Nepal / UK. */
   location?: 'nepal' | 'uk';

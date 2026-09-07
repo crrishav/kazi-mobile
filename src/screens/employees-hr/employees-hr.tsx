@@ -8,7 +8,9 @@ import { tintFromSeed } from '@/components/ui/avatar';
 import { HeaderAccount } from '@/components/ui/header-account';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
+import { RiseIn } from '@/components/ui/rise-in';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { useBackHandler } from '@/lib/use-back-handler';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -138,6 +140,16 @@ export function EmployeesHR() {
   const [baseline, setBaseline] = useState<EmployeeDraft>(blankDraft());
   const [slipId, setSlipId] = useState<number | null>(null);
   const [sharingSlip, setSharingSlip] = useState(false);
+
+  // Directory / Payroll is this route's own tab strip; back returns to the
+  // directory before it gives the screen up.
+  useBackHandler(() => {
+    if (view !== 'directory') {
+      setView('directory');
+      return true;
+    }
+    return false;
+  });
 
   if (isBlocked(employeesQuery, approvalsQuery) || !employees || !approvals) return <ScreenGate queries={[employeesQuery, approvalsQuery]} />;
 
@@ -396,51 +408,55 @@ export function EmployeesHR() {
 
       <ScrollView contentContainerStyle={styles.content}>
         <PermissionNotice section="employees-hr" />
-        {showDirectory ? (
-          <DirectoryView
-            activeCount={active.length}
-            netPayrollTotal={npr(netTotal)}
-            rollNote={`${employees.length - active.length} inactive · avg net ${npr(Math.round(netTotal / Math.max(active.length, 1)))}`}
-            runStatusNote={approvals['aug'] ? 'Aug run approved' : 'Aug run open'}
-            query={query}
-            onQueryChange={setQuery}
-            filters={filters}
-            activeFilter={filter}
-            onFilterChange={setFilter}
-            people={list.map((p) => ({ id: p.id, name: p.name, role: p.role, code: p.code, initials: p.avatarInitials, tint: p.avatarTint, active: p.active }))}
-            onOpenPerson={openEdit}
-          />
-        ) : (
-          <PayrollView
-            months={MONTHS.map((m) => ({ key: m.key, label: m.label, state: m.open ? (approvals[m.key] ? 'approved' : 'draft') : 'paid' }))}
-            activeMonth={monthKey}
-            onMonthChange={setMonthKey}
-            runTitle={`Payroll run · ${month.label}`}
-            runPillState={runPillState}
-            runGross={npr(runGross)}
-            runDeductions={`− ${npr(runDed)}`}
-            runNet={npr(runGross - runDed)}
-            runMeta={`${runRows.length} staff · ${month.days} working days · pay date ${month.payDate}`}
-            runOpen={runOpen}
-            approveLabel={`Approve run · generate ${runRows.length} slips`}
-            onApprove={approveRun}
-            onExportBankFile={exportBankFile}
-            onSyncAttendance={runOpen ? syncFromAttendance : undefined}
-            recordCount={`${runRows.length} · ${month.label}`}
-            records={records}
-            onOpenSlip={openSlip}
-            employerNote={`${npr(employerSsf)} payable to SSF for ${month.label} · deposit by the 15th of the following month`}
-          />
-        )}
+        {/* Directory and Payroll are alternatives in the same frame — they
+            rise in place rather than travelling. */}
+        <RiseIn viewKey={showDirectory ? 'directory' : 'payroll'}>
+          {showDirectory ? (
+            <DirectoryView
+              activeCount={active.length}
+              netPayrollTotal={npr(netTotal)}
+              rollNote={`${employees.length - active.length} inactive · avg net ${npr(Math.round(netTotal / Math.max(active.length, 1)))}`}
+              runStatusNote={approvals['aug'] ? 'Aug run approved' : 'Aug run open'}
+              query={query}
+              onQueryChange={setQuery}
+              filters={filters}
+              activeFilter={filter}
+              onFilterChange={setFilter}
+              people={list.map((p) => ({ id: p.id, name: p.name, role: p.role, code: p.code, initials: p.avatarInitials, tint: p.avatarTint, active: p.active }))}
+              onOpenPerson={openEdit}
+            />
+          ) : (
+            <PayrollView
+              months={MONTHS.map((m) => ({ key: m.key, label: m.label, state: m.open ? (approvals[m.key] ? 'approved' : 'draft') : 'paid' }))}
+              activeMonth={monthKey}
+              onMonthChange={setMonthKey}
+              runTitle={`Payroll run · ${month.label}`}
+              runPillState={runPillState}
+              runGross={npr(runGross)}
+              runDeductions={`− ${npr(runDed)}`}
+              runNet={npr(runGross - runDed)}
+              runMeta={`${runRows.length} staff · ${month.days} working days · pay date ${month.payDate}`}
+              runOpen={runOpen}
+              approveLabel={`Approve run · generate ${runRows.length} slips`}
+              onApprove={approveRun}
+              onExportBankFile={exportBankFile}
+              onSyncAttendance={runOpen ? syncFromAttendance : undefined}
+              recordCount={`${runRows.length} · ${month.label}`}
+              records={records}
+              onOpenSlip={openSlip}
+              employerNote={`${npr(employerSsf)} payable to SSF for ${month.label} · deposit by the 15th of the following month`}
+            />
+          )}
+        </RiseIn>
       </ScrollView>
 
       {showDirectory && canEdit ? (
         <Pressable
           onPress={openAdd}
-          style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}
+          style={[styles.fab, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined }]}
         >
-          <Icon name="plus" size={18} color={theme.onDark.accent} />
-          <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>Add employee</Text>
+          <Icon name="plus" size={18} color={theme.accentText} />
+          <Text style={[styles.fabLabel, { color: theme.accentText }]}>Add employee</Text>
         </Pressable>
       ) : null}
 

@@ -18,8 +18,14 @@ export interface NotifActor {
   name: string;
   email: string;
   role: Role;
-  /** Firebase Auth UID — used by the Firestore write layer (e.g. `clock_ins.staffId`). */
+  /** Supabase Auth user id. Prefer `personId` — the data layer keys on `people.id`. */
   uid?: string;
+  /**
+   * `people.id`. The key attendance actually joins on: `attendance` /
+   * `clock_ins` carry `person_id`, and neither the Supabase auth uid nor the
+   * legacy Firebase uid reliably matches it.
+   */
+  personId?: string;
 }
 
 /**
@@ -68,7 +74,7 @@ export interface ResolvedRecipient {
   matchedRule: string;
 }
 
-/** The Firestore document written to `mobile_notifications`. */
+/** The row written to `mobile_notifications`. */
 export interface NotificationDoc {
   recipientEmail: string;
   recipientRole: Role;
@@ -88,7 +94,7 @@ export interface NotificationDoc {
   source: 'kazi-mobile';
 }
 
-/** Client-side view of a notification (Firestore doc + id + normalised time). */
+/** Client-side view of a notification (row + id + normalised time). */
 export interface NotificationRecord {
   id: string;
   recipientEmail: string;

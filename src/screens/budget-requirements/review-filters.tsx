@@ -31,10 +31,10 @@ export function ReviewFilters({ status, urgency, statusOptions, onStatus, onUrge
             <Pressable
               key={o.id}
               onPress={() => onStatus(o.id)}
-              style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+              style={[styles.chip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
             >
-              <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{o.label}</Text>
-              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{o.count}</Text>
+              <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{o.label}</Text>
+              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{o.count}</Text>
             </Pressable>
           );
         })}

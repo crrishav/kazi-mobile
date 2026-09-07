@@ -32,10 +32,10 @@ export function TabsHeader({ view, onChange, showPayroll }: TabsHeaderProps) {
             <Pressable
               key={t.id}
               onPress={() => onChange(t.id)}
-              style={[styles.segmentButton, t.admin && styles.payrollButton, { backgroundColor: on ? theme.surface : 'transparent', boxShadow: on ? theme.shadows.card : undefined }]}
+              style={[styles.segmentButton, t.admin && styles.payrollButton, { backgroundColor: on ? theme.segmentSurface : 'transparent', borderColor: on ? theme.segmentBorder : 'transparent', boxShadow: on ? theme.shadows.card : undefined }]}
             >
-              <Text style={[styles.segmentLabel, { color: on ? theme.textPrimary : theme.textSecondary }]}>{t.label}</Text>
-              {t.admin ? <Text style={[styles.adminBadge, { color: on ? theme.textPrimary : theme.textSecondary }]}>ADMIN</Text> : null}
+              <Text style={[styles.segmentLabel, { color: on ? theme.segmentText : theme.textSecondary }]}>{t.label}</Text>
+              {t.admin ? <Text style={[styles.adminBadge, { color: on ? theme.segmentText : theme.textSecondary }]}>ADMIN</Text> : null}
             </Pressable>
           );
         })}
@@ -47,7 +47,7 @@ export function TabsHeader({ view, onChange, showPayroll }: TabsHeaderProps) {
 const styles = StyleSheet.create({
   outer: { paddingHorizontal: 20, paddingBottom: 12 },
   segmented: { flexDirection: 'row', padding: 4, borderRadius: 14, gap: 4 },
-  segmentButton: { flex: 1, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  segmentButton: { flex: 1, height: 38, borderRadius: 11, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
   payrollButton: { flexDirection: 'row', gap: 7 },
   segmentLabel: { fontFamily: fontFamily.semibold, fontSize: 13.5 },
   adminBadge: { fontFamily: fontFamily.mono, fontSize: 10, letterSpacing: 0.08 * 10, opacity: 0.7 },

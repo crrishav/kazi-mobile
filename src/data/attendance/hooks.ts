@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { isSupabaseConfigured as isFirebaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { notify } from '@/data/notifications/notify';
 
 import { attendanceKeys } from './keys';
-import * as admin from './firestore-admin';
+import * as admin from './supabase-admin';
 import * as api from './api';
 import type { ClockToggleInput } from './api';
 import type { AttendanceStatus, ClockStatus, TeamMember } from './types';
@@ -30,6 +30,8 @@ export function useToggleClock() {
       queryClient.invalidateQueries({ queryKey: attendanceKeys.punches() });
       // Today's cell, this week's bar and the month totals all move with a punch.
       queryClient.invalidateQueries({ queryKey: attendanceKeys.myMonth() });
+      // So does the admin day sheet, which lists this punch among everyone's.
+      queryClient.invalidateQueries({ queryKey: attendanceKeys.dayRosters() });
       // Re-derive the session from Firestore (`fetchClockStatus` reads today's clock_ins).
       queryClient.invalidateQueries({ queryKey: attendanceKeys.clock() });
       // A clock-IN that bypassed the geofence or had no GPS fix is worth flagging.
@@ -57,6 +59,20 @@ export function useMyMonth() {
   });
 }
 
+/**
+ * Every staffer's punches for one date — the admin calendar's day sheet.
+ * Disabled until a day is tapped, and re-read on mount because a roll-call
+ * edit or a live punch moves it.
+ */
+export function useDayRoster(dateISO: string | null) {
+  return useQuery({
+    queryKey: attendanceKeys.dayRoster(dateISO ?? ''),
+    queryFn: () => api.fetchDayRoster(dateISO as string),
+    enabled: !!dateISO,
+    refetchOnMount: 'always',
+  });
+}
+
 /** Raw GPS punches — reference `clock_ins` collection (item 26). */
 export function useClockPunches() {
   return useQuery({ queryKey: attendanceKeys.punches(), queryFn: api.fetchClockPunches });
@@ -71,8 +87,8 @@ export function useTeamRoster() {
 export function useSetMemberStatus() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status, name }: { id: number; status: AttendanceStatus; name?: string }) =>
-      api.setMemberStatus(id, status, name),
+    mutationFn: ({ id, status, personId, name }: { id: number; status: AttendanceStatus; personId?: string; name?: string }) =>
+      api.setMemberStatus(id, status, personId, name),
     onMutate: async ({ id, status }) => {
       await queryClient.cancelQueries({ queryKey: attendanceKeys.team() });
       queryClient.setQueryData<TeamMember[]>(attendanceKeys.team(), (old) =>
@@ -91,6 +107,7 @@ export function useSetMemberStatus() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: attendanceKeys.team() });
       queryClient.invalidateQueries({ queryKey: attendanceKeys.myMonth() });
+      queryClient.invalidateQueries({ queryKey: attendanceKeys.dayRosters() });
     },
   });
 }
@@ -114,7 +131,7 @@ export function useMemberMonth(query: admin.MemberMonthQuery | null) {
   return useQuery({
     queryKey: attendanceKeys.memberMonth(query?.staffId ?? '', query?.monthISO ?? ''),
     queryFn: () => admin.fetchMemberMonth(query as admin.MemberMonthQuery),
-    enabled: isFirebaseConfigured && !!query?.staffId && !!query?.monthISO,
+    enabled: isSupabaseConfigured && !!query?.staffId && !!query?.monthISO,
     refetchOnMount: 'always',
   });
 }
@@ -129,6 +146,7 @@ export function useSaveDayStatus() {
       queryClient.invalidateQueries({ queryKey: attendanceKeys.team() });
       // The edited person may be the signed-in user — their own month moves too.
       queryClient.invalidateQueries({ queryKey: attendanceKeys.myMonth() });
+      queryClient.invalidateQueries({ queryKey: attendanceKeys.dayRosters() });
       if (input.status !== 'absent' && input.status !== 'late') return;
       notify({
         eventType: 'attendance.absent_late',

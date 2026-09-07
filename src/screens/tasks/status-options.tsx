@@ -28,13 +28,15 @@ function StatusOption({ status, selected, onPress }: { status: TaskStatus; selec
     blocked: theme.dangerWash,
     progress: theme.accentWash,
     inactive: theme.draftWash,
-    done: theme.surfaceInverted,
+    // Light keeps the design's ink block; dark has no ink to invert to, so
+    // `done` reads as a solid accent - the softer wash is already `progress`.
+    done: theme.scheme === 'dark' ? theme.accent : theme.surfaceInverted,
   };
   const washFg: Record<TaskStatus, string> = {
     blocked: theme.dangerWashText,
     progress: theme.accentWashText,
     inactive: theme.draftWashText,
-    done: theme.onDark.avatarText,
+    done: theme.scheme === 'dark' ? theme.accentText : theme.onDark.avatarText,
   };
 
   return (

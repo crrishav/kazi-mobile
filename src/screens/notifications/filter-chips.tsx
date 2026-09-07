@@ -35,10 +35,10 @@ export function FilterChips({
             accessibilityState={{ selected: on }}
             style={[
               styles.chip,
-              { borderColor: on ? theme.surfaceInverted : theme.border, backgroundColor: on ? theme.surfaceInverted : 'transparent' },
+              { borderColor: on ? theme.selectedBorder : theme.border, backgroundColor: on ? theme.selectedSurface : 'transparent' },
             ]}
           >
-            <Text style={[styles.chipText, { color: on ? theme.onDark.text : theme.textSecondary }]}>
+            <Text style={[styles.chipText, { color: on ? theme.selectedText : theme.textSecondary }]}>
               {opt.label}
               {badge}
             </Text>

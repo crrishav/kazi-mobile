@@ -20,18 +20,18 @@ export function Overview({ expenses, onBrowseYears }: OverviewProps) {
 
   return (
     <View style={styles.group}>
-      <Card elevation="inverted" style={styles.marginCard}>
+      <Card elevation="hero" style={styles.marginCard}>
         <View style={styles.marginTopRow}>
           <View style={styles.gap6}>
-            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Average margin</Text>
+            <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Average margin</Text>
             <View style={styles.baselineRow}>
-              <Text style={[styles.marginValue, tabularNums, { color: theme.onDark.text }]}>22.4%</Text>
-              <Text style={[styles.marginDelta, { color: theme.onDark.accent }]}>+1.6 pts</Text>
+              <Text style={[styles.marginValue, tabularNums, { color: theme.onHero.text }]}>22.4%</Text>
+              <Text style={[styles.marginDelta, { color: theme.onHero.accent }]}>+1.6 pts</Text>
             </View>
           </View>
           <View style={[styles.gap5, styles.alignEnd]}>
-            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Net position</Text>
-            <Text style={[styles.netValue, tabularNums, { color: theme.onDark.text }]}>+रु 41.2L</Text>
+            <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Net position</Text>
+            <Text style={[styles.netValue, tabularNums, { color: theme.onHero.text }]}>+रु 41.2L</Text>
           </View>
         </View>
         <View style={styles.marginChart}>
@@ -42,7 +42,7 @@ export function Overview({ expenses, onBrowseYears }: OverviewProps) {
                   styles.marginBar,
                   {
                     height: `${(m / maxMargin) * 100}%`,
-                    backgroundColor: i === MARGINS.length - 1 ? theme.onDark.accent : 'rgba(191,233,213,0.42)',
+                    backgroundColor: i === MARGINS.length - 1 ? theme.onHero.accent : theme.onHero.mutedBar,
                   },
                 ]}
               />
@@ -50,9 +50,9 @@ export function Overview({ expenses, onBrowseYears }: OverviewProps) {
           ))}
         </View>
         <View style={styles.marginLabels}>
-          <Text style={[styles.marginLabel, { color: theme.onDark.textMuted }]}>Shrawan</Text>
-          <Text style={[styles.marginLabel, { color: theme.onDark.textMuted }]}>12 months</Text>
-          <Text style={[styles.marginLabel, { color: theme.onDark.textMuted }]}>Ashad</Text>
+          <Text style={[styles.marginLabel, { color: theme.onHero.textMuted }]}>Shrawan</Text>
+          <Text style={[styles.marginLabel, { color: theme.onHero.textMuted }]}>12 months</Text>
+          <Text style={[styles.marginLabel, { color: theme.onHero.textMuted }]}>Ashad</Text>
         </View>
       </Card>
 

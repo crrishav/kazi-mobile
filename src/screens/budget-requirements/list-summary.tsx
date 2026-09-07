@@ -43,31 +43,31 @@ export function ListSummary({
 
   return (
     <View style={styles.wrap}>
-      <Card elevation="inverted" style={styles.capCard}>
+      <Card elevation="hero" style={styles.capCard}>
         <View style={styles.capRow}>
           <View style={styles.gap5}>
-            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Approved · August</Text>
-            <Text style={[styles.capValue, tabularNums, { color: theme.onDark.text }]}>{approvedTotal}</Text>
+            <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Approved · August</Text>
+            <Text style={[styles.capValue, tabularNums, { color: theme.onHero.text }]}>{approvedTotal}</Text>
           </View>
           <View style={styles.statsRow}>
             <View style={styles.statCell}>
-              <Text style={[styles.statValue, tabularNums, { color: theme.onDark.warningWashText }]}>{pendingTotal}</Text>
-              <Text style={[styles.statLabel, { color: theme.onDark.textMuted }]}>Pending</Text>
+              <Text style={[styles.statValue, tabularNums, { color: theme.onHero.warningWashText }]}>{pendingTotal}</Text>
+              <Text style={[styles.statLabel, { color: theme.onHero.textMuted }]}>Pending</Text>
             </View>
             <View style={styles.statCell}>
-              <Text style={[styles.statValue, tabularNums, { color: theme.onDark.accent }]}>{capLeft}</Text>
-              <Text style={[styles.statLabel, { color: theme.onDark.textMuted }]}>Left</Text>
+              <Text style={[styles.statValue, tabularNums, { color: theme.onHero.accent }]}>{capLeft}</Text>
+              <Text style={[styles.statLabel, { color: theme.onHero.textMuted }]}>Left</Text>
             </View>
           </View>
         </View>
         <View style={styles.gap7}>
-          <View style={[styles.capTrack, { backgroundColor: 'rgba(233,241,236,0.14)' }]}>
-            <View style={{ width: `${capPct}%`, backgroundColor: theme.onDark.accent }} />
-            <View style={{ width: `${pendPct}%`, backgroundColor: 'rgba(219,181,92,0.75)' }} />
+          <View style={[styles.capTrack, { backgroundColor: theme.onHero.track }]}>
+            <View style={{ width: `${capPct}%`, backgroundColor: theme.onHero.accent }} />
+            <View style={{ width: `${pendPct}%`, backgroundColor: theme.onHero.warning }} />
           </View>
           <View style={styles.capLabelsRow}>
-            <Text style={[styles.capLabel, tabularNums, { color: theme.onDark.textMuted }]}>{capLine}</Text>
-            <Text style={[styles.capLabel, tabularNums, { color: theme.onDark.textMuted }]}>{capOf}</Text>
+            <Text style={[styles.capLabel, tabularNums, { color: theme.onHero.textMuted }]}>{capLine}</Text>
+            <Text style={[styles.capLabel, tabularNums, { color: theme.onHero.textMuted }]}>{capOf}</Text>
           </View>
         </View>
       </Card>
@@ -94,10 +94,10 @@ export function ListSummary({
             <Pressable
               key={f.id}
               onPress={() => onFilterChange(f.id)}
-              style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+              style={[styles.chip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
             >
-              <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{f.label}</Text>
-              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{f.count}</Text>
+              <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{f.label}</Text>
+              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{f.count}</Text>
             </Pressable>
           );
         })}

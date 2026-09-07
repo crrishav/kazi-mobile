@@ -30,15 +30,74 @@ export interface OnDarkPalette {
   avatarText: string;
 }
 
+/**
+ * Foreground palette for the one "highlight" (hero) card per screen —
+ * `surfaceHero`. Distinct from `OnDarkPalette` because the hero card is only
+ * dark in *dark* mode: in light mode it is a mint wash, so its foregrounds are
+ * dark ink, not the on-dark set. Anything that stays genuinely dark in both
+ * schemes (the toast pill, a selected chip, a primary button) keeps `onDark`.
+ */
+export interface HeroPalette {
+  text: string;
+  textMuted: string;
+  accent: string;
+  warning: string;
+  danger: string;
+  /** Filled control sitting on the hero card. */
+  solid: string;
+  solidText: string;
+  accentWash: string;
+  accentWashText: string;
+  dangerWash: string;
+  dangerWashText: string;
+  warningWash: string;
+  warningWashText: string;
+  avatarBg: string;
+  avatarText: string;
+  /** Hairline rule, and the border of an outline button, drawn on the hero card. */
+  divider: string;
+  /** Unfilled remainder of a progress/threshold bar on the hero card. */
+  track: string;
+  /** A chart column that is *not* the highlighted one. */
+  mutedBar: string;
+}
+
 export interface Theme {
   scheme: 'light' | 'dark';
 
   background: string;
   surface: string;
   surfaceRaised: string;
-  /** The one "highlight" card per screen. Light: ink900. Dark: same as surfaceRaised — dark mode never doubles down on inversion. */
+  /** A surface that is dark in *both* schemes: the toast pill, a primary button, a selected picker cell. Light: ink900. Dark: same as surfaceRaised. */
   surfaceInverted: string;
+  /** The one "highlight" card per screen. Light: a mint wash. Dark: the raised surface. Pair with `onHero`. */
+  surfaceHero: string;
+  surfaceHeroBorder: string;
   border: string;
+
+  /**
+   * The selected state of a chip, segment, tab or picker cell — never
+   * `surfaceInverted`, which in dark mode *is* `surfaceRaised` and so paints a
+   * selection that is invisible on a sheet. Light keeps the design's ink block;
+   * dark uses an accent wash behind a solid accent outline.
+   */
+  selectedSurface: string;
+  selectedBorder: string;
+  selectedText: string;
+  selectedTextMuted: string;
+  /** A count badge riding *on* a selected surface — it cannot reuse the accent wash, which in dark mode is the selection's own fill. */
+  selectedBadge: string;
+  selectedBadgeText: string;
+
+  /**
+   * The raised pill of a segmented control sitting on a `draftWash` track —
+   * a different language from `selected*`, which fills. Light lifts the pill
+   * with `shadows.card`; dark has no card shadow at all, so it lifts with an
+   * accent wash behind a hairline, per the style guide.
+   */
+  segmentSurface: string;
+  segmentBorder: string;
+  segmentText: string;
 
   textPrimary: string;
   textSecondary: string;
@@ -67,6 +126,7 @@ export interface Theme {
   draftDot: string;
 
   onDark: OnDarkPalette;
+  onHero: HeroPalette;
   shadows: ShadowScale;
 }
 
@@ -77,7 +137,20 @@ export const lightTheme: Theme = {
   surface: lightColors.white,
   surfaceRaised: lightColors.paper,
   surfaceInverted: lightColors.ink900,
+  surfaceHero: lightColors.white,
+  surfaceHeroBorder: lightColors.line,
   border: lightColors.line,
+
+  selectedSurface: lightColors.ink900,
+  selectedBorder: lightColors.ink900,
+  selectedText: darkColors.text,
+  selectedTextMuted: lightColors.onInvertedMutedText,
+  selectedBadge: darkColors.mintWashRgba,
+  selectedBadgeText: darkColors.text,
+
+  segmentSurface: lightColors.white,
+  segmentBorder: 'transparent',
+  segmentText: lightColors.ink800,
 
   textPrimary: lightColors.ink800,
   textSecondary: lightColors.ink500,
@@ -117,6 +190,29 @@ export const lightTheme: Theme = {
     avatarBg: darkColors.raised,
     avatarText: lightColors.onInvertedAvatarText,
   },
+  // Light mode's hero card is an ordinary white card, so its palette is the
+  // ordinary palette — the roles stay named because dark mode still lifts the
+  // hero above `surface` and needs its own values.
+  onHero: {
+    text: lightColors.ink800,
+    textMuted: lightColors.ink500,
+    accent: lightColors.mintDeep,
+    warning: lightColors.amber,
+    danger: lightColors.clay,
+    solid: lightColors.mint,
+    solidText: '#08251A',
+    accentWash: lightColors.mintWash,
+    accentWashText: lightColors.mintWashText,
+    dangerWash: lightColors.clayWash,
+    dangerWashText: lightColors.clayWashText,
+    warningWash: lightColors.amberWash,
+    warningWashText: lightColors.amberWashText,
+    avatarBg: lightColors.mintWash,
+    avatarText: lightColors.mintWashText,
+    divider: lightColors.line,
+    track: lightColors.draftWash,
+    mutedBar: lightColors.heroMutedBar,
+  },
   shadows: lightShadows,
 };
 
@@ -127,7 +223,20 @@ export const darkTheme: Theme = {
   surface: darkColors.surface,
   surfaceRaised: darkColors.raised,
   surfaceInverted: darkColors.raised,
+  surfaceHero: darkColors.raised,
+  surfaceHeroBorder: darkColors.line,
   border: darkColors.line,
+
+  selectedSurface: darkColors.mintSelectedWash,
+  selectedBorder: darkColors.mint,
+  selectedText: darkColors.mintSelectedText,
+  selectedTextMuted: darkColors.mintSelectedTextMuted,
+  selectedBadge: darkColors.mint,
+  selectedBadgeText: darkColors.mintText,
+
+  segmentSurface: darkColors.mintSelectedWash,
+  segmentBorder: darkColors.mint,
+  segmentText: darkColors.mintSelectedText,
 
   textPrimary: darkColors.text,
   textSecondary: darkColors.textMuted,
@@ -166,6 +275,26 @@ export const darkTheme: Theme = {
     warningWashText: darkColors.amberWashTextOnDark,
     avatarBg: darkColors.raised,
     avatarText: darkColors.mint,
+  },
+  onHero: {
+    text: darkColors.text,
+    textMuted: darkColors.textMuted,
+    accent: darkColors.mint,
+    warning: darkColors.heroWarning,
+    danger: darkColors.heroDanger,
+    solid: darkColors.mint,
+    solidText: darkColors.mintText,
+    accentWash: darkColors.mintWashRgba,
+    accentWashText: darkColors.mintWashTextOnDark,
+    dangerWash: darkColors.clayWashRgba,
+    dangerWashText: darkColors.clayWashTextOnDark,
+    warningWash: darkColors.amberWashRgba,
+    warningWashText: darkColors.amberWashTextOnDark,
+    avatarBg: darkColors.raised,
+    avatarText: darkColors.mint,
+    divider: darkColors.heroDivider,
+    track: darkColors.heroTrack,
+    mutedBar: darkColors.heroMutedBar,
   },
   shadows: darkShadows,
 };

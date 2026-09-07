@@ -46,26 +46,26 @@ export function ListSummary({ query, onQueryChange, filters, activeFilter, onFil
             <Pressable
               key={f.id}
               onPress={() => onFilterChange(f.id)}
-              style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+              style={[styles.chip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
             >
-              <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{f.label}</Text>
-              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{f.count}</Text>
+              <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{f.label}</Text>
+              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{f.count}</Text>
             </Pressable>
           );
         })}
       </ScrollView>
 
-      <Card elevation="inverted" style={styles.statsCard}>
+      <Card elevation="hero" style={styles.statsCard}>
         <View style={styles.gap6}>
-          <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Accounts</Text>
+          <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Accounts</Text>
           <View style={styles.baselineRow}>
-            <Text style={[styles.statValue, tabularNums, { color: theme.onDark.text }]}>{totalCount}</Text>
-            <Text style={[styles.splitLabel, { color: theme.onDark.textMuted }]}>{splitLabel}</Text>
+            <Text style={[styles.statValue, tabularNums, { color: theme.onHero.text }]}>{totalCount}</Text>
+            <Text style={[styles.splitLabel, { color: theme.onHero.textMuted }]}>{splitLabel}</Text>
           </View>
         </View>
         <View style={[styles.gap5, styles.alignEnd]}>
-          <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Owed to us</Text>
-          <Text style={[styles.owedValue, tabularNums, { color: hasOwed ? theme.onDark.dangerWashText : theme.onDark.text }]}>{owedTotal}</Text>
+          <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Owed to us</Text>
+          <Text style={[styles.owedValue, tabularNums, { color: hasOwed ? theme.onHero.dangerWashText : theme.onHero.text }]}>{owedTotal}</Text>
         </View>
       </Card>
     </View>

@@ -126,7 +126,9 @@ export function MessageActionsSheet({
 
           {picking ? null : (
             <View style={styles.actions}>
-              {canPost && !message.deleted ? <ActionRow icon="corner-up-left" label="Reply" detail="Or swipe the message right" onPress={onReply} /> : null}
+              {canPost && !message.deleted && !message.pending ? (
+                <ActionRow icon="corner-up-left" label="Reply" detail="Or swipe the message right" onPress={onReply} />
+              ) : null}
               {canPost && thread.kind === 'group' && !mine ? (
                 <ActionRow icon="user" label={`Reply privately to ${author?.name.split(' ')[0]}`} detail="Opens a direct message" onPress={onReplyPrivately} />
               ) : null}

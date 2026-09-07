@@ -1,10 +1,13 @@
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
 
 import { useAuth } from '@/auth/auth-context';
 import { tabLayoutFor } from '@/auth/tab-layout';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii } from '@/theme';
+import { duration, easeOut } from '@/theme/motion';
 import {
   BillingIcon,
   ChatIcon,
@@ -37,7 +40,7 @@ const TAB_ICONS: Record<string, (props: NavIconProps) => React.JSX.Element> = {
   tasks: TasksIcon,
   inventory: InventoryIcon,
   finance: FinanceIcon,
-  'order-management': ProductionIcon,
+  production: ProductionIcon,
   billing: BillingIcon,
   marketing: MarketingIcon,
   more: MoreIcon,
@@ -49,11 +52,79 @@ const TAB_LABELS: Record<string, string> = {
   tasks: 'Tasks',
   inventory: 'Inventory',
   finance: 'Finance',
-  'order-management': 'Production',
+  production: 'Production',
   billing: 'Billing',
   marketing: 'Marketing',
   more: 'More',
 };
+
+interface TabCellProps {
+  focused: boolean;
+  label: string;
+  Icon: (props: NavIconProps) => React.JSX.Element;
+  onPress: () => void;
+}
+
+/**
+ * One button in the bar.
+ *
+ * The selected pill used to appear and vanish between frames, which made the
+ * bar the one part of the app that still snapped after everything around it
+ * had been given motion. It now grows in behind the icon, and the whole cell
+ * dips under the finger so a press is acknowledged before the screen behind it
+ * has begun to change.
+ *
+ * The pill is a separate absolutely-positioned layer rather than an animated
+ * `backgroundColor`: opacity and transform run on the UI thread without
+ * touching the JS one, and a tab bar is exactly where a dropped frame shows.
+ */
+function TabCell({ focused, label, Icon, onPress }: TabCellProps) {
+  const theme = useTheme();
+  const selected = useSharedValue(focused ? 1 : 0);
+  const pressed = useSharedValue(0);
+
+  useEffect(() => {
+    selected.value = withTiming(focused ? 1 : 0, { duration: duration.fast, easing: easeOut });
+  }, [focused, selected]);
+
+  const pillStyle = useAnimatedStyle(() => ({
+    opacity: selected.value,
+    transform: [{ scale: 0.86 + 0.14 * selected.value }],
+  }));
+
+  const contentStyle = useAnimatedStyle(() => ({
+    // A press dips the cell; selection lifts the icon a hair out of the pill.
+    transform: [{ scale: 1 - 0.06 * pressed.value }, { translateY: -1 * selected.value }],
+  }));
+
+  const color = focused ? theme.accentWashText : theme.textSecondary;
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => {
+        pressed.value = withTiming(1, { duration: duration.fast, easing: easeOut });
+      }}
+      onPressOut={() => {
+        pressed.value = withTiming(0, { duration: duration.fast, easing: easeOut });
+      }}
+      accessibilityRole="button"
+      accessibilityState={{ selected: focused }}
+      style={styles.cell}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.pill, { backgroundColor: theme.accentWash }, pillStyle]}
+      />
+      <Animated.View style={[styles.cellContent, contentStyle]}>
+        <Icon size={22} color={color} />
+        <Text style={[styles.label, { color, fontFamily: focused ? fontFamily.semibold : fontFamily.medium }]}>
+          {label}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
 
 export function CustomTabBar({ state, navigation, insets }: CustomTabBarProps) {
   const theme = useTheme();
@@ -89,7 +160,6 @@ export function CustomTabBar({ state, navigation, insets }: CustomTabBarProps) {
         const isFocused = name === activeName;
         const IconComponent = TAB_ICONS[name] ?? MoreIcon;
         const label = TAB_LABELS[name] ?? name;
-        const color = isFocused ? theme.accentWashText : theme.textSecondary;
 
         const onPress = () => {
           const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
@@ -98,29 +168,7 @@ export function CustomTabBar({ state, navigation, insets }: CustomTabBarProps) {
           }
         };
 
-        return (
-          <Pressable
-            key={route.key}
-            onPress={onPress}
-            accessibilityRole="button"
-            accessibilityState={{ selected: isFocused }}
-            style={({ pressed }) => [
-              styles.cell,
-              isFocused && { backgroundColor: theme.accentWash },
-              pressed && styles.pressed,
-            ]}
-          >
-            <IconComponent size={22} color={color} />
-            <Text
-              style={[
-                styles.label,
-                { color, fontFamily: isFocused ? fontFamily.semibold : fontFamily.medium },
-              ]}
-            >
-              {label}
-            </Text>
-          </Pressable>
-        );
+        return <TabCell key={route.key} focused={isFocused} label={label} Icon={IconComponent} onPress={onPress} />;
       })}
     </View>
   );
@@ -137,13 +185,22 @@ const styles = StyleSheet.create({
   },
   cell: {
     flex: 1,
-    alignItems: 'center',
-    gap: 6,
     paddingVertical: 8,
     borderRadius: radii.md,
+    justifyContent: 'center',
   },
-  pressed: {
-    opacity: 0.85,
+  // Fills the cell behind the icon and label; only its opacity and scale move.
+  pill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: radii.md,
+  },
+  cellContent: {
+    alignItems: 'center',
+    gap: 6,
   },
   label: {
     fontSize: 10.5,

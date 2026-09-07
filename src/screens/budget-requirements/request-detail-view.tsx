@@ -44,27 +44,27 @@ export function RequestDetailView({ item, canDecide, awaitingReviewer, onApprove
 
   return (
     <Animated.View entering={FadeInUp.duration(220)} style={styles.wrap}>
-      <Card elevation="inverted" style={styles.amountCard}>
+      <Card elevation="hero" style={styles.amountCard}>
         <View style={styles.amountRow}>
           <View style={styles.gap5}>
-            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Amount requested</Text>
-            <Text style={[styles.amountValue, tabularNums, { color: theme.onDark.text }]}>{gbp(item.amountGBP)}</Text>
-            <Text style={[styles.amountSub, tabularNums, { color: theme.onDark.textMuted }]}>≈ {short(item.amountNPR)} at 200</Text>
+            <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Amount requested</Text>
+            <Text style={[styles.amountValue, tabularNums, { color: theme.onHero.text }]}>{gbp(item.amountGBP)}</Text>
+            <Text style={[styles.amountSub, tabularNums, { color: theme.onHero.textMuted }]}>≈ {short(item.amountNPR)} at 200</Text>
           </View>
           <StatusPill status={PILL_KIND[item.status]} label={status.label} />
         </View>
-        <View style={[styles.divider, { backgroundColor: 'rgba(233,241,236,0.14)' }]} />
-        <Text style={[styles.statusLine, { color: theme.onDark.avatarText }]}>{statusLine}</Text>
+        <View style={[styles.divider, { backgroundColor: theme.onHero.divider }]} />
+        <Text style={[styles.statusLine, { color: theme.onHero.avatarText }]}>{statusLine}</Text>
         {canDecide ? (
           <View style={styles.decideRow}>
             <Button label="Approve" onPress={onApprove} style={styles.approveButton} />
-            <Pressable onPress={onReject} style={[styles.declineButton, { borderColor: 'rgba(233,241,236,0.18)' }]}>
-              <Text style={[styles.declineLabel, { color: theme.onDark.dangerWashText }]}>Reject</Text>
+            <Pressable onPress={onReject} style={[styles.declineButton, { borderColor: theme.onHero.divider }]}>
+              <Text style={[styles.declineLabel, { color: theme.onHero.dangerWashText }]}>Reject</Text>
             </Pressable>
           </View>
         ) : null}
         {awaitingReviewer ? (
-          <Text style={[styles.awaitingLine, { color: theme.onDark.textMuted }]}>Only a UK director can approve budget requests</Text>
+          <Text style={[styles.awaitingLine, { color: theme.onHero.textMuted }]}>Only a UK director can approve budget requests</Text>
         ) : null}
       </Card>
 

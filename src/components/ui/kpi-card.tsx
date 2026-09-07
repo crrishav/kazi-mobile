@@ -34,14 +34,14 @@ const ARROW_GLYPH: Record<DeltaArrow, string> = { up: '▲', down: '▼', flat: 
 export function KpiCard({ label, value, delta, context, sparkline, inverted = false }: KpiCardProps) {
   const theme = useTheme();
 
-  const surfaceText = inverted ? theme.onDark.text : theme.textPrimary;
-  const labelColor = inverted ? theme.onDark.textMuted : theme.textSecondary;
+  const surfaceText = inverted ? theme.onHero.text : theme.textPrimary;
+  const labelColor = inverted ? theme.onHero.textMuted : theme.textSecondary;
 
   const tonePalette: Record<DeltaTone, { bg: string; text: string }> = {
-    good: { bg: inverted ? theme.onDark.accentWash : theme.accentWash, text: inverted ? theme.onDark.accentWashText : theme.accentWashText },
-    warning: { bg: inverted ? theme.onDark.warningWash : theme.warningWash, text: inverted ? theme.onDark.warningWashText : theme.warningWashText },
-    bad: { bg: inverted ? theme.onDark.dangerWash : theme.dangerWash, text: inverted ? theme.onDark.dangerWashText : theme.dangerWashText },
-    neutral: { bg: inverted ? theme.onDark.avatarBg : theme.draftWash, text: inverted ? theme.onDark.textMuted : theme.draftWashText },
+    good: { bg: inverted ? theme.onHero.accentWash : theme.accentWash, text: inverted ? theme.onHero.accentWashText : theme.accentWashText },
+    warning: { bg: inverted ? theme.onHero.warningWash : theme.warningWash, text: inverted ? theme.onHero.warningWashText : theme.warningWashText },
+    bad: { bg: inverted ? theme.onHero.dangerWash : theme.dangerWash, text: inverted ? theme.onHero.dangerWashText : theme.dangerWashText },
+    neutral: { bg: inverted ? theme.onHero.track : theme.draftWash, text: inverted ? theme.onHero.textMuted : theme.draftWashText },
   };
 
   const deltaPalette = delta ? tonePalette[delta.tone] : null;
@@ -51,10 +51,10 @@ export function KpiCard({ label, value, delta, context, sparkline, inverted = fa
       style={[
         styles.card,
         {
-          backgroundColor: inverted ? theme.surfaceInverted : theme.surface,
-          borderWidth: inverted ? 0 : theme.scheme === 'dark' ? 1 : 0,
+          backgroundColor: inverted ? theme.surfaceHero : theme.surface,
+          borderWidth: theme.scheme === 'dark' ? 1 : 0,
           borderColor: theme.border,
-          boxShadow: inverted ? undefined : theme.shadows.card,
+          boxShadow: theme.shadows.card,
         },
       ]}
     >
@@ -68,7 +68,7 @@ export function KpiCard({ label, value, delta, context, sparkline, inverted = fa
             values={sparkline}
             width={58}
             height={24}
-            color={inverted ? theme.onDark.accent : theme.accent}
+            color={inverted ? theme.onHero.accent : theme.accent}
           />
         ) : null}
       </View>

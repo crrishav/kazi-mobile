@@ -7,7 +7,7 @@ import { fontFamily } from '@/theme';
 
 /**
  * Dev-only: switch the signed-in RBAC role so nav filtering / edit gating are
- * testable without a real backend. Goes away when Firebase Auth + a real
+ * testable without a real backend. Goes away when real auth + a real
  * profile resolver land (plan §2.2).
  */
 export function RoleSwitcher() {
@@ -33,10 +33,10 @@ export function RoleSwitcher() {
               accessibilityState={{ selected: active }}
               style={[
                 styles.chip,
-                { borderColor: active ? theme.surfaceInverted : theme.border, backgroundColor: active ? theme.surfaceInverted : 'transparent' },
+                { borderColor: active ? theme.selectedBorder : theme.border, backgroundColor: active ? theme.selectedSurface : 'transparent' },
               ]}
             >
-              <Text style={[styles.chipText, { color: active ? theme.onDark.text : theme.textSecondary }]}>
+              <Text style={[styles.chipText, { color: active ? theme.selectedText : theme.textSecondary }]}>
                 {ROLE_LABEL[r]}
               </Text>
             </Pressable>

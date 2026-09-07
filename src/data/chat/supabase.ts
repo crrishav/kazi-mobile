@@ -22,7 +22,7 @@
 
 import { tintFromSeed } from '@/components/ui/avatar';
 import { getSupabase } from '@/lib/supabase';
-import { arr, num, str } from '@/lib/firestore/normalise';
+import { arr, num, str } from '@/lib/data/normalise';
 
 import { myId } from './identity';
 import type {

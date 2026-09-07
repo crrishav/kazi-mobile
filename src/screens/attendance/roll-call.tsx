@@ -3,7 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SegmentedProportionBar } from '@/components/ui/segmented-proportion-bar';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { ROLL_CALL, STATUS_LABELS, STATUS_RAMP } from '@/data/attendance/mock';
+import { STATUS_LABELS, STATUS_RAMP } from '@/data/attendance/mock';
+import { todayLabel } from '@/data/attendance/utils';
 import type { AttendanceStatus, TeamFilter } from '@/data/attendance/types';
 
 const STATUSES: AttendanceStatus[] = ['present', 'late', 'absent', 'half', 'leave'];
@@ -18,18 +19,21 @@ export function RollCall({ filter, onFilterChange, counts }: RollCallProps) {
   const theme = useTheme();
   const ramp = STATUS_RAMP[theme.scheme];
 
-  const filters: { id: TeamFilter; label: string }[] = [{ id: 'all', label: 'All' }, ...STATUSES.map((s) => ({ id: s, label: STATUS_LABELS[s] }))];
+  // "Off" only earns a chip on a day somebody is actually off — on an ordinary
+  // working day it would just be a permanent zero.
+  const statuses: AttendanceStatus[] = counts.off > 0 || filter === 'off' ? [...STATUSES, 'off'] : STATUSES;
+  const filters: { id: TeamFilter; label: string }[] = [{ id: 'all', label: 'All' }, ...statuses.map((s) => ({ id: s, label: STATUS_LABELS[s] }))];
 
   return (
     <View style={[styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }]}>
       <View style={styles.headerRow}>
-        <Text style={[styles.title, { color: theme.textPrimary }]}>Roll call · Tue 26 Aug</Text>
-        <Text style={[styles.onRoll, tabularNums, { color: theme.textSecondary }]}>{ROLL_CALL.onRoll} on roll</Text>
+        <Text style={[styles.title, { color: theme.textPrimary }]}>Roll call · {todayLabel()}</Text>
+        <Text style={[styles.onRoll, tabularNums, { color: theme.textSecondary }]}>{counts.all} on roll</Text>
       </View>
 
       <SegmentedProportionBar
         height={8}
-        segments={STATUSES.map((s) => ({ weight: ROLL_CALL[s], color: ramp[s].dot }))}
+        segments={statuses.map((s) => ({ weight: counts[s], color: ramp[s].dot }))}
       />
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
@@ -39,10 +43,10 @@ export function RollCall({ filter, onFilterChange, counts }: RollCallProps) {
             <Pressable
               key={f.id}
               onPress={() => onFilterChange(f.id)}
-              style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+              style={[styles.chip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
             >
-              <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{f.label}</Text>
-              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{counts[f.id]}</Text>
+              <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{f.label}</Text>
+              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{counts[f.id]}</Text>
             </Pressable>
           );
         })}

@@ -1,9 +1,10 @@
 /**
- * Known-staff identity fallback, ported verbatim from the reference app
- * (`src/constants.js` `TEAM_MEMBERS`). Used by the Firebase profile resolver
- * (`firebase-auth.ts`) when a signed-in email has no `employees` doc yet:
- * `appRole` here wins over the `users/{uid}` doc so a role can't be lost to a
- * stale profile write.
+ * Known-staff identity table, ported verbatim from the reference app
+ * (`src/constants.js` `TEAM_MEMBERS`).
+ *
+ * It no longer resolves profiles — identity comes from `me()` in Postgres. The
+ * one live use left is `data/notifications/roster.ts`, which needs a name for a
+ * recipient the notification rules mention but the roster read did not return.
  *
  * `role` is the free-text job title (reference stores it there); `appRole` is
  * the RBAC role. Match is case-insensitive on `email`.
@@ -33,9 +34,3 @@ export const TEAM_MEMBERS: TeamMember[] = [
   { name: 'Rishav', role: 'Developer', location: 'nepal', email: 'crrishav.business@gmail.com', appRole: 'super_admin' },
   { name: 'Sarbagya Karki', role: 'Content Editor', location: 'nepal', email: 'sarbagyakarkig8@gmail.com', appRole: 'nepal_staff' },
 ];
-
-export function findTeamMember(email: string | null | undefined): TeamMember | undefined {
-  const key = (email ?? '').trim().toLowerCase();
-  if (!key) return undefined;
-  return TEAM_MEMBERS.find((m) => m.email.toLowerCase() === key);
-}

@@ -2,23 +2,23 @@
  * `notify(event)` — the single call a mutation hook makes after a successful
  * write. Fire-and-forget: it never throws and never delays the mutation. It
  * resolves the recipient roster, runs the pure routing rules, and writes one
- * `mobile_notifications` doc per recipient. No-op when Firebase isn't
+ * `mobile_notifications` row per recipient. No-op when Supabase isn't
  * configured.
  */
 
 import { queryClient } from '@/data/client';
-import { isSupabaseConfigured as isFirebaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 import { getActor } from './actor';
 import { describeEvent, deepLinkFor } from './events';
-import { writeNotifications } from './firestore';
+import { writeNotifications } from './supabase';
 import { notificationKeys } from './keys';
 import { recipientsFor } from './routing';
 import { fetchRoster } from './roster';
 import type { NotificationDoc, NotificationEvent } from './types';
 
 export function notify(ev: NotificationEvent): void {
-  if (!isFirebaseConfigured) return;
+  if (!isSupabaseConfigured) return;
   void dispatch(ev).catch((err) => console.warn('[notifications] notify failed', err));
 }
 

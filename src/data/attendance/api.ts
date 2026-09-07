@@ -13,9 +13,10 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 import { liveRead } from '@/lib/supabase/read';
 import { liveWrite } from '@/lib/supabase/write';
 
-import * as live from './firestore';
-import * as liveMonth from './firestore-month';
-import * as writeLive from './firestore-write';
+import * as live from './supabase';
+import * as liveDay from './supabase-day';
+import * as liveMonth from './supabase-month';
+import * as writeLive from './supabase-write';
 import * as mock from './mock-api';
 import type { AttendanceStatus } from './types';
 
@@ -29,6 +30,11 @@ export const fetchTeam = isSupabaseConfigured
 export const fetchClockPunches = isSupabaseConfigured
   ? liveRead('attendance/punches', live.fetchClockPunches)
   : mock.fetchClockPunches;
+
+/** One date across the whole workshop — the admin calendar's day sheet. */
+export const fetchDayRoster = isSupabaseConfigured
+  ? liveRead('attendance/dayRoster', liveDay.fetchDayRoster)
+  : mock.fetchDayRoster;
 
 // No mock fallback: `writeLive.fetchClockStatus` already catches its own errors
 // and returns a safe "not clocked in" state. Falling back to the mock here would
@@ -46,6 +52,7 @@ export const toggleClock = liveWrite('attendance/toggleClock', writeLive.toggleC
 
 export const setMemberStatus = liveWrite(
   'attendance/setMemberStatus',
-  (id: number, status: AttendanceStatus, name?: string) => writeLive.setMemberStatus(id, status, name),
-  (id: number, status: AttendanceStatus, _name?: string) => mock.setMemberStatus(id, status),
+  (id: number, status: AttendanceStatus, personId?: string, name?: string) =>
+    writeLive.setMemberStatus(id, status, personId, name),
+  (id: number, status: AttendanceStatus, _personId?: string, _name?: string) => mock.setMemberStatus(id, status),
 );

@@ -2,7 +2,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { ScreenHeader } from '@/components/ui/screen-header';
-import { isFirebaseConfigured } from '@/lib/firebase';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { RoleSwitcher } from '@/screens/more/role-switcher';
 import { useTheme } from '@/theme/theme-provider';
 
@@ -12,7 +12,7 @@ import { AccountActions } from './session-actions';
 
 /**
  * Everything the signed-in person's account holds: identity (from the resolved
- * Firestore profile — `users/{uid}` + `employees` + `TEAM_MEMBERS`), the access
+ * profile), the access
  * their role/overrides grant, and session actions (password reset, sign out).
  * Read-only — matches the reference web app, which has no in-app profile edit.
  */
@@ -27,7 +27,7 @@ export function Account() {
         <ScrollView contentContainerStyle={styles.content}>
           <IdentityCard profile={profile} />
           <AccessSummary />
-          {isFirebaseConfigured ? null : <RoleSwitcher />}
+          {isSupabaseConfigured ? null : <RoleSwitcher />}
           <AccountActions email={profile.email} />
         </ScrollView>
       ) : null}

@@ -21,14 +21,14 @@ export function Summary({ outstandingTotal, openCount, fxExposure, collectedMont
 
   return (
     <View style={styles.wrap}>
-      <Card elevation="inverted" style={styles.heroCard}>
+      <Card elevation="hero" style={styles.heroCard}>
         <View style={styles.heroRow}>
           {/* Amounts are shown in full — the figure shrinks to fit rather than
               truncating to "रु 4,21…", which is unreadable on an ERP screen. */}
           <View style={[styles.gap6, styles.heroMain]}>
-            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Outstanding</Text>
+            <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Outstanding</Text>
             <Text
-              style={[styles.heroValue, tabularNums, { color: theme.onDark.text }]}
+              style={[styles.heroValue, tabularNums, { color: theme.onHero.text }]}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.5}
@@ -37,12 +37,12 @@ export function Summary({ outstandingTotal, openCount, fxExposure, collectedMont
             </Text>
           </View>
           <View style={[styles.gap5, styles.alignEnd]}>
-            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Open invoices</Text>
-            <Text style={[styles.heroSubValue, tabularNums, { color: theme.onDark.text }]}>{openCount}</Text>
+            <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Open invoices</Text>
+            <Text style={[styles.heroSubValue, tabularNums, { color: theme.onHero.text }]}>{openCount}</Text>
           </View>
         </View>
-        <View style={[styles.divider, { backgroundColor: 'rgba(233,241,236,0.14)' }]} />
-        <Text style={[styles.fxLine, tabularNums, { color: theme.onDark.textMuted }]}>{fxExposure}</Text>
+        <View style={[styles.divider, { backgroundColor: theme.onHero.divider }]} />
+        <Text style={[styles.fxLine, tabularNums, { color: theme.onHero.textMuted }]}>{fxExposure}</Text>
       </Card>
 
       <View style={styles.metricsRow}>

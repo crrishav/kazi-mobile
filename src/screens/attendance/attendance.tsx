@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 
@@ -9,23 +9,37 @@ import { HeaderAccount } from '@/components/ui/header-account';
 import { hasFailed, isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { toCSV } from '@/lib/export/csv';
+import * as haptics from '@/lib/haptics';
+import { useBackHandler } from '@/lib/use-back-handler';
 import { useTheme } from '@/theme/theme-provider';
 import {
   useClockStatus,
+  useDayRoster,
   useMyMonth,
   useSetMemberStatus,
   useTeamRoster,
   useToggleClock,
 } from '@/data/attendance/hooks';
 import { MY_NAME, STATUS_LABELS } from '@/data/attendance/mock';
-import { todayLabel } from '@/data/attendance/utils';
-import type { AttendanceStatus, AttendanceView, TeamFilter, TeamMember } from '@/data/attendance/types';
+import { dayLabelOf, formatHours } from '@/data/attendance/live-shared';
+import { currentMonthLabel, todayLabel } from '@/data/attendance/utils';
+import type { AttendanceStatus, AttendanceView, TeamFilter, TeamMember, TeamMonthStats } from '@/data/attendance/types';
 
+import { ClockCard } from './clock-card';
+import { DayRosterSheet } from './day-roster-sheet';
 import { MemberSheet } from './member-sheet';
 import { MineView } from './mine-view';
+import { MonthCalendar } from './month-calendar';
 import { TabsHeader } from './tabs-header';
 import { TeamView } from './team-view';
 import { useGeoClockIn } from './use-geo-clock-in';
+
+/**
+ * The one account that keeps the two-tab layout. Everyone else with edit rights
+ * gets the merged single view: their own month calendar on top, and tapping a
+ * day shows the whole workshop's punches for it rather than only their own.
+ */
+const TWO_TAB_EMAIL = 'crrishav.business@gmail.com';
 
 export function Attendance() {
   const theme = useTheme();
@@ -34,6 +48,9 @@ export function Attendance() {
   const { profile, can } = useAuth();
   const staffName = profile?.name ?? MY_NAME;
   const canEdit = can('attendance');
+  // Admins see one merged view; the account above keeps "Mine" and "Team" split.
+  const twoTabs = canEdit && (profile?.email ?? '').trim().toLowerCase() === TWO_TAB_EMAIL;
+  const merged = canEdit && !twoTabs;
 
   const clockStatusQuery = useClockStatus();
   const { data: clockStatus } = clockStatusQuery;
@@ -53,6 +70,24 @@ export function Attendance() {
   const [rollEdit, setRollEdit] = useState(false);
   const [rollEdits, setRollEdits] = useState(0);
   const [reportMember, setReportMember] = useState<TeamMember | null>(null);
+  /** The day tapped in the merged view's calendar — `YYYY-MM-DD`, null when closed. */
+  const [rosterDay, setRosterDay] = useState<string | null>(null);
+
+  const rosterQuery = useDayRoster(merged ? rosterDay : null);
+
+  // Mine / Team is this route's own tab strip; roll-call edit mode is a state
+  // the screen can be stuck in. Both unwind before back leaves Attendance.
+  useBackHandler(() => {
+    if (rollEdit) {
+      setRollEdit(false);
+      return true;
+    }
+    if (view !== 'mine') {
+      setView('mine');
+      return true;
+    }
+    return false;
+  });
 
   // Re-seed from the server on first load and whenever the session changes — a
   // new clock-in, or a clock-out made on another device / the web. Done during
@@ -75,11 +110,18 @@ export function Attendance() {
   // failure there would leave that spinner up for ever.
   if (hasFailed(monthQuery)) return <ScreenGate queries={[monthQuery]} />;
 
-  const counts: Record<TeamFilter, number> = { all: team.length, present: 0, late: 0, absent: 0, half: 0, leave: 0 };
+  const counts: Record<TeamFilter, number> = { all: team.length, present: 0, late: 0, absent: 0, half: 0, leave: 0, off: 0 };
   team.forEach((m) => {
     counts[m.status] += 1;
   });
   const filteredMembers = team.filter((m) => filter === 'all' || m.status === filter);
+
+  // The team card's month figures, totalled from the same rows the rows show.
+  const monthStats: TeamMonthStats = {
+    lineLabel: `Month to date · ${currentMonthLabel()}`,
+    teamHours: formatHours(team.reduce((sum, m) => sum + m.month.hoursMTDValue, 0)),
+    attendanceCuts: team.reduce((sum, m) => sum + m.month.cutNPR, 0),
+  };
 
   // GPS geofenced clock-in (item 26) — take a fix, verify against WORK_SITE, then punch.
   const finishClockIn = async (coords: { lat: number; lng: number; accuracyM: number } | null) => {
@@ -88,11 +130,16 @@ export function Attendance() {
     const p = next.lastPunch;
     if (!p) return;
     if (p.status === 'Late') {
+      // Clocking in is done at the workshop door, often without looking at the
+      // screen — and being late costs a quarter of the day. The buzz says which
+      // of the two it was before you have read anything.
+      haptics.warned();
       toast.show({
         message: `Clocked in · ${p.lateMinutes} min late${p.lateCutApplied ? ' · salary cut applied' : ''}`,
         tone: p.lateCutApplied ? 'warn' : 'ok',
       });
     } else {
+      haptics.committed();
       toast.show({ message: 'Clocked in · at the workshop, on time', tone: 'ok' });
     }
   };
@@ -100,14 +147,19 @@ export function Attendance() {
   const handleToggleClock = async () => {
     if (clockStatus?.clockedIn) {
       await toggleClock.mutateAsync({ elapsedSeconds: elapsed, staffName, coords: null, bypassUsed: false });
+      haptics.committed();
       geoClock.reset();
       return;
     }
     const res = await geoClock.locate();
     if (res.ok && res.coords) {
       await finishClockIn(res.coords);
+      return;
     }
-    // otherwise the clock card shows the blocked banner — clock-in needs a valid on-site fix
+    // The clock card shows the blocked banner — clock-in needs a valid on-site
+    // fix. Refused, not merely unfinished: you are standing there believing you
+    // have clocked in.
+    haptics.refused();
   };
 
   const handleRaiseCorrection = () => toast.show({ message: 'Correction request sent · HR reviews within 2 working days', tone: 'ok' });
@@ -118,7 +170,10 @@ export function Attendance() {
     const target = team?.find((m) => m.id === id);
     if (!target || target.status === status) return;
     const prevStatus = target.status;
-    setMemberStatus.mutate({ id, name: target.name, status });
+    // Marking a roll call is a rapid run of taps with your eyes on the list
+    // rather than the row under your thumb.
+    haptics.changed();
+    setMemberStatus.mutate({ id, personId: target.staffId, name: target.name, status });
     setRollEdits((n) => n + 1);
     toast.show({
       message: `${target.name} · ${STATUS_LABELS[status]}`,
@@ -126,8 +181,8 @@ export function Attendance() {
       action: {
         label: 'Undo',
         onPress: () => {
-          // Re-apply the prior status — works against Firestore and the mock alike.
-          setMemberStatus.mutate({ id, name: target.name, status: prevStatus });
+          // Re-apply the prior status — works against Postgres and the mock alike.
+          setMemberStatus.mutate({ id, personId: target.staffId, name: target.name, status: prevStatus });
           setRollEdits((n) => Math.max(0, n - 1));
         },
       },
@@ -162,6 +217,43 @@ export function Attendance() {
   };
 
 
+  /**
+   * The merged view's top block: the same month calendar the "Mine" tab shows,
+   * but a tapped day opens the whole workshop's punches instead of only mine.
+   * The clock card follows it so an admin can still punch in — they no longer
+   * have a "Mine" tab to do it from.
+   */
+  const workshopHeader = (
+    <>
+      {month ? (
+        <MonthCalendar
+          monthLabel={month.monthLabel}
+          monthISOStart={month.monthISOStart}
+          monthISOEnd={month.monthISOEnd}
+          workingDays={month.workingDays}
+          days={month.days}
+          onSelectDay={setRosterDay}
+        />
+      ) : (
+        <View style={styles.calendarPending}>
+          <ActivityIndicator color={theme.accent} />
+        </View>
+      )}
+
+      <ClockCard
+        clockedIn={clockStatus.clockedIn}
+        inTime={clockStatus.inTime}
+        outTime={clockStatus.outTime}
+        elapsedSeconds={elapsed}
+        onToggle={handleToggleClock}
+        geoState={geoClock.state}
+        geo={geoClock.geo}
+        lastPunch={clockStatus.lastPunch}
+        onOpenSettings={geoClock.openSettings}
+      />
+    </>
+  );
+
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <ScreenHeader
@@ -169,10 +261,10 @@ export function Attendance() {
         subtitle={month ? `${today} · ${month.shiftLabel}` : today}
         rightSlot={<HeaderAccount />}
       />
-      {canEdit ? <TabsHeader view={view} onChange={setView} /> : null}
+      {twoTabs ? <TabsHeader view={view} onChange={setView} /> : null}
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 28 }]}>
-        {view === 'mine' || !canEdit ? (
+        {!canEdit || (twoTabs && view === 'mine') ? (
           <MineView
             clockedIn={clockStatus.clockedIn}
             inTime={clockStatus.inTime}
@@ -198,9 +290,19 @@ export function Attendance() {
             onSetStatus={handleSetStatus}
             onOpenReport={setReportMember}
             onExportPayroll={handleExportRollCall}
+            monthStats={monthStats}
+            header={merged ? workshopHeader : undefined}
           />
         )}
       </ScrollView>
+
+      <DayRosterSheet
+        visible={rosterDay !== null}
+        label={rosterDay ? dayLabelOf(rosterDay) : 'Day'}
+        entries={rosterQuery.data}
+        loading={rosterQuery.isPending || rosterQuery.isFetching}
+        onClose={() => setRosterDay(null)}
+      />
 
       <MemberSheet
         visible={reportMember !== null}
@@ -219,4 +321,5 @@ const styles = StyleSheet.create({
   // Attendance pushes as a sibling of (tabs) — the tab bar is hidden, so the
   // bottom pad is just the safe-area inset (applied inline), not room for a bar.
   content: { padding: 20, paddingTop: 4, gap: 16 },
+  calendarPending: { paddingVertical: 48, alignItems: 'center' },
 });

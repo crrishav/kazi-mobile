@@ -125,7 +125,7 @@ export function deriveOps(input: {
       id: 'active-orders',
       label: 'Active orders',
       value: `${activeTotal}`,
-      route: '/order-management',
+      route: '/production',
       section: 'order-management',
     },
     {
@@ -197,7 +197,7 @@ export function deriveDirector(input: {
       id: 'active-orders',
       label: 'Active orders',
       value: `${activeTotal}`,
-      route: '/order-management',
+      route: '/production',
       section: 'order-management',
     },
     {
@@ -357,7 +357,7 @@ export function deriveDesigner(input: {
       id: 'active-orders',
       label: 'Active orders',
       value: `${activeTotal}`,
-      route: '/order-management',
+      route: '/production',
       section: 'order-management',
     },
     {

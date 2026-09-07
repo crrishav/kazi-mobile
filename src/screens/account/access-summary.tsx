@@ -23,7 +23,6 @@ const SECTION_LABEL: Record<SectionId, string> = {
   attendance: 'Attendance',
   marketing: 'Marketing',
   messenger: 'Chat',
-  directors: 'Directors',
   'admin-panel': 'Admin Panel',
   changelog: 'Changelog',
   'bug-report': 'Bug Report',

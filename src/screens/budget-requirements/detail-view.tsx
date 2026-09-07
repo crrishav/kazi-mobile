@@ -62,25 +62,25 @@ export function DetailView({ item, canDecide, awaitingAdmin, onApprove, onDeclin
 
   return (
     <Animated.View entering={FadeInUp.duration(220)} style={styles.wrap}>
-      <Card elevation="inverted" style={styles.amountCard}>
+      <Card elevation="hero" style={styles.amountCard}>
         <View style={styles.amountRow}>
           <View style={styles.gap5}>
-            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Amount requested</Text>
-            <Money npr={item.amount} onDark size={30} primaryStyle={styles.amountValue} />
+            <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Amount requested</Text>
+            <Money npr={item.amount} hero size={30} primaryStyle={styles.amountValue} />
           </View>
           <StatusPill status={PILL_KIND[item.status]} label={status.label} />
         </View>
-        <View style={[styles.divider, { backgroundColor: 'rgba(233,241,236,0.14)' }]} />
-        <Text style={[styles.statusLine, { color: theme.onDark.avatarText }]}>{statusLine}</Text>
+        <View style={[styles.divider, { backgroundColor: theme.onHero.divider }]} />
+        <Text style={[styles.statusLine, { color: theme.onHero.avatarText }]}>{statusLine}</Text>
         {canDecide ? (
           <View style={styles.decideRow}>
             <Button label="Approve" onPress={onApprove} style={styles.approveButton} />
-            <Pressable onPress={onDecline} style={[styles.declineButton, { borderColor: 'rgba(233,241,236,0.18)' }]}>
-              <Text style={[styles.declineLabel, { color: theme.onDark.dangerWashText }]}>Decline</Text>
+            <Pressable onPress={onDecline} style={[styles.declineButton, { borderColor: theme.onHero.divider }]}>
+              <Text style={[styles.declineLabel, { color: theme.onHero.dangerWashText }]}>Decline</Text>
             </Pressable>
           </View>
         ) : null}
-        {awaitingAdmin ? <Text style={[styles.awaitingLine, { color: theme.onDark.textMuted }]}>Only admins can approve · sent to A. Karki</Text> : null}
+        {awaitingAdmin ? <Text style={[styles.awaitingLine, { color: theme.onHero.textMuted }]}>Only admins can approve · sent to A. Karki</Text> : null}
       </Card>
 
       <View style={styles.factsGrid}>

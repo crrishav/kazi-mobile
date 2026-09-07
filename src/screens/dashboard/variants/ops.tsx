@@ -10,7 +10,6 @@ import type { TaskStatus } from '@/data/tasks/types';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 
-import { ApprovalsSection } from '../approvals-section';
 import { DashboardClockInCard } from '../clock-in-card';
 import { QuickLinks } from '../quick-links';
 import { DashboardCard, DashboardScroll } from '../dashboard-card';
@@ -40,7 +39,7 @@ export function OpsDashboard() {
       <KpiRow kpis={data.kpis} canView={canView} />
 
       {canView('order-management') ? (
-        <Pressable onPress={() => router.push('/order-management')} style={pressStyle}>
+        <Pressable onPress={() => router.push('/production')} style={pressStyle}>
           <OrdersByStageCard stages={data.stages} total={data.activeOrdersTotal} />
         </Pressable>
       ) : null}
@@ -94,8 +93,6 @@ export function OpsDashboard() {
           )}
         </DashboardCard>
       ) : null}
-
-      <ApprovalsSection />
 
       <QuickLinks
         sections={['order-management', 'finance', 'budget-requirements', 'attendance', 'tasks', 'employees-hr', 'customers', 'billing', 'marketing', 'sales']}

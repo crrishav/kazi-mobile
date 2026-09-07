@@ -166,9 +166,9 @@ export function DocSheet({ visible, kind, draft, nextNumber, editing = false, on
               <Pressable
                 key={c.name}
                 onPress={() => onChange({ clientName: c.name })}
-                style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.chip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
-                <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{c.name}</Text>
+                <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{c.name}</Text>
               </Pressable>
             );
           })}
@@ -194,9 +194,9 @@ export function DocSheet({ visible, kind, draft, nextNumber, editing = false, on
                   <Pressable
                     key={c}
                     onPress={() => onChange({ currency: c })}
-                    style={[styles.segButton, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                    style={[styles.segButton, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
                   >
-                    <Text style={[styles.segLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{c}</Text>
+                    <Text style={[styles.segLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{c}</Text>
                   </Pressable>
                 );
               })}
@@ -248,9 +248,9 @@ export function DocSheet({ visible, kind, draft, nextNumber, editing = false, on
                     <Pressable
                       key={u}
                       onPress={() => patchLine(i, { unit: u })}
-                      style={[styles.unitChip, { backgroundColor: on ? theme.surfaceInverted : 'transparent', borderColor: on ? theme.surfaceInverted : theme.border }]}
+                      style={[styles.unitChip, { backgroundColor: on ? theme.selectedSurface : 'transparent', borderColor: on ? theme.selectedBorder : theme.border }]}
                     >
-                      <Text style={[styles.unitText, { color: on ? theme.onDark.text : theme.textSecondary }]}>{u}</Text>
+                      <Text style={[styles.unitText, { color: on ? theme.selectedText : theme.textSecondary }]}>{u}</Text>
                     </Pressable>
                   );
                 })}
@@ -299,9 +299,9 @@ export function DocSheet({ visible, kind, draft, nextNumber, editing = false, on
                 <Pressable
                   key={m}
                   onPress={() => onChange({ discountMode: m })}
-                  style={[styles.segChip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                  style={[styles.segChip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
                 >
-                  <Text style={[styles.segChipText, { color: on ? theme.onDark.text : theme.textSecondary }]}>{m === 'pct' ? '%' : 'Amt'}</Text>
+                  <Text style={[styles.segChipText, { color: on ? theme.selectedText : theme.textSecondary }]}>{m === 'pct' ? '%' : 'Amt'}</Text>
                 </Pressable>
               );
             })}

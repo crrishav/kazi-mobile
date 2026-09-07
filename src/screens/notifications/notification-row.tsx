@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { SectionId } from '@/auth/permissions';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
+import * as haptics from '@/lib/haptics';
 import { fontFamily } from '@/theme';
 import { formatRelativeTime } from '@/utils/format-date';
 import type { NotificationRecord } from '@/data/notifications/types';
@@ -25,7 +26,6 @@ const SECTION_ICON: Record<SectionId, IconName> = {
   attendance: 'clock',
   marketing: 'send',
   messenger: 'message-circle',
-  directors: 'award',
   'admin-panel': 'shield',
   changelog: 'list',
   'bug-report': 'alert-triangle',
@@ -47,7 +47,10 @@ export function NotificationRow({
   return (
     <Pressable
       onPress={() => onPress(record)}
-      onLongPress={() => setShowWhy((v) => !v)}
+      onLongPress={() => {
+        haptics.pressed();
+        setShowWhy((v) => !v);
+      }}
       style={({ pressed }) => [
         styles.row,
         {

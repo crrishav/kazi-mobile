@@ -34,9 +34,10 @@ const SLOTS = {
   inventory: { name: 'inventory', section: 'inventory' },
   finance: { name: 'finance', section: 'finance' },
   // One screen, two names: the floor calls it Production, the directors call
-  // it the order book. It is the `order-management` route either way, because
-  // `orders` is the table RLS gates the read on.
-  production: { name: 'order-management', section: 'order-management' },
+  // it the order book. The route is `production`; the *section* stays
+  // `order-management`, because `orders` is the table RLS gates the read on
+  // and `sections.id` in Postgres is that same string.
+  production: { name: 'production', section: 'order-management' },
   billing: { name: 'billing', section: 'billing' },
   marketing: { name: 'marketing', section: 'marketing' },
 } satisfies Record<string, TabSlot>;

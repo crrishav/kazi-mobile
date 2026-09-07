@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { collection, getDocs , getDb } from '@/lib/supabase/firestore-compat';
+import { collection, getDocs , getDb } from '@/lib/supabase/collections';
 
 import { ROLES, type Role } from '@/auth/roles';
 import { TEAM_MEMBERS } from '@/auth/team-members';
-import { isSupabaseConfigured as isFirebaseConfigured } from '@/lib/supabase';
-import { str } from '@/lib/firestore/normalise';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { str } from '@/lib/data/normalise';
 
 import { notificationKeys } from './keys';
 import type { RosterMember } from './types';
@@ -35,7 +35,7 @@ interface RawEmployee {
 export async function fetchRoster(): Promise<RosterMember[]> {
   const byEmail = new Map<string, RosterMember>();
 
-  if (isFirebaseConfigured) {
+  if (isSupabaseConfigured) {
     try {
       const snap = await getDocs(collection(getDb(), 'employees'));
       const raws: (RawEmployee & { _key: string })[] = snap.docs.map((d) => ({

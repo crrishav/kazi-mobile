@@ -7,7 +7,7 @@ import { useAuth } from '@/auth/auth-context';
 import { Button } from '@/components/ui/button';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { useToast } from '@/components/toast/toast-provider';
-import { isFirebaseConfigured } from '@/lib/firebase';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 
@@ -45,7 +45,7 @@ export function AccountActions({ email }: { email: string }) {
 
   async function handleResetPassword() {
     if (sendingReset) return;
-    if (!isFirebaseConfigured) {
+    if (!isSupabaseConfigured) {
       toast.show({ message: 'Password reset needs the live backend', tone: 'warn' });
       return;
     }
@@ -78,7 +78,7 @@ export function AccountActions({ email }: { email: string }) {
 
       <Text style={[styles.version, { color: theme.textSecondary }]}>
         Kazi ERP · v{appVersion}
-        {isFirebaseConfigured ? '' : ' · mock data'}
+        {isSupabaseConfigured ? '' : ' · mock data'}
       </Text>
     </View>
   );

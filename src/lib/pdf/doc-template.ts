@@ -7,7 +7,7 @@
  * One HTML builder serves two consumers, so the preview and the PDF can never
  * drift: the in-app viewer (WebView) and `expo-print`.
  *
- * Field names deliberately match the live Firestore/Postgres doc shape rather
+ * Field names deliberately match the live Postgres row shape rather
  * than the mobile models — the adapters in `doc-data.ts` convert.
  */
 

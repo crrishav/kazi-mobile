@@ -15,8 +15,17 @@ import {
   WORKING_DAYS,
 } from './mock';
 import { calculateAttendanceStatus, shiftFor } from './schedule';
+import { minutesOf } from './live-shared';
 import { buildMonthDays } from './utils';
-import type { AttendanceStatus, ClockPunch, ClockStatus, MyMonth, PunchSummary, TeamMember } from './types';
+import type {
+  AttendanceStatus,
+  ClockPunch,
+  ClockStatus,
+  DayRosterEntry,
+  MyMonth,
+  PunchSummary,
+  TeamMember,
+} from './types';
 
 let clock: ClockStatus = { ...DEFAULT_CLOCK_STATUS };
 let teamDb: TeamMember[] = TEAM.map((m) => ({ ...m }));
@@ -110,6 +119,44 @@ export async function fetchClockPunches(): Promise<ClockPunch[]> {
 export async function fetchTeam(): Promise<TeamMember[]> {
   await simulateLatency();
   return teamDb.map((m) => ({ ...m }));
+}
+
+/** `'08:04 → —'` → `['08:04', null]`; anything that isn't a punch pair → `[null, null]`. */
+function splitTimes(times: string): [string | null, string | null] {
+  const [a, b] = times.split('→').map((s) => s.trim());
+  const clean = (s: string | undefined) => (s && /^\d{2}:\d{2}$/.test(s) ? s : null);
+  return [clean(a), clean(b)];
+}
+
+/**
+ * The whole team's punches for one date. The mock keeps a single day's roster,
+ * so every date returns the same shape the live reader would — enough to lay
+ * the admin day sheet out without Supabase configured.
+ */
+export async function fetchDayRoster(_dateISO: string): Promise<DayRosterEntry[]> {
+  await simulateLatency();
+  return teamDb
+    .map((m) => {
+      const [clockIn, clockOut] = splitTimes(m.times);
+      return {
+        staffId: m.staffId,
+        name: m.name,
+        role: m.role,
+        status: m.status,
+        clockIn,
+        clockOut,
+        workedHours: clockIn && clockOut ? (minutesOf(clockOut) - minutesOf(clockIn)) / 60 : null,
+        lateMinutes: m.status === 'late' ? 22 : 0,
+        lateCutApplied: m.status === 'late',
+        note: '',
+        distanceToSiteM: clockIn ? 40 : null,
+      };
+    })
+    .sort((a, b) => {
+      if (!!a.clockIn !== !!b.clockIn) return a.clockIn ? -1 : 1;
+      if (a.clockIn && b.clockIn && a.clockIn !== b.clockIn) return a.clockIn.localeCompare(b.clockIn);
+      return a.name.localeCompare(b.name);
+    });
 }
 
 /** Admin roll-call edit (item 27) — set a staffer's status for the day; `times`/`hours` follow the status. */

@@ -38,7 +38,6 @@ const SECTION_TO_MOBILE: Record<string, SectionId> = {
   employees: 'employees-hr',
   marketing: 'marketing',
   messenger: 'messenger',
-  directors: 'directors',
   admin: 'admin-panel',
   changelog: 'changelog',
   bug_report: 'bug-report',
@@ -46,8 +45,11 @@ const SECTION_TO_MOBILE: Record<string, SectionId> = {
   // has no screen for them, so they are intentionally dropped, and
   // `quality_control` joined them when the QC module was retired: `qc_logs`
   // held four rows ever — two written by the migration's own seed, and one real
-  // inspection saved twice by a double-tap. The rows stay in `sections` /
-  // `position_permissions` for the web app; mobile just ignores the grant.
+  // inspection saved twice by a double-tap. `directors` joined them in turn when
+  // the role register was dropped from mobile — it only ever *read* `positions` /
+  // `position_permissions`, which the Admin Panel already shows and can edit.
+  // The rows stay in `sections` / `position_permissions` for the web app; mobile
+  // just ignores the grant.
   // (`payroll` is a finance *tab*, mapped in TAB_TO_MOBILE below.)
 };
 

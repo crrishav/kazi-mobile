@@ -13,18 +13,17 @@ const SECTION_ROUTE: Record<SectionId, string> = {
   inventory: '/inventory',
   finance: '/finance',
   sales: '/sales',
-  'order-management': '/order-management',
+  'order-management': '/production',
   customers: '/customers',
   billing: '/billing',
   purchases: '/purchases',
-  production: '/order-management',
+  production: '/production',
   accounting: '/accounting',
   'budget-requirements': '/budget-requirements',
   'employees-hr': '/employees-hr',
   attendance: '/attendance',
   marketing: '/marketing',
   messenger: '/chat',
-  directors: '/directors',
   'admin-panel': '/admin-panel',
   changelog: '/changelog',
   'bug-report': '/bug-report',
@@ -109,8 +108,6 @@ const CATALOG: Record<string, Describe> = {
 
   'bug_report.submitted': (ev, a) => ({ title: `Bug report${ref(ev)}`, body: `${a} reported a bug${p(ev).label ? ` — ${p(ev).label}` : ''}.` }),
   'bug_report.status_changed': (ev, a) => ({ title: `Bug report${ref(ev)} ${String(p(ev).status ?? 'updated').toLowerCase()}`, body: `${a} moved your report to ${p(ev).status ?? 'a new status'}.` }),
-
-  'approval.decided': (ev, a) => ({ title: `${p(ev).label ?? 'Your request'} ${String(p(ev).status ?? 'decided').toLowerCase()}`, body: `${a} ${String(p(ev).status ?? 'decided').toLowerCase()} the item you raised.` }),
 };
 
 export function describeEvent(ev: NotificationEvent, actorName: string): Copy {

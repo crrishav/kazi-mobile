@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { useAuth } from '@/auth/auth-context';
 
-import { markOneRead, markRead, subscribeNotifications } from './firestore';
+import { markOneRead, markRead, subscribeNotifications } from './supabase';
 import type { NotificationRecord } from './types';
 
 interface NotificationsValue {

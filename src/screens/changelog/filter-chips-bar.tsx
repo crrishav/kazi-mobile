@@ -28,11 +28,11 @@ export function FilterChipsBar({ filters, active, onPick }: FilterChipsBarProps)
             onPress={() => onPick(f.key)}
             style={[
               styles.chip,
-              { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border },
+              { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border },
             ]}
           >
-            <Text style={[styles.label, { color: on ? theme.onDark.text : theme.textPrimary }]}>{f.label}</Text>
-            <Text style={[styles.count, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{f.count}</Text>
+            <Text style={[styles.label, { color: on ? theme.selectedText : theme.textPrimary }]}>{f.label}</Text>
+            <Text style={[styles.count, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{f.count}</Text>
           </Pressable>
         );
       })}

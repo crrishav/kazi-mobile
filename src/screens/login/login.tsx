@@ -2,6 +2,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RiseIn } from '@/components/ui/rise-in';
+import { useBackHandler } from '@/lib/use-back-handler';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 
@@ -15,6 +16,14 @@ export function Login() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const flow = useLoginFlow();
+
+  // Forgot-password and its confirmation are views on this one route; back
+  // returns to the sign-in form rather than closing the app from under it.
+  useBackHandler(() => {
+    if (flow.view === 'signin') return false;
+    flow.goSignin();
+    return true;
+  });
 
   return (
     <KeyboardAvoidingView

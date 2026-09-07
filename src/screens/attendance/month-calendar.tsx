@@ -95,7 +95,7 @@ export function MonthCalendar({ monthLabel, monthISOStart, monthISOEnd, workingD
                     {
                       backgroundColor: bg,
                       borderWidth: d.isToday ? 2 : 0,
-                      borderColor: theme.surfaceInverted,
+                      borderColor: theme.selectedBorder,
                       opacity: pressed ? 0.55 : 1,
                     },
                   ]}

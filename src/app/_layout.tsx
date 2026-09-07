@@ -10,6 +10,7 @@ import {
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { useFonts } from 'expo-font';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
@@ -20,7 +21,7 @@ import { ToastProvider } from '@/components/toast/toast-provider';
 import { NotificationsProvider } from '@/data/notifications/context';
 import { AccountInactive } from '@/screens/account/account-inactive';
 import { queryClient } from '@/data/client';
-import { isFirebaseConfigured } from '@/lib/firebase';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { CurrencyProvider } from '@/lib/currency-context';
 import { ThemeProvider, useTheme } from '@/theme/theme-provider';
 
@@ -29,28 +30,53 @@ SplashScreen.preventAutoHideAsync();
 if (__DEV__) {
   // Boot diagnostic: if this logs `false`, the `.env` was not picked up —
   // restart Metro with `npx expo start --clear`. When `true`, watch for
-  // `[firestore] <module>: live read OK` / `... failed → mock` lines.
-  console.log('[firestore] isFirebaseConfigured =', isFirebaseConfigured);
+  // `[supabase] <module>: live read OK` / `... live read FAILED` lines.
+  console.log('[supabase] isSupabaseConfigured =', isSupabaseConfigured);
 }
 
 function RootNavigator() {
   const { session, profile, isLoading } = useAuth();
   const theme = useTheme();
-  if (isLoading) return null;
+
+  // Follows the *resolved* theme rather than the OS: an explicit Light/Dark
+  // choice in Settings can disagree with the phone, and `userInterfaceStyle:
+  // "automatic"` alone would then leave dark clock glyphs on a dark bar.
+  const statusBar = <StatusBar style={theme.scheme === 'dark' ? 'light' : 'dark'} />;
+
+  if (isLoading) return statusBar;
 
   // A signed-in user whose employee record was deactivated gets a dead end,
   // not the app (reference assigns them the `inactive` role).
-  if (session && profile?.status === 'Inactive') return <AccountInactive />;
+  if (session && profile?.status === 'Inactive') {
+    return (
+      <>
+        {statusBar}
+        <AccountInactive />
+      </>
+    );
+  }
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: theme.background } }}>
-      <Stack.Protected guard={!session}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
-      <Stack.Protected guard={!!session}>
-        <Stack.Screen name="(app)" />
-      </Stack.Protected>
-    </Stack>
+    <>
+      {statusBar}
+      {/* Signing in and out swaps the whole app, so it cross-fades rather than
+          pushing — there is no spatial relationship between the two halves. */}
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: theme.background },
+          animation: 'fade',
+          animationDuration: 260,
+        }}
+      >
+        <Stack.Protected guard={!session}>
+          <Stack.Screen name="(auth)" />
+        </Stack.Protected>
+        <Stack.Protected guard={!!session}>
+          <Stack.Screen name="(app)" />
+        </Stack.Protected>
+      </Stack>
+    </>
   );
 }
 

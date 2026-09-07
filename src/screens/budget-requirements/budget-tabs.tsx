@@ -28,12 +28,12 @@ export function BudgetTabs({ active, pending, onChange }: BudgetTabsProps) {
           <Pressable
             key={t.id}
             onPress={() => onChange(t.id)}
-            style={[styles.tab, on && { backgroundColor: theme.surfaceInverted }]}
+            style={[styles.tab, on && { backgroundColor: theme.selectedSurface, borderColor: theme.selectedBorder }]}
           >
-            <Text style={[styles.label, { color: on ? theme.onDark.text : theme.textPrimary }]}>{t.label}</Text>
+            <Text style={[styles.label, { color: on ? theme.selectedText : theme.textPrimary }]}>{t.label}</Text>
             {count > 0 ? (
               <View style={[styles.badge, { backgroundColor: on ? theme.onDark.accent : theme.warning }]}>
-                <Text style={[styles.badgeText, tabularNums, { color: on ? theme.surfaceInverted : theme.onDark.text }]}>{count}</Text>
+                <Text style={[styles.badgeText, tabularNums, { color: on ? theme.accentText : theme.onDark.text }]}>{count}</Text>
               </View>
             ) : null}
           </Pressable>
@@ -45,7 +45,7 @@ export function BudgetTabs({ active, pending, onChange }: BudgetTabsProps) {
 
 const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', gap: 3, padding: 3, borderRadius: 13, borderWidth: 1 },
-  tab: { flex: 1, height: 38, borderRadius: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  tab: { flex: 1, height: 38, borderRadius: 10, borderWidth: 1, borderColor: 'transparent', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   label: { fontFamily: fontFamily.semibold, fontSize: 13 },
   badge: { minWidth: 18, height: 18, paddingHorizontal: 5, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   badgeText: { fontFamily: fontFamily.mono, fontSize: 10.5, fontWeight: '700' },

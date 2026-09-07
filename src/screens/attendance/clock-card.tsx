@@ -62,34 +62,34 @@ export function ClockCard({ clockedIn, inTime, outTime, elapsedSeconds, onToggle
   else if (verified && geo) geoCaption = `${geo.distanceM} m from site · fix ±${geo.accuracyM} m`;
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.surfaceInverted }]}>
+    <View style={[styles.card, { backgroundColor: theme.surfaceHero, borderColor: theme.surfaceHeroBorder, borderWidth: theme.scheme === 'dark' ? 1 : 0, boxShadow: theme.shadows.raised }]}>
       <View style={styles.hoursRow}>
         <View style={styles.gap6}>
-          <Text style={[styles.hoursValue, tabularNums, { color: theme.onDark.text }]}>{formatHm(elapsedSeconds)}</Text>
-          <Text style={[styles.hoursCaption, { color: theme.onDark.textMuted }]}>worked today</Text>
+          <Text style={[styles.hoursValue, tabularNums, { color: theme.onHero.text }]}>{formatHm(elapsedSeconds)}</Text>
+          <Text style={[styles.hoursCaption, { color: theme.onHero.textMuted }]}>worked today</Text>
         </View>
         <View style={styles.inOutCol}>
-          <Text style={[styles.inOutLabel, { color: theme.onDark.textMuted }]}>In</Text>
-          <Text style={[styles.inOutValue, tabularNums, { color: theme.onDark.text }]}>{inTime}</Text>
-          <Text style={[styles.inOutLabel, styles.outLabelSpacing, { color: theme.onDark.textMuted }]}>Out</Text>
-          <Text style={[styles.inOutValue, tabularNums, { color: theme.onDark.text }]}>{outTime ?? '—'}</Text>
+          <Text style={[styles.inOutLabel, { color: theme.onHero.textMuted }]}>In</Text>
+          <Text style={[styles.inOutValue, tabularNums, { color: theme.onHero.text }]}>{inTime}</Text>
+          <Text style={[styles.inOutLabel, styles.outLabelSpacing, { color: theme.onHero.textMuted }]}>Out</Text>
+          <Text style={[styles.inOutValue, tabularNums, { color: theme.onHero.text }]}>{outTime ?? '—'}</Text>
         </View>
       </View>
 
       {geoCaption ? (
         <View style={styles.geoRow}>
-          {locating ? <ActivityIndicator size="small" color={theme.onDark.textMuted} /> : null}
-          <Text style={[styles.geoCaption, { color: theme.onDark.textMuted }]}>{geoCaption}</Text>
+          {locating ? <ActivityIndicator size="small" color={theme.onHero.textMuted} /> : null}
+          <Text style={[styles.geoCaption, { color: theme.onHero.textMuted }]}>{geoCaption}</Text>
         </View>
       ) : null}
 
       {blocked ? (
-        <View style={[styles.blockedBox, { backgroundColor: theme.onDark.warningWash }]}>
-          <Text style={[styles.blockedText, { color: theme.onDark.warningWashText }]}>{blocked}</Text>
+        <View style={[styles.blockedBox, { backgroundColor: theme.onHero.warningWash }]}>
+          <Text style={[styles.blockedText, { color: theme.onHero.warningWashText }]}>{blocked}</Text>
           {showSettings ? (
             <View style={styles.blockedActions}>
               <Pressable onPress={onOpenSettings} hitSlop={8}>
-                <Text style={[styles.actionLink, { color: theme.onDark.accent }]}>Open Settings</Text>
+                <Text style={[styles.actionLink, { color: theme.onHero.accent }]}>Open Settings</Text>
               </Pressable>
             </View>
           ) : null}
@@ -99,9 +99,9 @@ export function ClockCard({ clockedIn, inTime, outTime, elapsedSeconds, onToggle
       <Pressable
         onPress={onToggle}
         disabled={locating}
-        style={[styles.clockButton, { backgroundColor: clockedIn ? '#16281F' : theme.onDark.accent, opacity: locating ? 0.6 : 1 }]}
+        style={[styles.clockButton, { backgroundColor: clockedIn ? theme.onHero.track : theme.onHero.solid, opacity: locating ? 0.6 : 1 }]}
       >
-        <Text style={[styles.clockButtonLabel, { color: clockedIn ? theme.onDark.text : theme.accentText }]}>
+        <Text style={[styles.clockButtonLabel, { color: clockedIn ? theme.onHero.text : theme.onHero.solidText }]}>
           {clockedIn ? 'Clock Out' : locating ? 'Locating…' : 'Clock In'}
         </Text>
       </Pressable>

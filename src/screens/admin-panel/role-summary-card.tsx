@@ -34,25 +34,25 @@ export function RoleSummaryCard({
   const allRecords = !isSuperAdmin && scopeBucket(role.tier) === RECORDS_TIER;
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.surfaceInverted }]}>
+    <View style={[styles.card, { backgroundColor: theme.surfaceHero, borderColor: theme.surfaceHeroBorder, borderWidth: theme.scheme === 'dark' ? 1 : 0, boxShadow: theme.shadows.raised }]}>
       <View style={styles.headRow}>
         <Avatar initials={initialsOf(role.label)} size="md" tint={tintFromSeed(role.id)} />
         <View style={styles.headText}>
-          <Text style={[styles.roleName, { color: theme.onDark.text }]} numberOfLines={1}>
+          <Text style={[styles.roleName, { color: theme.onHero.text }]} numberOfLines={1}>
             {role.label}
           </Text>
-          <Text style={[styles.roleId, { color: theme.onDark.textMuted }]} numberOfLines={1}>
+          <Text style={[styles.roleId, { color: theme.onHero.textMuted }]} numberOfLines={1}>
             {role.id}
           </Text>
         </View>
         <View
           style={[
             styles.stateChip,
-            { backgroundColor: dirty ? theme.onDark.warningWash : theme.onDark.accentWash },
+            { backgroundColor: dirty ? theme.onHero.warningWash : theme.onHero.accentWash },
           ]}
         >
-          <View style={[styles.stateDot, { backgroundColor: dirty ? theme.onDark.warningWashText : theme.onDark.accentWashText }]} />
-          <Text style={[styles.stateLabel, { color: dirty ? theme.onDark.warningWashText : theme.onDark.accentWashText }]}>
+          <View style={[styles.stateDot, { backgroundColor: dirty ? theme.onHero.warningWashText : theme.onHero.accentWashText }]} />
+          <Text style={[styles.stateLabel, { color: dirty ? theme.onHero.warningWashText : theme.onHero.accentWashText }]}>
             {dirty ? `${changeCount} unsaved` : 'In effect'}
           </Text>
         </View>
@@ -61,18 +61,18 @@ export function RoleSummaryCard({
       {isSuperAdmin || allRecords || role.description ? (
         <View style={styles.chipsRow}>
           {isSuperAdmin ? (
-            <View style={[styles.chip, { backgroundColor: theme.onDark.warningWash }]}>
-              <Icon name="lock" size={10} color={theme.onDark.warningWashText} />
-              <Text style={[styles.chipLabel, { color: theme.onDark.warningWashText }]}>super admin</Text>
+            <View style={[styles.chip, { backgroundColor: theme.onHero.warningWash }]}>
+              <Icon name="lock" size={10} color={theme.onHero.warningWashText} />
+              <Text style={[styles.chipLabel, { color: theme.onHero.warningWashText }]}>super admin</Text>
             </View>
           ) : null}
           {allRecords ? (
-            <View style={[styles.chip, { backgroundColor: theme.onDark.accentWash }]}>
-              <Text style={[styles.chipLabel, { color: theme.onDark.accentWashText }]}>all records</Text>
+            <View style={[styles.chip, { backgroundColor: theme.onHero.accentWash }]}>
+              <Text style={[styles.chipLabel, { color: theme.onHero.accentWashText }]}>all records</Text>
             </View>
           ) : null}
           {role.description ? (
-            <Text style={[styles.description, { color: theme.onDark.textMuted }]} numberOfLines={2}>
+            <Text style={[styles.description, { color: theme.onHero.textMuted }]} numberOfLines={2}>
               {role.description}
             </Text>
           ) : null}
@@ -80,12 +80,12 @@ export function RoleSummaryCard({
       ) : null}
 
       <View style={styles.meter}>
-        <AccessBar counts={counts} height={6} onDark />
-        <AccessLegend counts={counts} onDark />
+        <AccessBar counts={counts} height={6} hero />
+        <AccessLegend counts={counts} hero />
         {isSuperAdmin ? (
           <View style={styles.lockNote}>
-            <Icon name="lock" size={11} color={theme.onDark.textMuted} />
-            <Text style={[styles.lockNoteText, { color: theme.onDark.textMuted }]}>
+            <Icon name="lock" size={11} color={theme.onHero.textMuted} />
+            <Text style={[styles.lockNoteText, { color: theme.onHero.textMuted }]}>
               Locked while super admin is on.
             </Text>
           </View>
@@ -94,10 +94,10 @@ export function RoleSummaryCard({
 
       <Pressable
         onPress={onOpenPeople}
-        style={({ pressed }) => [styles.peopleRow, { borderColor: theme.onDark.textMuted, opacity: pressed ? 0.75 : 1 }]}
+        style={({ pressed }) => [styles.peopleRow, { borderColor: theme.onHero.divider, opacity: pressed ? 0.75 : 1 }]}
       >
         {holders.length === 0 ? (
-          <Text style={[styles.peopleEmpty, { color: theme.onDark.textMuted }]} numberOfLines={1}>
+          <Text style={[styles.peopleEmpty, { color: theme.onHero.textMuted }]} numberOfLines={1}>
             Nobody holds this role yet
           </Text>
         ) : (
@@ -109,18 +109,18 @@ export function RoleSummaryCard({
                     initials={initialsOf(h.name)}
                     size="sm"
                     tint={tintFromSeed(h.id)}
-                    borderColor={theme.surfaceInverted}
+                    borderColor={theme.surfaceHero}
                   />
                 </View>
               ))}
             </View>
-            <Text style={[styles.peopleText, { color: theme.onDark.text }]} numberOfLines={1}>
+            <Text style={[styles.peopleText, { color: theme.onHero.text }]} numberOfLines={1}>
               {holders.slice(0, 2).map((h) => h.name).join(', ')}
               {holders.length > 2 ? ` +${holders.length - 2}` : ''}
             </Text>
           </>
         )}
-        <Icon name="chevron-right" size={15} color={theme.onDark.textMuted} />
+        <Icon name="chevron-right" size={15} color={theme.onHero.textMuted} />
       </Pressable>
     </View>
   );

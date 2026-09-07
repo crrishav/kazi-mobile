@@ -1,6 +1,6 @@
 /**
  * Shared live-attendance primitives — the pieces both the "my month" reader
- * (`firestore-month.ts`) and the admin member sheet (`firestore-admin.ts`) need:
+ * (`supabase-month.ts`) and the admin member sheet (`supabase-admin.ts`) need:
  * Kathmandu date maths, work schedules off the `employees` doc, and the per-day
  * merge of an `attendance` row with its `clock_ins` punch.
  *
@@ -17,10 +17,10 @@
  * one denied collection can't blank a whole screen.
  */
 
-import { collection, getDocs, query, where, type QueryConstraint } from '@/lib/supabase/firestore-compat';
+import { collection, getDocs, query, where, type QueryConstraint } from '@/lib/supabase/collections';
 
-import { getDb } from '@/lib/supabase/firestore-compat';
-import { arr, num, str, tsToISO } from '@/lib/firestore/normalise';
+import { getDb } from '@/lib/supabase/collections';
+import { arr, num, str, tsToISO } from '@/lib/data/normalise';
 
 import type { AttendanceStatus, DayDetail, WorkSchedule } from './types';
 
@@ -76,6 +76,11 @@ export function weekdayOf(iso: string): number {
 
 export function dayNameOf(iso: string): string {
   return DAY_NAMES[weekdayOf(iso)];
+}
+
+/** The workshop is shut on Saturdays — the reference's blanket `isSaturday` rule. */
+export function isSaturday(iso: string): boolean {
+  return weekdayOf(iso) === 6;
 }
 
 /** `2026-08-31` → `Sun 31 Aug`. */
@@ -143,17 +148,29 @@ export function scheduledHoursFor(schedule: WorkSchedule, dayName: string): numb
 
 /** One staffer's directory entry, as far as attendance cares. */
 export interface EmployeeRecord {
+  /**
+   * `people.id` — which is also `attendance.person_id` and `clock_ins.person_id`.
+   * Since the Supabase migration this is the one key every attendance row
+   * agrees on, so it is what the whole module joins by.
+   */
   docId: string;
   name: string;
   email: string;
   role: string;
-  /**
-   * The doc's own `id` field. Despite the name this is the `employees` doc id,
-   * not the Auth UID the attendance collections key on — see `findEmployee`.
-   */
+  /** Same value as {@link docId}; kept for callers that still read `staffId`. */
   staffId: string;
+  /** `Active` / `Inactive` — the roll call lists the active ones, as the web does. */
+  status: string;
   basicSalaryNPR: number;
   schedule: WorkSchedule;
+  /**
+   * True only when the directory actually carries a shift for this person.
+   * {@link schedule} always resolves (to {@link DEFAULT_SCHEDULE}) so the
+   * calendar has something to draw, but the late calc must know the difference
+   * — the reference grades an employee with no roster by "in at 10:00 or later
+   * is Late, with no salary cut" rather than against an invented 09:00 start.
+   */
+  hasSchedule: boolean;
 }
 
 function toSchedule(x: Record<string, unknown>): WorkSchedule {
@@ -189,43 +206,17 @@ export async function readEmployees(): Promise<EmployeeRecord[]> {
         name: str(x.name).trim(),
         email: str(x.email).trim(),
         role: str(x.role).trim(),
-        staffId: str(x.id).trim(),
+        staffId: d.id,
+        status: str(x.status).trim() || 'Active',
         basicSalaryNPR: num(x.basicSalaryNPR),
         schedule: toSchedule(x),
+        hasSchedule: !!str(x.scheduleStart).trim() && !!str(x.scheduleEnd).trim(),
       };
     });
   } catch (err) {
     console.warn('[attendance] employees read failed — falling back to the default shift', err);
     return [];
   }
-}
-
-/**
- * Pick one staffer out of the directory.
- *
- * The join is awkward in the live data: `employees.id` holds the doc's own id,
- * **not** the Auth UID that `attendance.staffId` / `clock_ins.staffId` use, so
- * there's no shared key. Email is the only exact join, and it's only available
- * for the signed-in user. Otherwise we fall back to the name, allowing a
- * first-name record to find its full-name directory entry ("Anmol" →
- * "Anmol Basnet") on a word boundary — never a bare substring, which would let
- * "Sam" claim "Samir".
- */
-export function findEmployee(
-  employees: EmployeeRecord[],
-  { uid, email, name }: { uid?: string | null; email?: string; name?: string },
-): EmployeeRecord | null {
-  const wantEmail = (email ?? '').trim().toLowerCase();
-  const wantName = (name ?? '').trim().toLowerCase();
-  const nameOf = (e: EmployeeRecord) => e.name.trim().toLowerCase();
-  const prefixes = (a: string, b: string) => a.startsWith(`${b} `);
-  return (
-    employees.find((e) => !!uid && (e.staffId === uid || e.docId === uid)) ??
-    employees.find((e) => !!wantEmail && e.email.trim().toLowerCase() === wantEmail) ??
-    employees.find((e) => !!wantName && nameOf(e) === wantName) ??
-    employees.find((e) => !!wantName && (prefixes(nameOf(e), wantName) || prefixes(wantName, nameOf(e)))) ??
-    null
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -241,16 +232,34 @@ export function mapStatus(raw: unknown): AttendanceStatus {
   return 'present';
 }
 
-/** Mobile status → the exact label the web writes to `attendance.status`. */
+/**
+ * Mobile status → the exact label the web writes to `attendance.status`.
+ * `off` has no label because it is never written — see {@link AttendanceStatus}.
+ */
 export const STATUS_TO_LIVE: Record<AttendanceStatus, string> = {
   present: 'Present',
   late: 'Late',
   absent: 'Absent',
+  // "Half-day" exactly — the reference's STATUS_OPTIONS value, which its report
+  // and payroll filters match on.
   half: 'Half-day',
   leave: 'Leave',
+  off: '',
+};
+
+/** Hours the reference writes alongside a manually-set status. */
+export const STATUS_TO_HOURS: Record<AttendanceStatus, number> = {
+  present: 8,
+  late: 8,
+  half: 4,
+  absent: 0,
+  leave: 0,
+  off: 0,
 };
 
 export interface AttRow {
+  /** `people.id` — the key everything downstream groups by. */
+  personId: string;
   status: AttendanceStatus;
   hours: number;
   note: string;
@@ -264,6 +273,8 @@ export interface AttRow {
 
 export interface PunchRow {
   id: string;
+  /** `people.id` — the key everything downstream groups by. */
+  personId: string;
   clockedInAt: string;
   clockedOutAt: string | null;
   distanceToSiteM: number | null;
@@ -274,27 +285,155 @@ function boolish(v: unknown): boolean {
 }
 
 /**
- * One person's identity in the attendance collections. The live data has people
- * filed under more than one `staffId` (an Auth UID from the app, plus an
- * email-derived id from an older import), so a read takes every id they own and
- * also sweeps their display name — otherwise half a month goes missing.
+ * One person's identity in the attendance collections.
+ *
+ * `personId` (`people.id`) is the real key: every `attendance` / `clock_ins`
+ * row carries `person_id`, and it is single-valued per person. The legacy
+ * `ids` / `name` sweep is only a fallback for a caller that has neither — it
+ * cannot be the primary path, because `staffId` in the compat views is
+ * `COALESCE(legacy_staff_id, legacy_firebase_uid, person_id)` (three different
+ * values across one person's rows) and `staffName` is whatever spelling was
+ * typed at the time ("Wilson" vs "wilson shah", "Sarbagya" vs "Sarbagya Karki").
  */
 export interface StaffIdentity {
-  /** Every `staffId` this person's rows are filed under. */
-  ids: string[];
-  /** Display name as it appears in `staffName`. */
-  name: string;
+  /** `people.id`. When set, nothing else is needed. */
+  personId?: string | null;
+  /** Legacy `staffId` values, used only when there's no `personId`. */
+  ids?: string[];
+  /** Display name as it appears in `staffName`; last-resort fallback. */
+  name?: string;
 }
 
-/** Equality-only filters covering an identity: `staffId in [...]` plus the name. */
-function identityFilters({ ids, name }: StaffIdentity): QueryConstraint[][] {
+/** Equality-only filters covering an identity — `person_id` alone when we have it. */
+function identityFilters({ personId, ids, name }: StaffIdentity): QueryConstraint[][] {
+  if (personId) return [[where('person_id', '==', personId)]];
   const filters: QueryConstraint[][] = [];
-  const unique = [...new Set(ids.filter(Boolean))];
-  // Firestore caps `in` at 30 values; nobody has more than a couple of ids.
+  const unique = [...new Set((ids ?? []).filter(Boolean))];
   if (unique.length === 1) filters.push([where('staffId', '==', unique[0])]);
   else if (unique.length > 1) filters.push([where('staffId', 'in', unique.slice(0, 30))]);
   if (name) filters.push([where('staffName', '==', name)]);
   return filters;
+}
+
+/** One `attendance` row, normalised. */
+export function toAttRow(x: Record<string, unknown>): AttRow {
+  return {
+    personId: str(x.person_id).trim(),
+    status: mapStatus(x.status),
+    hours: num(x.hours),
+    note: str(x.note).trim(),
+    lateMinutes: num(x.lateMinutes),
+    lateCutApplied: boolish(x.lateCutApplied),
+    role: str(x.role).trim(),
+    staffName: str(x.staffName).trim(),
+    createdAt: tsToISO(x.createdAt),
+  };
+}
+
+/** One `clock_ins` row, normalised. */
+export function toPunchRow(id: string, x: Record<string, unknown>): PunchRow {
+  return {
+    id,
+    personId: str(x.person_id).trim(),
+    clockedInAt: tsToISO(x.clockedInAt ?? x.createdAt),
+    clockedOutAt: x.clockedOutAt ? tsToISO(x.clockedOutAt) : null,
+    distanceToSiteM: x.distanceToSiteM == null ? null : num(x.distanceToSiteM),
+  };
+}
+
+/** An {@link AttRow} that still knows which day it belongs to. */
+export interface DatedAtt extends AttRow {
+  date: string;
+}
+/** A {@link PunchRow} that still knows which day it belongs to. */
+export interface DatedPunch extends PunchRow {
+  date: string;
+}
+
+function dateConstraints(startISO: string, endISO?: string): QueryConstraint[] {
+  // The compat views expose `date` as a `YYYY-MM-DD` string, so a lexicographic
+  // range is a chronological one and no composite index is involved.
+  return endISO && endISO !== startISO
+    ? [where('date', '>=', startISO), where('date', '<=', endISO)]
+    : [where('date', '==', startISO)];
+}
+
+/**
+ * Every `attendance` row in a date range, across everyone the reader may see.
+ * Rows with no `person_id` are dropped: there is nothing to attribute them to,
+ * and guessing from `staffName` is exactly what used to split one person into
+ * two roll-call lines.
+ */
+export async function readAttendanceRange(startISO: string, endISO?: string): Promise<DatedAtt[]> {
+  try {
+    const snap = await getDocs(query(collection(getDb(), ATTENDANCE), ...dateConstraints(startISO, endISO)));
+    return snap.docs
+      .map((d) => {
+        const x = d.data() as Record<string, unknown>;
+        return { ...toAttRow(x), date: str(x.date).trim() || tsToISO(x.createdAt).slice(0, 10) };
+      })
+      .filter((r) => r.personId && r.date);
+  } catch (err) {
+    console.warn('[attendance] attendance range read failed', err);
+    return [];
+  }
+}
+
+/** Every `clock_ins` punch in a date range, across everyone the reader may see. */
+export async function readPunchRange(startISO: string, endISO?: string): Promise<DatedPunch[]> {
+  try {
+    const snap = await getDocs(query(collection(getDb(), CLOCK_INS), ...dateConstraints(startISO, endISO)));
+    return snap.docs
+      .map((d) => {
+        const x = d.data() as Record<string, unknown>;
+        const row = toPunchRow(d.id, x);
+        return { ...row, date: str(x.date).trim() || row.clockedInAt.slice(0, 10) };
+      })
+      .filter((r) => r.personId && r.clockedInAt);
+  } catch (err) {
+    console.warn('[attendance] clock_ins range read failed', err);
+    return [];
+  }
+}
+
+/**
+ * Collapse a person's punches for one day into the day they actually worked:
+ * the earliest clock-in and the latest clock-out. Someone can punch more than
+ * once (a break, a corrected clock-out).
+ */
+export function mergePunches(a: PunchRow, b: PunchRow): PunchRow {
+  const outAt =
+    !a.clockedOutAt || !b.clockedOutAt
+      ? (a.clockedOutAt ?? b.clockedOutAt)
+      : a.clockedOutAt > b.clockedOutAt
+        ? a.clockedOutAt
+        : b.clockedOutAt;
+  return {
+    ...a,
+    clockedInAt: b.clockedInAt < a.clockedInAt ? b.clockedInAt : a.clockedInAt,
+    clockedOutAt: outAt,
+    distanceToSiteM: a.distanceToSiteM ?? b.distanceToSiteM,
+  };
+}
+
+/** Punches for one day, one per person, merged by {@link mergePunches}. */
+export function punchesByPerson(rows: DatedPunch[]): Map<string, DatedPunch> {
+  const out = new Map<string, DatedPunch>();
+  for (const r of rows) {
+    const prev = out.get(r.personId);
+    out.set(r.personId, prev ? { ...mergePunches(prev, r), date: prev.date } : r);
+  }
+  return out;
+}
+
+/** Roll-call rows for one day, one per person — the most recently written wins. */
+export function attendanceByPerson(rows: DatedAtt[]): Map<string, DatedAtt> {
+  const out = new Map<string, DatedAtt>();
+  for (const r of rows) {
+    const prev = out.get(r.personId);
+    if (!prev || r.createdAt > prev.createdAt) out.set(r.personId, r);
+  }
+  return out;
 }
 
 /** `attendance` rows for one person in one `YYYY-MM`, keyed by date. */
@@ -307,16 +446,7 @@ export async function readAttendanceMonth(identity: StaffIdentity, monthISO: str
         const x = d.data() as Record<string, unknown>;
         const date = str(x.date).trim() || tsToISO(x.createdAt).slice(0, 10);
         if (!date.startsWith(monthISO)) continue;
-        const row: AttRow = {
-          status: mapStatus(x.status),
-          hours: num(x.hours),
-          note: str(x.note).trim(),
-          lateMinutes: num(x.lateMinutes),
-          lateCutApplied: boolish(x.lateCutApplied),
-          role: str(x.role).trim(),
-          staffName: str(x.staffName).trim(),
-          createdAt: tsToISO(x.createdAt),
-        };
+        const row = toAttRow(x);
         // Two identities can both hold a row for the same day — the newer wins.
         const prev = out.get(date);
         if (!prev || row.createdAt > prev.createdAt) out.set(date, row);
@@ -339,15 +469,11 @@ export async function readPunchMonth(identity: StaffIdentity, monthISO: string):
         const clockedInAt = tsToISO(x.clockedInAt ?? x.createdAt);
         const date = str(x.date).trim() || clockedInAt.slice(0, 10);
         if (!date.startsWith(monthISO)) continue;
-        const row: PunchRow = {
-          id: d.id,
-          clockedInAt,
-          clockedOutAt: x.clockedOutAt ? tsToISO(x.clockedOutAt) : null,
-          distanceToSiteM: x.distanceToSiteM == null ? null : num(x.distanceToSiteM),
-        };
-        // One punch per person per day, but keep the newest if a duplicate exists.
+        const row = toPunchRow(d.id, x);
+        // A day can hold more than one punch (a break, a corrected clock-out) —
+        // the day worked runs from the earliest in to the latest out.
         const prev = out.get(date);
-        if (!prev || row.clockedInAt > prev.clockedInAt) out.set(date, row);
+        out.set(date, prev ? mergePunches(prev, row) : row);
       }
     } catch (err) {
       console.warn('[attendance] clock_ins month read failed', err);
@@ -412,4 +538,61 @@ export function formatHours(totalHours: number): string {
   const m = Math.round((safe - h) * 60);
   // 7.999h → "8h 00m", not "7h 60m".
   return m === 60 ? `${h + 1}h 00m` : `${h}h ${String(m).padStart(2, '0')}m`;
+}
+
+// ---------------------------------------------------------------------------
+// Late grading
+//
+// Ported from the reference `calculateAttendanceStatus` in `src/constants.js`,
+// including the branch mobile used to be missing: when the directory holds no
+// shift for someone (or the weekday is one of their offs), the reference grades
+// them on a flat "clocked in at 10:00 or later is Late" rule and applies **no**
+// salary cut. `data/attendance/schedule.ts` graded everyone against a hardcoded
+// 09:00 instead, because its lookup table is keyed by the *mock* roster's names
+// — no real staffer matched it. That marked people Late, and docked 25% of a
+// day's pay, for arriving on time on an 11:00 or 12:00 shift.
+
+/** The reference's "no roster on file" cut-off: in at 10:00 or later reads as Late. */
+const NO_SCHEDULE_LATE_HOUR = 10;
+
+export interface LateGrade {
+  status: 'Present' | 'Late';
+  lateMinutes: number;
+  lateCutApplied: boolean;
+}
+
+/**
+ * Grade an arrival against a staffer's rostered shift.
+ *
+ * `at` is read in the device's local timezone, exactly as the web reads the
+ * browser's — the workshop and its phones are both in Kathmandu, and matching
+ * the site's arithmetic matters more here than being timezone-pedantic.
+ */
+export function gradeArrival(employee: EmployeeRecord | null, at: Date): LateGrade {
+  const shift = employee?.hasSchedule ? shiftForDay(employee.schedule, DAY_NAMES[at.getDay()]) : null;
+  if (!shift) {
+    return { status: at.getHours() >= NO_SCHEDULE_LATE_HOUR ? 'Late' : 'Present', lateMinutes: 0, lateCutApplied: false };
+  }
+
+  const scheduled = new Date(at);
+  const [h, m] = shift.start.split(':').map((n) => parseInt(n, 10));
+  scheduled.setHours(Number.isFinite(h) ? h : 0, Number.isFinite(m) ? m : 0, 0, 0);
+
+  const diffMins = (at.getTime() - scheduled.getTime()) / 60_000;
+  if (diffMins >= LATE_GRACE_MIN) return { status: 'Late', lateMinutes: Math.round(diffMins), lateCutApplied: true };
+  if (diffMins > 0) return { status: 'Late', lateMinutes: Math.round(diffMins), lateCutApplied: false };
+  return { status: 'Present', lateMinutes: 0, lateCutApplied: false };
+}
+
+/** Look a staffer up by `people.id` — the only join this module trusts. */
+export function employeeById(employees: EmployeeRecord[], personId: string | null | undefined): EmployeeRecord | null {
+  if (!personId) return null;
+  return employees.find((e) => e.docId === personId) ?? null;
+}
+
+/** The active roll call, as the reference builds it: everyone in the directory bar the leavers. */
+export function activeRoster(employees: EmployeeRecord[]): EmployeeRecord[] {
+  return employees
+    .filter((e) => e.name && e.status.trim().toLowerCase() !== 'inactive')
+    .sort((a, b) => a.name.trim().localeCompare(b.name.trim()));
 }

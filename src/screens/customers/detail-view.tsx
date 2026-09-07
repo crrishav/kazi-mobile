@@ -20,8 +20,8 @@ export function DetailView({ customer, onDelete }: DetailViewProps) {
   const balance = owed(customer);
   const overdue = hasOverdue(customer);
   const status = overdue ? 'Overdue' : balance ? 'Open balance' : 'Settled';
-  const pillBg = overdue ? theme.onDark.dangerWash : balance ? theme.onDark.warningWash : theme.onDark.accentWash;
-  const pillFg = overdue ? theme.onDark.dangerWashText : balance ? theme.onDark.warningWashText : theme.onDark.accentWashText;
+  const pillBg = overdue ? theme.onHero.dangerWash : balance ? theme.onHero.warningWash : theme.onHero.accentWash;
+  const pillFg = overdue ? theme.onHero.dangerWashText : balance ? theme.onHero.warningWashText : theme.onHero.accentWashText;
   const balanceLine = balance
     ? `${gbp(balance)} outstanding across ${customer.invoices.filter((v) => v.status !== 'paid').length} invoice(s)`
     : 'Nothing outstanding';
@@ -36,21 +36,21 @@ export function DetailView({ customer, onDelete }: DetailViewProps) {
 
   return (
     <Animated.View entering={FadeInUp.duration(220)} style={styles.wrap}>
-      <Card elevation="inverted" style={styles.summaryCard}>
+      <Card elevation="hero" style={styles.summaryCard}>
         <View style={styles.summaryRow}>
           <View style={styles.gap5}>
-            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Invoiced to date</Text>
-            <Text style={[styles.summaryValue, tabularNums, { color: theme.onDark.text }]}>{gbp(lifetime(customer))}</Text>
+            <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Invoiced to date</Text>
+            <Text style={[styles.summaryValue, tabularNums, { color: theme.onHero.text }]}>{gbp(lifetime(customer))}</Text>
           </View>
           <View style={[styles.pill, { backgroundColor: pillBg }]}>
             <View style={[styles.pillDot, { backgroundColor: pillFg }]} />
             <Text style={[styles.pillLabel, { color: pillFg }]}>{status}</Text>
           </View>
         </View>
-        <View style={[styles.divider, { backgroundColor: 'rgba(233,241,236,0.14)' }]} />
+        <View style={[styles.divider, { backgroundColor: theme.onHero.divider }]} />
         <View style={styles.balanceRow}>
-          <Text style={[styles.balanceLine, { color: theme.onDark.avatarText }]}>{balanceLine}</Text>
-          <Text style={[styles.since, tabularNums, { color: theme.onDark.textMuted }]}>{customer.since}</Text>
+          <Text style={[styles.balanceLine, { color: theme.onHero.avatarText }]}>{balanceLine}</Text>
+          <Text style={[styles.since, tabularNums, { color: theme.onHero.textMuted }]}>{customer.since}</Text>
         </View>
       </Card>
 

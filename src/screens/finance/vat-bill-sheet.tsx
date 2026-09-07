@@ -89,12 +89,12 @@ export function VatBillSheet(props: VatBillSheetProps) {
                 <Pressable
                   key={e.id}
                   onPress={() => onChange({ expenseId: e.id })}
-                  style={[styles.candidate, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                  style={[styles.candidate, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
                 >
-                  <Text style={[styles.candidateName, { color: on ? theme.onDark.text : theme.textPrimary }]} numberOfLines={1}>
+                  <Text style={[styles.candidateName, { color: on ? theme.selectedText : theme.textPrimary }]} numberOfLines={1}>
                     {e.name}
                   </Text>
-                  <Text style={[styles.candidateMeta, { color: on ? theme.onDark.textMuted : theme.textSecondary }]} numberOfLines={1}>
+                  <Text style={[styles.candidateMeta, { color: on ? theme.selectedTextMuted : theme.textSecondary }]} numberOfLines={1}>
                     {e.id.toUpperCase()} · {e.status}
                   </Text>
                 </Pressable>

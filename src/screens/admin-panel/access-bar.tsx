@@ -6,23 +6,23 @@ import { fontFamily, tabularNums, type Theme } from '@/theme';
 import type { AccessCounts } from '@/data/admin-panel/types';
 
 /** One palette for the meter, the legend and the role cards, so the same colour always means the same level. */
-export function barColors(theme: Theme, onDark = false) {
+export function barColors(theme: Theme, hero = false) {
   return {
-    edit: onDark ? theme.onDark.accent : theme.accent,
-    view: onDark ? theme.onDark.textMuted : theme.draftDot,
-    none: onDark ? 'rgba(255,255,255,0.14)' : theme.border,
+    edit: hero ? theme.onHero.accent : theme.accent,
+    view: hero ? theme.onHero.textMuted : theme.draftDot,
+    none: hero ? theme.onHero.track : theme.border,
   };
 }
 
 export interface AccessBarProps {
   counts: AccessCounts;
   height?: number;
-  onDark?: boolean;
+  hero?: boolean;
 }
 
-export function AccessBar({ counts, height = 5, onDark = false }: AccessBarProps) {
+export function AccessBar({ counts, height = 5, hero = false }: AccessBarProps) {
   const theme = useTheme();
-  const c = barColors(theme, onDark);
+  const c = barColors(theme, hero);
   return (
     <SegmentedProportionBar
       height={height}
@@ -38,13 +38,13 @@ export function AccessBar({ counts, height = 5, onDark = false }: AccessBarProps
 
 export interface AccessLegendProps {
   counts: AccessCounts;
-  onDark?: boolean;
+  hero?: boolean;
 }
 
-export function AccessLegend({ counts, onDark = false }: AccessLegendProps) {
+export function AccessLegend({ counts, hero = false }: AccessLegendProps) {
   const theme = useTheme();
-  const c = barColors(theme, onDark);
-  const fg = onDark ? theme.onDark.textMuted : theme.textSecondary;
+  const c = barColors(theme, hero);
+  const fg = hero ? theme.onHero.textMuted : theme.textSecondary;
 
   return (
     <View style={styles.legend}>

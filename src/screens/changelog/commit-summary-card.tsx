@@ -15,25 +15,25 @@ export function CommitSummaryCard({ feed }: CommitSummaryCardProps) {
   const t = tally(feed.commits);
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.surfaceInverted }]}>
+    <View style={[styles.card, { backgroundColor: theme.surfaceHero, borderColor: theme.surfaceHeroBorder, borderWidth: theme.scheme === 'dark' ? 1 : 0, boxShadow: theme.shadows.raised }]}>
       <View style={styles.headRow}>
         <View style={styles.headText}>
-          <Text style={[styles.title, { color: theme.onDark.text }]} numberOfLines={1}>
+          <Text style={[styles.title, { color: theme.onHero.text }]} numberOfLines={1}>
             {feed.commits.length} commits
           </Text>
-          <Text style={[styles.meta, { color: theme.onDark.textMuted }]} numberOfLines={1}>
+          <Text style={[styles.meta, { color: theme.onHero.textMuted }]} numberOfLines={1}>
             Updated {relativeTime(feed.fetchedAt)}
           </Text>
         </View>
-        <View style={[styles.stateChip, { backgroundColor: feed.stale ? theme.onDark.warningWash : theme.onDark.accentWash }]}>
-          <View style={[styles.stateDot, { backgroundColor: feed.stale ? theme.onDark.warningWashText : theme.onDark.accentWashText }]} />
-          <Text style={[styles.stateLabel, { color: feed.stale ? theme.onDark.warningWashText : theme.onDark.accentWashText }]}>
+        <View style={[styles.stateChip, { backgroundColor: feed.stale ? theme.onHero.warningWash : theme.onHero.accentWash }]}>
+          <View style={[styles.stateDot, { backgroundColor: feed.stale ? theme.onHero.warningWashText : theme.onHero.accentWashText }]} />
+          <Text style={[styles.stateLabel, { color: feed.stale ? theme.onHero.warningWashText : theme.onHero.accentWashText }]}>
             {feed.stale ? 'Offline' : 'Live'}
           </Text>
         </View>
       </View>
 
-      <View style={[styles.divider, { backgroundColor: theme.onDark.textMuted }]} />
+      <View style={[styles.divider, { backgroundColor: theme.onHero.divider }]} />
 
       <View style={styles.countsRow}>
         <CountCell label="Features" value={t.Feature} theme={theme} />
@@ -47,8 +47,8 @@ export function CommitSummaryCard({ feed }: CommitSummaryCardProps) {
 function CountCell({ label, value, theme }: { label: string; value: number; theme: ReturnType<typeof useTheme> }) {
   return (
     <View style={styles.countCell}>
-      <Text style={[styles.countLabel, { color: theme.onDark.textMuted }]}>{label}</Text>
-      <Text style={[styles.countValue, { color: theme.onDark.text }]}>{value}</Text>
+      <Text style={[styles.countLabel, { color: theme.onHero.textMuted }]}>{label}</Text>
+      <Text style={[styles.countValue, { color: theme.onHero.text }]}>{value}</Text>
     </View>
   );
 }

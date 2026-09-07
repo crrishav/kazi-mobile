@@ -42,9 +42,9 @@ export function ReportSheet({ visible, draft, onClose, onChange, onSubmit }: Rep
               <Pressable
                 key={a}
                 onPress={() => onChange({ area: a })}
-                style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.chip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
-                <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{a}</Text>
+                <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{a}</Text>
               </Pressable>
             );
           })}

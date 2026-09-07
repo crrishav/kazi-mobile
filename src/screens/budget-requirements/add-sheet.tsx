@@ -58,10 +58,10 @@ export function AddSheet({ visible, draft, who, onClose, onChange, onSubmit }: A
               <Pressable
                 key={c}
                 onPress={() => onChange({ cat: c })}
-                style={[styles.categoryButton, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.categoryButton, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
                 <View style={[styles.categoryMark, { backgroundColor: on ? theme.accent : CATEGORY[c].mark }]} />
-                <Text style={[styles.categoryLabel, { color: on ? theme.onDark.text : theme.textPrimary }]} numberOfLines={1}>
+                <Text style={[styles.categoryLabel, { color: on ? theme.selectedText : theme.textPrimary }]} numberOfLines={1}>
                   {c}
                 </Text>
               </Pressable>
@@ -113,14 +113,14 @@ export function AddSheet({ visible, draft, who, onClose, onChange, onSubmit }: A
               <Pressable
                 key={p}
                 onPress={() => onChange({ priority: p })}
-                style={[styles.priorityButton, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.priorityButton, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
                 <View style={styles.bars}>
                   <View style={[styles.bar, { height: 6, backgroundColor: bars[0] }]} />
                   <View style={[styles.bar, { height: 9, backgroundColor: bars[1] }]} />
                   <View style={[styles.bar, { height: 12, backgroundColor: bars[2] }]} />
                 </View>
-                <Text style={[styles.priorityLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{p}</Text>
+                <Text style={[styles.priorityLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{p}</Text>
               </Pressable>
             );
           })}
@@ -137,9 +137,9 @@ export function AddSheet({ visible, draft, who, onClose, onChange, onSubmit }: A
               <Pressable
                 key={d}
                 onPress={() => onChange({ by: d })}
-                style={[styles.byButton, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.byButton, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
-                <Text style={[styles.byLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{d}</Text>
+                <Text style={[styles.byLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{d}</Text>
               </Pressable>
             );
           })}

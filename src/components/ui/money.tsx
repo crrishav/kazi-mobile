@@ -15,8 +15,8 @@ export interface MoneyProps {
   inline?: boolean;
   /** Primary-amount font size. Secondary scales to ~0.72 of it. Default 15. */
   size?: number;
-  /** On a dark ("inverted") surface, use the on-dark foreground palette. */
-  onDark?: boolean;
+  /** On the screen's hero card, use the hero foreground palette. */
+  hero?: boolean;
   align?: 'left' | 'right';
   style?: StyleProp<ViewStyle>;
   primaryStyle?: StyleProp<TextStyle>;
@@ -34,7 +34,7 @@ export function Money({
   secondary = true,
   inline = false,
   size = 15,
-  onDark = false,
+  hero = false,
   align = 'left',
   style,
   primaryStyle,
@@ -43,8 +43,8 @@ export function Money({
   const { parts } = useCurrency();
   const { primary, secondary: secondaryText } = parts(npr, { compact });
 
-  const primaryColor = onDark ? theme.onDark.text : theme.textPrimary;
-  const secondaryColor = onDark ? theme.onDark.textMuted : theme.textSecondary;
+  const primaryColor = hero ? theme.onHero.text : theme.textPrimary;
+  const secondaryColor = hero ? theme.onHero.textMuted : theme.textSecondary;
   const alignItems = align === 'right' ? 'flex-end' : 'flex-start';
 
   if (inline) {

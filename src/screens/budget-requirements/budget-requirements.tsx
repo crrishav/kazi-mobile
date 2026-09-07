@@ -8,7 +8,9 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { useBackHandler } from '@/lib/use-back-handler';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { ViewSwap } from '@/components/ui/view-swap';
 import { GBP_RATE, toGBP } from '@/lib/currency';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -54,6 +56,13 @@ function emptyRequestDraft(): BudgetRequestDraft {
   return { title: '', category: 'Equipment', amountGBP: '', urgency: 'Medium', justification: '' };
 }
 
+/**
+ * Outermost first — `ViewSwap` reads the direction of travel from this. The two
+ * detail views are only ever reached from the list and left back to it, never
+ * one to the other, so their relative order does not come into play.
+ */
+const BUDGET_VIEW_ORDER = ['list', 'requirement', 'request'] as const;
+
 export function BudgetRequirements() {
   const theme = useTheme();
   const toast = useToast();
@@ -84,6 +93,22 @@ export function BudgetRequirements() {
   const [requestOpen, setRequestOpen] = useState(false);
   const [draft, setDraft] = useState<RequirementDraft>(emptyDraft());
   const [reqDraft, setReqDraft] = useState<BudgetRequestDraft>(emptyRequestDraft());
+
+  // Detail first, then the Requests/Requirements switch — the two views this
+  // route holds beyond its list.
+  useBackHandler(() => {
+    if (view === 'detail') {
+      setView('list');
+      setSelectedId(null);
+      setSelectedReqId(null);
+      return true;
+    }
+    if (tab !== 'requests') {
+      setTab('requests');
+      return true;
+    }
+    return false;
+  });
 
   if (isBlocked(requirementsQuery, requestsQuery) || !requirements || !requests) return <ScreenGate queries={[requirementsQuery, requestsQuery]} />;
 
@@ -237,7 +262,7 @@ export function BudgetRequirements() {
   // ---- Detail views ----
   if (view === 'detail' && tab === 'requirements' && selected) {
     return (
-      <View style={[styles.flex, { backgroundColor: theme.background }]}>
+      <ViewSwap viewKey="requirement" order={BUDGET_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
         <ScreenHeader title={selected.item} subtitle={`${selected.ref} · ${selected.cat}`} onBack={backToList} />
         <ScrollView contentContainerStyle={styles.content}>
           <DetailView
@@ -248,13 +273,13 @@ export function BudgetRequirements() {
             onDecline={() => decide(selected, 'declined')}
           />
         </ScrollView>
-      </View>
+      </ViewSwap>
     );
   }
 
   if (view === 'detail' && tab === 'requests' && selectedRequest) {
     return (
-      <View style={[styles.flex, { backgroundColor: theme.background }]}>
+      <ViewSwap viewKey="request" order={BUDGET_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
         <ScreenHeader title={selectedRequest.title} subtitle={`${selectedRequest.ref} · ${selectedRequest.category}`} onBack={backToList} />
         <ScrollView contentContainerStyle={styles.content}>
           <RequestDetailView
@@ -265,12 +290,12 @@ export function BudgetRequirements() {
             onReject={() => decideRequest(selectedRequest, 'Rejected')}
           />
         </ScrollView>
-      </View>
+      </ViewSwap>
     );
   }
 
   return (
-    <View style={[styles.flex, { backgroundColor: theme.background }]}>
+    <ViewSwap viewKey="list" order={BUDGET_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
       <ScreenHeader title="Budget & Requirements" subtitle={`${requests.length + requirements.length} open · August 2026`} />
 
       <View style={styles.tabsWrap}>
@@ -317,10 +342,10 @@ export function BudgetRequirements() {
           {canRaise ? (
             <Pressable
               onPress={openAdd}
-              style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}
+              style={[styles.fab, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined }]}
             >
-              <Icon name="plus" size={18} color={theme.onDark.accent} />
-              <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>New requirement</Text>
+              <Icon name="plus" size={18} color={theme.accentText} />
+              <Text style={[styles.fabLabel, { color: theme.accentText }]}>New requirement</Text>
             </Pressable>
           ) : null}
         </>
@@ -368,10 +393,10 @@ export function BudgetRequirements() {
           {canRaise ? (
             <Pressable
               onPress={openRequest}
-              style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}
+              style={[styles.fab, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined }]}
             >
-              <Icon name="plus" size={18} color={theme.onDark.accent} />
-              <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>New request</Text>
+              <Icon name="plus" size={18} color={theme.accentText} />
+              <Text style={[styles.fabLabel, { color: theme.accentText }]}>New request</Text>
             </Pressable>
           ) : null}
         </>
@@ -394,7 +419,7 @@ export function BudgetRequirements() {
         onChange={(p) => setReqDraft((d) => ({ ...d, ...p }))}
         onSubmit={handleSubmitRequest}
       />
-    </View>
+    </ViewSwap>
   );
 }
 

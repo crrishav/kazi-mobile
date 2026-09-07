@@ -129,13 +129,13 @@ export function AddSheet({ visible, draft, onClose, onChange, onSave, parties = 
                 style={[
                   styles.methodButton,
                   {
-                    backgroundColor: on ? theme.surfaceInverted : theme.surface,
-                    borderColor: on ? theme.surfaceInverted : theme.border,
+                    backgroundColor: on ? theme.selectedSurface : theme.surface,
+                    borderColor: on ? theme.selectedBorder : theme.border,
                   },
                 ]}
               >
-                <Icon name={m.icon} size={16} color={on ? theme.onDark.text : theme.textPrimary} />
-                <Text style={[styles.methodLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{m.label}</Text>
+                <Icon name={m.icon} size={16} color={on ? theme.selectedText : theme.textPrimary} />
+                <Text style={[styles.methodLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{m.label}</Text>
               </Pressable>
             );
           })}
@@ -336,12 +336,12 @@ const LineCard = memo(function LineCard({
               style={[
                 styles.unitChip,
                 {
-                  backgroundColor: on ? theme.surfaceInverted : 'transparent',
-                  borderColor: on ? theme.surfaceInverted : theme.border,
+                  backgroundColor: on ? theme.selectedSurface : 'transparent',
+                  borderColor: on ? theme.selectedBorder : theme.border,
                 },
               ]}
             >
-              <Text style={[styles.unitText, { color: on ? theme.onDark.text : theme.textSecondary }]}>{u}</Text>
+              <Text style={[styles.unitText, { color: on ? theme.selectedText : theme.textSecondary }]}>{u}</Text>
             </Pressable>
           );
         })}
@@ -350,12 +350,12 @@ const LineCard = memo(function LineCard({
           style={[
             styles.unitChip,
             {
-              backgroundColor: unitIsOther ? theme.surfaceInverted : 'transparent',
-              borderColor: unitIsOther ? theme.surfaceInverted : theme.border,
+              backgroundColor: unitIsOther ? theme.selectedSurface : 'transparent',
+              borderColor: unitIsOther ? theme.selectedBorder : theme.border,
             },
           ]}
         >
-          <Text style={[styles.unitText, { color: unitIsOther ? theme.onDark.text : theme.textSecondary }]}>other</Text>
+          <Text style={[styles.unitText, { color: unitIsOther ? theme.selectedText : theme.textSecondary }]}>other</Text>
         </Pressable>
       </View>
 
@@ -446,10 +446,10 @@ function Chip({ label, on, onPress, theme }: { label: string; on: boolean; onPre
       onPress={onPress}
       style={[
         styles.chip,
-        { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border },
+        { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border },
       ]}
     >
-      <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{label}</Text>
+      <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -471,10 +471,10 @@ function Segment({ label, on, onPress, theme }: { label: string; on: boolean; on
       onPress={onPress}
       style={[
         styles.segment,
-        { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border },
+        { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border },
       ]}
     >
-      <Text style={[styles.segmentLabel, { color: on ? theme.onDark.text : theme.textPrimary }]} numberOfLines={1}>
+      <Text style={[styles.segmentLabel, { color: on ? theme.selectedText : theme.textPrimary }]} numberOfLines={1}>
         {label}
       </Text>
     </Pressable>

@@ -8,7 +8,11 @@ import { useToast } from '@/components/toast/toast-provider';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { ScreenHeader } from '@/components/ui/screen-header';
+import { useModulePresentation } from '@/components/tab-bar/use-own-tab';
+import { useBackHandler } from '@/lib/use-back-handler';
 import { useTheme } from '@/theme/theme-provider';
+import * as haptics from '@/lib/haptics';
 import { fontFamily } from '@/theme';
 import { useInvoices } from '@/data/billing/hooks';
 import { nprOf, paid as invoicePaid } from '@/data/billing/utils';
@@ -61,7 +65,6 @@ import { BalanceSheetView } from './balance-sheet-view';
 import { BankTxSheet, type BankTxDraft } from './bank-tx-sheet';
 import { BankView } from './bank-view';
 import { ExpensesView, type ExpensesFilter } from './expenses-view';
-import { FinanceHeader } from './header';
 import { JournalSheet, isAdvanceAccount, type JournalDraft } from './journal-sheet';
 import { JournalView } from './journal-view';
 import { KpiStrip } from './kpi-strip';
@@ -137,6 +140,10 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   const { profile, can, financeTab } = useAuth();
   const isAccounting = variant === 'accounting';
   const section = isAccounting ? 'accounting' : 'finance';
+  // Accounting is always a pushed route of its own — `accounting` is nobody's
+  // tab section, so asking about it yields the pushed presentation, which is
+  // exactly right for a screen that lives outside `(tabs)`.
+  const { showBack, bottomInset } = useModulePresentation(section);
 
   const expensesQuery = useExpenses();
   const { data: expenses } = expensesQuery;
@@ -204,6 +211,25 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   const [oplFilter, setOplFilter] = useState<OrderPnlFilter>('all');
   const [oplOrderId, setOplOrderId] = useState<string | null>(null);
   const [oplDraft, setOplDraft] = useState<OrderCostsDraft>(emptyOrderCostsDraft());
+
+  // Two drill-downs and a tab strip, all inside this route. Back unwinds them
+  // in the order they were opened before it gives up the screen.
+  const homeTab: FinanceTabId = isAccounting ? 'journal' : 'overview';
+  useBackHandler(() => {
+    if (drill === 'fy-transactions') {
+      setDrill('years');
+      return true;
+    }
+    if (drill === 'years') {
+      setDrill(null);
+      return true;
+    }
+    if (tab !== homeTab) {
+      setTab(homeTab);
+      return true;
+    }
+    return false;
+  });
 
   const ledgerSources = useMemo(
     () => ({
@@ -426,6 +452,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   };
 
   const removeExpense = (e: Expense) => {
+    haptics.committed();
     const beforeExpenses = expenses;
     const beforeBills = vatBills;
     deleteExpense.mutate(e.id);
@@ -466,6 +493,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   };
 
   const removeBill = (bill: VatBill) => {
+    haptics.committed();
     const before = vatBills;
     deleteVatBill.mutate(bill.id);
     setVatSheet({ mode: null, bill: null });
@@ -626,6 +654,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   };
 
   const removeBankTx = (tx: (typeof bankTransactions)[number]) => {
+    haptics.committed();
     const before = bankTransactions;
     deleteBankTx.mutate(tx.id);
     toast.show({
@@ -684,7 +713,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   if (drill === 'years') {
     return (
       <View style={[styles.flex, { backgroundColor: theme.background }]}>
-        <FinanceHeader title="Browse by fiscal year" subtitle="Shrawan – Ashad · Nepal" onBack={() => setDrill(null)} />
+        <ScreenHeader title="Browse by fiscal year" subtitle="Shrawan – Ashad · Nepal" onBack={() => setDrill(null)} />
         <ScrollView contentContainerStyle={styles.content}>
           <YearsView
             years={YEARS}
@@ -702,7 +731,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   if (drill === 'fy-transactions') {
     return (
       <View style={[styles.flex, { backgroundColor: theme.background }]}>
-        <FinanceHeader
+        <ScreenHeader
           title={year?.label ?? ''}
           subtitle={year ? `${year.entries.toLocaleString()} entries · ${year.turnover}` : ''}
           onBack={() => setDrill('years')}
@@ -742,7 +771,8 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   // ---- Tabbed hub ----
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>
-      <FinanceHeader
+      <ScreenHeader
+        showBack={showBack}
         title={isAccounting ? 'Accounting' : 'Finance'}
         subtitle={isAccounting ? 'Double-entry · FY 2082/83' : 'Bhadra 2083 · month to date'}
       />
@@ -767,7 +797,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
       </View>
       <FinanceTabs tabs={tabs} active={tab} onChange={setTab} />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 110 + bottomInset }]}>
         {!canEdit ? <PermissionNotice section={section} /> : null}
 
         {tab === 'overview' ? (
@@ -904,23 +934,30 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
         />
       )}
 
-      {canEdit && (tab === 'overview' || tab === 'expenses') ? <FinanceFab label="Add expense" onPress={openAdd} /> : null}
-      {canEdit && tab === 'purchases' ? <FinanceFab label="Add purchase" onPress={() => setPurchasesAddNonce((n) => n + 1)} /> : null}
-      {canEdit && tab === 'journal' ? <FinanceFab label="Post entry" onPress={openAddJournal} /> : null}
-      {canEdit && tab === 'bank' ? <FinanceFab label="Log transaction" onPress={openAddBank} /> : null}
+      {canEdit && (tab === 'overview' || tab === 'expenses') ? <FinanceFab label="Add expense" onPress={openAdd} bottom={bottomInset} /> : null}
+      {canEdit && tab === 'purchases' ? <FinanceFab label="Add purchase" onPress={() => setPurchasesAddNonce((n) => n + 1)} bottom={bottomInset} /> : null}
+      {canEdit && tab === 'journal' ? <FinanceFab label="Post entry" onPress={openAddJournal} bottom={bottomInset} /> : null}
+      {canEdit && tab === 'bank' ? <FinanceFab label="Log transaction" onPress={openAddBank} bottom={bottomInset} /> : null}
     </View>
   );
 }
 
-function FinanceFab({ label, onPress }: { label: string; onPress: () => void }) {
+function FinanceFab({ label, onPress, bottom }: { label: string; onPress: () => void; bottom: number }) {
   const theme = useTheme();
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.fab, { backgroundColor: theme.surfaceInverted, boxShadow: theme.scheme === 'light' ? '0 16px 30px -16px rgba(13,31,25,0.85)' : undefined }]}
+      style={[
+        styles.fab,
+        {
+          bottom: 24 + bottom,
+          backgroundColor: theme.accent,
+          boxShadow: theme.scheme === 'light' ? '0 12px 26px -12px rgba(20,122,87,0.95)' : undefined,
+        },
+      ]}
     >
-      <Icon name="plus" size={18} color={theme.onDark.accent} />
-      <Text style={[styles.fabLabel, { color: theme.onDark.text }]}>{label}</Text>
+      <Icon name="plus" size={18} color={theme.accentText} />
+      <Text style={[styles.fabLabel, { color: theme.accentText }]}>{label}</Text>
     </Pressable>
   );
 }

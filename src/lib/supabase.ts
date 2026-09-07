@@ -12,14 +12,6 @@
  *   - `getSupabase()` — the data client. Every request carries whatever
  *     `currentAccessToken()` returns.
  *
- * **Why not Firebase tokens.** The project's JWKS holds only Supabase's own
- * signing key; Firebase was never registered as a Third-Party Auth provider,
- * so a Firebase ID token comes back `401 PGRST301 "No suitable key was found
- * to decode the JWT"` on every single read and write. `currentAccessToken`
- * therefore prefers the Supabase session and only offers the Firebase token as
- * a last resort — harmless if the provider is ever registered, and the reason
- * a Firebase-only account still sees no live data today.
- *
  * Postgres RLS resolves the token to a `people` row (`app_person_id()` accepts
  * both a native uuid `sub` and a legacy Firebase uid) and derives every
  * permission from that person's position. A signed-in account with no `people`
@@ -34,8 +26,6 @@ import { AppState } from 'react-native';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-
-import { getFirebaseAuth, isFirebaseConfigured } from '@/lib/firebase';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -55,12 +45,11 @@ let authRef: SupabaseClient | null = null;
 let dataRef: SupabaseClient | null = null;
 
 /**
- * Which token the last data request carried. `'firebase'` is the diagnosis for
- * a whole app's worth of 401s at once — Postgres cannot verify that token — so
- * the read-error copy can tell the person the one thing that actually helps
- * (set a Supabase password) instead of "sign in again", which won't.
+ * Whether the last data request carried a session token at all. `null` means it
+ * went out as `anon`, which reads almost nothing — the diagnosis for a whole
+ * screen of empty or denied results at once.
  */
-export type TokenSource = 'supabase' | 'firebase' | null;
+export type TokenSource = 'supabase' | null;
 let tokenSource: TokenSource = null;
 export function lastTokenSource(): TokenSource {
   return tokenSource;
@@ -116,11 +105,9 @@ function claimsOf(token: string): Record<string, unknown> | null {
  * Say — once per distinct token, in dev only — exactly who the data client is
  * signing requests as.
  *
- * Every failure mode this wiring has ever had looks identical from a screen:
- * a wall of `PGRST301 "No suitable key or wrong key type"` with nothing naming
- * the cause. The cause is always in the token, so print it: a Firebase `iss`
- * means Postgres will reject every request no matter how many times the person
- * signs in, and no token at all means the request went out as `anon`.
+ * Every failure mode this wiring has had looks identical from a screen: denied
+ * or empty results with nothing naming the cause. The cause is in the token, so
+ * print it — no token at all means the request went out as `anon`.
  */
 let announced = '';
 function announce(source: TokenSource, token: string | null): void {
@@ -134,26 +121,16 @@ function announce(source: TokenSource, token: string | null): void {
   if (source === 'supabase') {
     const exp = typeof claims?.exp === 'number' ? new Date(claims.exp * 1000).toISOString() : 'unknown';
     console.log(`[supabase] signing data requests as ${who} (Supabase session, expires ${exp})`);
-  } else if (source === 'firebase') {
-    console.warn(
-      `[supabase] signing data requests with a FIREBASE token for ${who}. Postgres cannot ` +
-        'verify it — the project JWKS holds only Supabase’s own key — so every read and ' +
-        'write below will fail with PGRST301. This is a session left over from before the ' +
-        'Supabase swap: sign out and sign in again to trade it for one that works. If the ' +
-        'sign-in itself fails, the account has no Supabase password yet — "Forgot password?".',
-    );
   } else {
     console.warn('[supabase] no session — data requests go out as the anon role and will see almost nothing.');
   }
 }
 
 /**
- * The token every data request is signed with: the Supabase session first (the
- * only one Postgres can verify), then a Firebase ID token, then nothing.
+ * The token every data request is signed with: the Supabase session, or nothing.
  *
- * `getSession()` refreshes on its own when the cached token has expired, and
- * `getIdToken()` does the same on the Firebase side, so neither branch can
- * hand back something stale.
+ * `getSession()` refreshes on its own when the cached token has expired, so this
+ * can never hand back something stale.
  */
 async function currentAccessToken(): Promise<string | null> {
   try {
@@ -165,20 +142,6 @@ async function currentAccessToken(): Promise<string | null> {
     }
   } catch (err) {
     console.warn('[supabase] could not read the auth session', err);
-  }
-
-  if (isFirebaseConfigured) {
-    try {
-      const user = getFirebaseAuth().currentUser;
-      if (user) {
-        tokenSource = 'firebase';
-        const token = await user.getIdToken();
-        announce('firebase', token);
-        return token;
-      }
-    } catch {
-      // fall through to anonymous
-    }
   }
 
   tokenSource = null;

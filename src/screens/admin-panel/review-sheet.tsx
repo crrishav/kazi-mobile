@@ -32,7 +32,7 @@ function toPalette(theme: Theme, diff: DiffRow) {
 /**
  * Nothing is live until this is applied.
  *
- * The same richer-than-`BottomSheet` shape as `DirectorSheet` — a header with
+ * A richer shape than a plain `BottomSheet` — a header with
  * more than a plain title plus a pinned footer below the scroll area — because
  * the whole batch goes up together and the person needs to read it first.
  */

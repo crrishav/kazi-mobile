@@ -44,10 +44,10 @@ export function EntrySheet({ visible, mode, draft, onClose, onChange, onSave, on
               <Pressable
                 key={day}
                 onPress={() => onChange({ d: day })}
-                style={[styles.dateChip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.dateChip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
-                <Text style={[styles.dateWeekday, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{WEEKDAYS[new Date(draft.y, draft.m, day).getDay()]}</Text>
-                <Text style={[styles.dateDay, tabularNums, { color: on ? theme.onDark.text : theme.textPrimary }]}>{day}</Text>
+                <Text style={[styles.dateWeekday, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{WEEKDAYS[new Date(draft.y, draft.m, day).getDay()]}</Text>
+                <Text style={[styles.dateDay, tabularNums, { color: on ? theme.selectedText : theme.textPrimary }]}>{day}</Text>
               </Pressable>
             );
           })}

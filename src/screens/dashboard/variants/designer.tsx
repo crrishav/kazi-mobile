@@ -62,7 +62,7 @@ export function DesignerDashboard() {
       ) : null}
 
       {canView('order-management') ? (
-        <Pressable onPress={() => router.push('/order-management')} style={pressStyle}>
+        <Pressable onPress={() => router.push('/production')} style={pressStyle}>
           <OrdersByStageCard stages={data.stages} total={data.activeOrdersTotal} />
         </Pressable>
       ) : null}

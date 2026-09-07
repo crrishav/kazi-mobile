@@ -1,6 +1,6 @@
 /**
  * Write side of the Supabase swap — a drop-in replacement for
- * `@/lib/firestore/write`, exporting the same five helpers with the same
+ * the pre-migration write layer, exporting the same five helpers with the same
  * signatures so no module's writer had to be rewritten.
  *
  * Unlike reads, writes bypass the compat views and hit the real tables, so
@@ -21,6 +21,7 @@
  */
 
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
+import { DataWriteError } from './read';
 
 export type DocumentData = Record<string, unknown>;
 
@@ -140,7 +141,7 @@ function specFor(name: string): Spec {
 /**
  * `serverTimestamp()` arrives as an opaque sentinel — either a real Firestore
  * FieldValue (during the transition) or the shim's marker from
- * `@/lib/supabase/firestore-compat`.
+ * `@/lib/supabase/collections`.
  */
 function isSentinel(v: unknown): boolean {
   return (
@@ -161,15 +162,31 @@ function asArrayUnion(v: unknown): unknown[] | null {
 
 const personByUid = new Map<string, string | null>();
 
-/** Firebase uid (or a display name) → `people.id`. Cached; null when unknown. */
+/** A `people.id` — the only key the attendance collections agree on since the migration. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * `people.id`, a Firebase uid, or a display name → `people.id`. Cached; null when
+ * unknown.
+ *
+ * The uuid branch matters: attendance now keys on `people.id`, and without it a
+ * write carrying one fell through to the name lookup — which misses anyone whose
+ * `staffName` was ever spelled differently, and silently wrote `person_id: null`.
+ */
 async function resolvePerson(key: unknown): Promise<string | null> {
   const k = typeof key === 'string' ? key.trim() : '';
   if (!k) return null;
   if (personByUid.has(k)) return personByUid.get(k) ?? null;
   const sb = getSupabase();
   let id: string | null = null;
-  const byUid = await sb.from('people').select('id').eq('legacy_firebase_uid', k).maybeSingle();
-  if (byUid.data) id = (byUid.data as { id: string }).id;
+  if (UUID.test(k)) {
+    const byId = await sb.from('people').select('id').eq('id', k).maybeSingle();
+    if (byId.data) id = (byId.data as { id: string }).id;
+  }
+  if (!id) {
+    const byUid = await sb.from('people').select('id').eq('legacy_firebase_uid', k).maybeSingle();
+    if (byUid.data) id = (byUid.data as { id: string }).id;
+  }
   if (!id) {
     const byName = await sb.from('people').select('id').ilike('full_name', k).maybeSingle();
     if (byName.data) id = (byName.data as { id: string }).id;
@@ -319,10 +336,19 @@ export async function removeDocument(name: string, id: string): Promise<void> {
 }
 
 /**
- * Wrap a live writer so the mock stays in step. The live write runs first;
- * any failure is logged loudly (a denied RLS write is a real event, not
- * noise) and then the mock write still applies, so a subsequent fallback
- * read agrees with what the UI is showing.
+ * Wrap a live writer so a failure SURFACES instead of being papered over.
+ *
+ * This used to swallow every error and return the mock result anyway, which
+ * made a rejected write — an RLS denial, a bad column, being offline — look
+ * exactly like a successful one: the optimistic update landed, the toast said
+ * "saved", and nothing had reached Postgres. Now the live write is the write:
+ * if it throws, so does this, and the caller's mutation rejects so the UI can
+ * say so and React Query can roll the optimistic update back.
+ *
+ * The mock still runs after a SUCCESSFUL live write, so the in-memory store a
+ * few screens read from stays in step.
+ *
+ * Unconfigured (local dev with no `.env`) it is the mock and only the mock.
  */
 export function liveWrite<A extends unknown[], R>(
   tag: string,
@@ -339,10 +365,8 @@ export function liveWrite<A extends unknown[], R>(
         console.log(`[supabase] ${tag}: live write OK`);
       }
     } catch (err) {
-      console.error(
-        `[supabase] ${tag}: live write FAILED (RLS / shape / offline?) — mock only, NOT persisted`,
-        err,
-      );
+      console.error(`[supabase] ${tag}: live write FAILED (RLS / shape / offline?) — surfacing to the user`, err);
+      throw new DataWriteError(tag, err);
     }
     return mockFn(...args);
   };

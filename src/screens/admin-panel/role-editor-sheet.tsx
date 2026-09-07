@@ -106,12 +106,12 @@ function RoleEditorForm({
                 style={[
                   styles.scopeButton,
                   {
-                    backgroundColor: on ? theme.surfaceInverted : theme.surface,
-                    borderColor: on ? theme.surfaceInverted : theme.border,
+                    backgroundColor: on ? theme.selectedSurface : theme.surface,
+                    borderColor: on ? theme.selectedBorder : theme.border,
                   },
                 ]}
               >
-                <Text style={[styles.scopeLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>
+                <Text style={[styles.scopeLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>
                   {s.label}
                 </Text>
               </Pressable>

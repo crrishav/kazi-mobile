@@ -15,7 +15,7 @@
  */
 
 import { getSupabase } from '@/lib/supabase';
-import { num, str } from '@/lib/firestore/normalise';
+import { num, str } from '@/lib/data/normalise';
 
 import type {
   AccessLevel,

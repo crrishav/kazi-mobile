@@ -88,9 +88,9 @@ export function AddExpenseSheet({ visible, draft, onClose, onChange, onSave }: A
               <Pressable
                 key={s}
                 onPress={() => onChange({ source: s })}
-                style={[styles.sourceButton, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+                style={[styles.sourceButton, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
               >
-                <Text style={[styles.sourceLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{s}</Text>
+                <Text style={[styles.sourceLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{s}</Text>
               </Pressable>
             );
           })}

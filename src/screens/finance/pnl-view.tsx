@@ -42,21 +42,21 @@ export function PnlView({ pnl, purchases }: PnlViewProps) {
   const catMax = catRows[0]?.[1] ?? 1;
 
   const incomeVsExpense = [
-    { weight: pnl.totalIncome, color: theme.accent },
-    { weight: pnl.totalExpenses, color: theme.scheme === 'light' ? '#C0603C' : '#D98466' },
+    { weight: pnl.totalIncome, color: theme.onHero.accent },
+    { weight: pnl.totalExpenses, color: theme.onHero.danger },
   ];
 
   return (
     <View style={styles.wrap}>
-      <Card elevation="inverted" style={styles.netCard}>
-        <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Net profit / loss</Text>
-        <Money npr={pnl.netProfit} size={30} onDark primaryStyle={styles.netValue} />
+      <Card elevation="hero" style={styles.netCard}>
+        <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Net profit / loss</Text>
+        <Money npr={pnl.netProfit} size={30} hero primaryStyle={styles.netValue} />
         <View style={styles.ivBar}>
           <SegmentedProportionBar segments={incomeVsExpense} height={10} />
         </View>
         <View style={styles.ivLabels}>
-          <Text style={[styles.ivLabel, { color: theme.onDark.textMuted }]}>Income {npr(pnl.totalIncome)}</Text>
-          <Text style={[styles.ivLabel, { color: theme.onDark.textMuted }]}>Expenses {npr(pnl.totalExpenses)}</Text>
+          <Text style={[styles.ivLabel, { color: theme.onHero.textMuted }]}>Income {npr(pnl.totalIncome)}</Text>
+          <Text style={[styles.ivLabel, { color: theme.onHero.textMuted }]}>Expenses {npr(pnl.totalExpenses)}</Text>
         </View>
       </Card>
 

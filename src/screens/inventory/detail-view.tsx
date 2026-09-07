@@ -46,29 +46,29 @@ export function DetailView({ item, movements, onBack, onRaisePO, onAdjust, onEdi
       <ScreenHeader title={item.name} subtitle={`${item.sku} · ${item.supplier}`} onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Card elevation="inverted" style={styles.onHandCard}>
+        <Card elevation="hero" style={styles.onHandCard}>
           <View style={styles.onHandRow}>
             <View style={styles.gap5}>
-              <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>On hand</Text>
+              <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>On hand</Text>
               <View style={styles.baselineRow}>
-                <Text style={[styles.onHandValue, tabularNums, { color: theme.onDark.text }]}>{item.qty.toLocaleString()}</Text>
-                <Text style={[styles.onHandUnit, { color: theme.onDark.textMuted }]}>{item.unit}</Text>
+                <Text style={[styles.onHandValue, tabularNums, { color: theme.onHero.text }]}>{item.qty.toLocaleString()}</Text>
+                <Text style={[styles.onHandUnit, { color: theme.onHero.textMuted }]}>{item.unit}</Text>
               </View>
             </View>
             <View style={[styles.gap5, styles.alignEnd]}>
-              <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Reorder at</Text>
-              <Text style={[styles.reorderValue, tabularNums, { color: theme.onDark.text }]}>{item.threshold.toLocaleString()}</Text>
+              <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Reorder at</Text>
+              <Text style={[styles.reorderValue, tabularNums, { color: theme.onHero.text }]}>{item.threshold.toLocaleString()}</Text>
             </View>
           </View>
           <ThresholdBar
             ratio={Math.min(stockRatio(item), 1)}
             markRatio={0.5}
             color={barColor}
-            trackColor="rgba(233,241,236,0.16)"
-            tickColor={theme.onDark.text}
+            trackColor={theme.onHero.track}
+            tickColor={theme.onHero.text}
             height={6}
           />
-          <Text style={[styles.statusLine, { color: theme.onDark.avatarText }]}>{statusLine}</Text>
+          <Text style={[styles.statusLine, { color: theme.onHero.avatarText }]}>{statusLine}</Text>
           <View style={styles.statusRow}>
             {onAdjust ? <Button label="Adjust stock" size="small" onPress={onAdjust} /> : null}
             <Button label="Raise PO" size="small" variant="secondary" onPress={onRaisePO} />

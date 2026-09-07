@@ -27,7 +27,8 @@
           "microphonePermission": "Kazi records sound with any video you send in a chat."
         }
       ],
-      "expo-document-picker"
+      "expo-document-picker",
+      "expo-video"
     ],
     "scheme": "kazimobile",
     "ios": {

@@ -134,10 +134,10 @@ export function NepaliDatePicker({
             <Pressable
               key={`${item}`}
               onPress={() => onPick(index)}
-              style={[styles.cell, on && { backgroundColor: theme.surfaceInverted }]}
+              style={[styles.cell, on && { backgroundColor: theme.selectedSurface, borderColor: theme.selectedBorder }]}
             >
               <Text
-                style={[styles.cellText, tabularNums, { color: on ? theme.onDark.text : theme.textPrimary }]}
+                style={[styles.cellText, tabularNums, { color: on ? theme.selectedText : theme.textPrimary }]}
                 numberOfLines={1}
               >
                 {item}
@@ -165,10 +165,10 @@ export function NepaliDatePicker({
               accessibilityState={{ selected: on }}
               style={[
                 styles.calendarButton,
-                { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border },
+                { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border },
               ]}
             >
-              <Text style={[styles.calendarLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{c.label}</Text>
+              <Text style={[styles.calendarLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{c.label}</Text>
             </Pressable>
           );
         })}
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   },
   colScroll: { flex: 1 },
   colContent: { gap: 4, paddingVertical: 2 },
-  cell: { height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
+  cell: { height: 38, borderRadius: 10, borderWidth: 1, borderColor: 'transparent', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   cellText: { fontSize: 13.5, fontWeight: '600' },
   preview: { borderRadius: 14, borderWidth: 1, padding: 14, gap: 3, alignItems: 'center' },
   previewBS: { fontSize: 16, fontWeight: '600' },

@@ -24,7 +24,7 @@ export interface MineViewProps {
   geo: GeofenceEval | null;
   lastPunch?: PunchSummary;
   onOpenSettings?: () => void;
-  /** The signed-in user's live month; undefined while the Firestore read is in flight. */
+  /** The signed-in user's live month; undefined while the live read is in flight. */
   month: MyMonth | undefined;
 }
 

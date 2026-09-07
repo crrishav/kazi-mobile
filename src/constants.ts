@@ -27,7 +27,7 @@ export interface ModuleEntry {
 // Postgres, and nobody's Finance tab.
 export const MORE_MODULES: ModuleEntry[] = [
   { id: 'sales', label: 'Sales', route: '/sales', icon: 'trending-up', blurb: 'Pipeline overview' },
-  { id: 'order-management', label: 'Production', route: '/order-management', icon: 'tool', blurb: 'Order pipeline, stages, priority' },
+  { id: 'order-management', label: 'Production', route: '/production', icon: 'tool', blurb: 'Order pipeline, stages, priority' },
   { id: 'inventory', label: 'Inventory', route: '/inventory', icon: 'package', blurb: 'Stock levels, movements, library' },
   { id: 'customers', label: 'Customers', route: '/customers', icon: 'users', blurb: 'Accounts and contacts' },
   { id: 'billing', label: 'Billing', route: '/billing', icon: 'file-text', blurb: 'Invoices, challans, payments' },
@@ -36,7 +36,6 @@ export const MORE_MODULES: ModuleEntry[] = [
   { id: 'employees-hr', label: 'Employees & HR', route: '/employees-hr', icon: 'clipboard', blurb: 'Staff registry, roles' },
   { id: 'attendance', label: 'Attendance', route: '/attendance', icon: 'clock', blurb: 'Daily shift records' },
   { id: 'marketing', label: 'Marketing', route: '/marketing', icon: 'send', blurb: 'Campaigns and leads' },
-  { id: 'directors', label: 'Roles', route: '/directors', icon: 'award', blurb: 'Every role, and who holds it' },
   { id: 'admin-panel', label: 'Admin Panel', route: '/admin-panel', icon: 'shield', blurb: 'Access and roles' },
   { id: 'changelog', label: 'Changelog', route: '/changelog', icon: 'list', blurb: "What's new" },
   { id: 'bug-report', label: 'Bug Report', route: '/bug-report', icon: 'alert-triangle', blurb: 'Log an issue you hit' },

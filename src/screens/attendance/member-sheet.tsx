@@ -74,7 +74,7 @@ export function MemberSheet({ visible, member, canEdit, onClose, onExport }: Mem
   const [selectedDate, setSelectedDate] = useState(today);
 
   const { data: report, isFetching, isError, error, refetch } = useMemberMonth(
-    member?.staffId ? { staffId: member.staffId, staffIds: member.staffIds, name: member.name, monthISO } : null,
+    member?.staffId ? { staffId: member.staffId, name: member.name, monthISO } : null,
   );
   const saveStatus = useSaveDayStatus();
   const saveSchedule = useSaveSchedule();

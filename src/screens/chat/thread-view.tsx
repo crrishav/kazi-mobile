@@ -7,9 +7,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useToast } from '@/components/toast/toast-provider';
 import { useHideTabBar } from '@/components/tab-bar/tab-bar-visibility';
+import { useBackHandler } from '@/lib/use-back-handler';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import { useKeyboardInset } from '@/lib/use-keyboard-inset';
+import * as haptics from '@/lib/haptics';
 import {
   AttachmentError,
   pickAttachment,
@@ -23,7 +25,7 @@ import { attachmentLabel, firstName, groupByDay, isMe, messageText, personFor, t
 import { AttachmentSheet } from './attachment-sheet';
 import { Composer } from './composer';
 import { GroupSheet } from './group-sheet';
-import { ImageViewer } from './image-viewer';
+import { MediaViewer } from './media-viewer';
 import { MessageActionsSheet } from './message-actions-sheet';
 import { MessageBubble } from './message-bubble';
 import { SelectionHeader, ThreadHeader } from './thread-header';
@@ -120,6 +122,29 @@ export function ThreadView({
     setSelected([]);
   }, []);
 
+  /**
+   * The whole Chat tab's back stack, handled here rather than in `chat.tsx`:
+   * a parent's listener is registered after its children's and so is asked
+   * first, which would have closed the thread out from under an open
+   * selection. One handler, outermost layer first.
+   */
+  useBackHandler(() => {
+    if (selecting) {
+      exitSelection();
+      return true;
+    }
+    if (replyToId) {
+      setReplyToId(null);
+      return true;
+    }
+    if (pending) {
+      setPending(null);
+      return true;
+    }
+    onBack();
+    return true;
+  });
+
   const toggleSelected = (id: MessageId) =>
     setSelected((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
 
@@ -162,7 +187,9 @@ export function ThreadView({
       setAttaching(false);
     }
 
-    onSend(text, replyToId ?? undefined, attachment);
+    // `replyTo`, not `replyToId`: a quoted message that has since been deleted
+    // is no longer in `byId`, and sending its id would break the insert.
+    onSend(text, replyTo?.id, attachment);
     setDraft('');
     setReplyToId(null);
     setPending(null);
@@ -185,9 +212,14 @@ export function ThreadView({
     }
   };
 
-  /** Photos open in the viewer; everything else is handed to whatever the phone uses for it. */
+  /**
+   * Photos and videos open in the in-app viewer; documents are handed to
+   * whatever the phone uses for them. Video used to go out to the browser with
+   * the rest, which meant leaving the app to watch a clip somebody had just
+   * sent you — and put a signed storage URL in another app's history.
+   */
   const openAttachment = async (attachment: Attachment) => {
-    if (attachment.kind === 'image') {
+    if (attachment.kind === 'image' || attachment.kind === 'video') {
       setViewing(attachment);
       return;
     }
@@ -208,12 +240,25 @@ export function ThreadView({
   };
 
   const handleBubbleLongPress = (message: Message) => {
+    // A long-press has no feedback of its own until the sheet arrives; this is
+    // the app saying "held long enough" at the moment it becomes true.
+    haptics.pressed();
     if (selecting) toggleSelected(message.id);
     else setSheetTarget(message.id);
   };
 
+  /**
+   * Reply to any message, mine included — but not to one that is still in
+   * flight. An optimistic bubble carries a `pending-…` stand-in id, and
+   * `chat_messages.reply_to` is a real foreign key, so quoting one would fail
+   * the insert outright. It settles into its server id within a moment.
+   */
   const startReply = (id: MessageId) => {
     if (!canPost) return;
+    if (byId.get(id)?.pending) {
+      toast.show({ message: 'Still sending — try replying in a moment.', tone: 'warn' });
+      return;
+    }
     setSheetTarget(null);
     setReplyToId(id);
   };
@@ -250,6 +295,7 @@ export function ThreadView({
               exitSelection();
             }}
             onDelete={() => {
+              haptics.committed();
               onDeleteMessages(selected);
               exitSelection();
             }}
@@ -292,7 +338,6 @@ export function ThreadView({
                   onLongPress={() => handleBubbleLongPress(m)}
                   onReply={() => startReply(m.id)}
                   onToggleReaction={(emoji) => onToggleReaction(m.id, emoji)}
-                  onOpenAttachment={() => m.attachment && void openAttachment(m.attachment)}
                 />
               ))}
             </View>
@@ -330,7 +375,7 @@ export function ThreadView({
 
         <AttachmentSheet visible={attachOpen} onClose={() => setAttachOpen(false)} onPick={(s) => void handlePick(s)} />
 
-        <ImageViewer attachment={viewing} onClose={() => setViewing(null)} />
+        <MediaViewer attachment={viewing} onClose={() => setViewing(null)} />
 
         <ThreadActionsSheet
           thread={optionsOpen ? thread : null}
@@ -355,6 +400,7 @@ export function ThreadView({
             setOptionsOpen(false);
           }}
           onDelete={() => {
+            haptics.committed();
             setOptionsOpen(false);
             onDeleteThread();
           }}
@@ -401,7 +447,10 @@ export function ThreadView({
             setSheetTarget(null);
           }}
           onDelete={() => {
-            if (sheetMessage) onDeleteMessages([sheetMessage.id]);
+            if (sheetMessage) {
+              haptics.committed();
+              onDeleteMessages([sheetMessage.id]);
+            }
             setSheetTarget(null);
           }}
         />

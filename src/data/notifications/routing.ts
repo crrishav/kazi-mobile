@@ -1,8 +1,8 @@
 /**
- * Pure recipient routing — no firebase, no React. Given an event and the
+ * Pure recipient routing — no backend, no React. Given an event and the
  * recipient roster, decide who gets notified and with what urgency. This is the
  * piece that stays identical when the source modules move from mock to
- * Firestore; only the callers of `notify()` change.
+ * Postgres; only the callers of `notify()` change.
  *
  * See the plan / FRONTEND_GAP_PLAN for the full event→recipient matrix.
  */
@@ -262,9 +262,6 @@ const RULES: Record<string, Rule[]> = {
   // Bug Report
   'bug_report.submitted': [{ type: 'action', reason: "You're a system admin", when: ROLE('super_admin') }],
   'bug_report.status_changed': [{ type: 'info', reason: 'You submitted this report', when: ID('submittedBy') }],
-
-  // Dashboard approvals card
-  'approval.decided': [{ type: 'action', reason: 'You raised this for approval', when: ID('requestedBy') }],
 };
 
 /** Event types whose recipients skip the "can you view this section" guard. */

@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { Toast, type ToastAction, type ToastTone } from './toast';
+import { setToastHandler } from './toast-bridge';
 
 interface ToastOptions {
   message: string;
@@ -30,6 +31,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setCurrent(options);
     timeoutRef.current = setTimeout(() => setCurrent(null), options.durationMs ?? 4000);
   }, []);
+
+  // Let non-component code (the query client's global error handler) raise a
+  // toast. Registered here rather than exported so it can never outlive the tree.
+  useEffect(() => {
+    setToastHandler(show);
+    return () => setToastHandler(null);
+  }, [show]);
 
   return (
     <ToastContext.Provider value={{ show, dismiss }}>

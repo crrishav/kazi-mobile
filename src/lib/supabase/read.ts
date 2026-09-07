@@ -1,6 +1,6 @@
 /**
  * Read side of the Supabase swap — a drop-in replacement for
- * `@/lib/firestore/read`, with the same three exports and the same
+ * the pre-migration read layer, with the same three exports and the same
  * signatures, so no per-module mapper had to change.
  *
  * How the shapes still line up: Postgres holds a clean relational schema,
@@ -151,19 +151,16 @@ export class DataReadError extends Error {
 /**
  * Turn a Supabase/PostgREST failure into something a person can act on.
  *
- * A rejected token splits two ways. On a Firebase session EVERY request is
- * rejected and always will be — the project's JWKS has no Firebase key — but
- * signing in again IS the fix, because sign-in tries Supabase first and almost
- * everyone now has a Supabase password; only if that sign-in fails do they need
- * to set one. On a Supabase session it means the token really did go stale, and
- * signing in again is the fix there too. Anything else is a network or server
- * problem they cannot act on.
+ * A rejected token means the session went stale, and signing in again is the
+ * fix. No token at all means the request went out as `anon`, which sees almost
+ * nothing — same fix. Anything else is a network or server problem they cannot
+ * act on, so say that rather than inventing advice.
  */
-function messageFor(cause: unknown): string {
+export function messageFor(cause: unknown): string {
   const raw = cause instanceof Error ? cause.message : String(cause ?? '');
   if (/JWT|token|PGRST301|suitable key|key type|Unauthorized|401/i.test(raw)) {
-    if (lastTokenSource() === 'firebase') {
-      return 'This session is too old to read live data. Please sign out and sign in again — and if the sign-in is refused, tap “Forgot password?” to set a password first.';
+    if (lastTokenSource() === null) {
+      return 'You are not signed in to the data backend. Please sign out and sign in again.';
     }
     return 'Your session was rejected by the server. Please sign out and sign in again.';
   }
@@ -171,6 +168,23 @@ function messageFor(cause: unknown): string {
     return "Couldn't reach the server. Check your connection and try again.";
   }
   return 'The server refused this request.';
+}
+
+/**
+ * A failed live write.
+ *
+ * Same contract as {@link DataReadError}: a message fit for a person, the `tag`
+ * of the write that failed, and the original error in `cause`.
+ */
+export class DataWriteError extends Error {
+  readonly tag: string;
+
+  constructor(tag: string, cause: unknown) {
+    super(messageFor(cause));
+    this.name = 'DataWriteError';
+    this.tag = tag;
+    this.cause = cause;
+  }
 }
 
 /**

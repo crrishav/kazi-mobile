@@ -41,19 +41,19 @@ export function ListSummary({
   return (
     <View style={[styles.wrap, inset && styles.wrapInset]}>
       {showSummary ? (
-        <Card elevation="inverted" style={styles.summaryCard}>
+        <Card elevation="hero" style={styles.summaryCard}>
           <View style={styles.gap5}>
-            <Text style={[styles.eyebrow, { color: theme.onDark.textMuted }]}>Spend this month</Text>
-            <Money npr={monthTotal} compact onDark size={28} primaryStyle={styles.monthValue} />
+            <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Spend this month</Text>
+            <Money npr={monthTotal} compact hero size={28} primaryStyle={styles.monthValue} />
           </View>
           <View style={styles.statsRow}>
             <View style={styles.statCell}>
-              <Money npr={unpaidTotal} compact onDark size={16} align="right" primaryStyle={{ color: theme.onDark.dangerWashText }} />
-              <Text style={[styles.statLabel, { color: theme.onDark.textMuted }]}>Unpaid</Text>
+              <Money npr={unpaidTotal} compact hero size={16} align="right" primaryStyle={{ color: theme.onHero.dangerWashText }} />
+              <Text style={[styles.statLabel, { color: theme.onHero.textMuted }]}>Unpaid</Text>
             </View>
             <View style={styles.statCell}>
-              <Text style={[styles.statValue, tabularNums, { color: theme.onDark.accent }]}>{cashShare}</Text>
-              <Text style={[styles.statLabel, { color: theme.onDark.textMuted }]}>Cash</Text>
+              <Text style={[styles.statValue, tabularNums, { color: theme.onHero.accent }]}>{cashShare}</Text>
+              <Text style={[styles.statLabel, { color: theme.onHero.textMuted }]}>Cash</Text>
             </View>
           </View>
         </Card>
@@ -68,10 +68,10 @@ export function ListSummary({
             <Pressable
               key={f.id}
               onPress={() => onFilterChange(f.id)}
-              style={[styles.chip, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+              style={[styles.chip, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
             >
-              <Text style={[styles.chipLabel, { color: on ? theme.onDark.text : theme.textPrimary }]}>{f.label}</Text>
-              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.onDark.textMuted : theme.textSecondary }]}>{f.count}</Text>
+              <Text style={[styles.chipLabel, { color: on ? theme.selectedText : theme.textPrimary }]}>{f.label}</Text>
+              <Text style={[styles.chipCount, tabularNums, { color: on ? theme.selectedTextMuted : theme.textSecondary }]}>{f.count}</Text>
             </Pressable>
           );
         })}

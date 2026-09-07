@@ -9,10 +9,10 @@ export type LoginView = 'signin' | 'forgot' | 'sent';
 const DEV_FALLBACK_EMAIL = 'sita@kazi.com.np';
 
 /**
- * Firebase and Supabase both surface a `code`, in their own vocabularies. They
- * are mapped to the same strings on purpose — sign-in tries Supabase and falls
- * through to Firebase, and the copy must not leak which system the address
- * exists in.
+ * Supabase Auth reports failures as an `AuthApiError.code`. The copy is
+ * deliberately vague about which half was wrong — "Incorrect email or password"
+ * for both a missing account and a bad password — so the login screen can't be
+ * used to find out which addresses have accounts.
  */
 function messageForError(err: unknown): string {
   const code =
@@ -22,7 +22,6 @@ function messageForError(err: unknown): string {
     return 'Network error — check your connection and try again.';
   }
   switch (code) {
-    // Supabase (`AuthApiError.code`)
     case 'validation_failed':
       return 'That doesn’t look like a valid email address.';
     case 'user_banned':
@@ -35,19 +34,6 @@ function messageForError(err: unknown): string {
     case 'over_request_rate_limit':
     case 'over_email_send_rate_limit':
       return 'Too many attempts — wait a few minutes and try again.';
-    // Firebase (`FirebaseError.code`)
-    case 'auth/invalid-email':
-      return 'That doesn’t look like a valid email address.';
-    case 'auth/user-disabled':
-      return 'This account has been disabled. Contact your administrator.';
-    case 'auth/invalid-credential':
-    case 'auth/wrong-password':
-    case 'auth/user-not-found':
-      return 'Incorrect email or password. Please try again.';
-    case 'auth/too-many-requests':
-      return 'Too many attempts — wait a few minutes and try again.';
-    case 'auth/network-request-failed':
-      return 'Network error — check your connection and try again.';
     default:
       return 'Could not sign in. Please try again.';
   }

@@ -4,16 +4,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/auth/auth-context';
 import type { SectionId } from '@/auth/permissions';
-import { isFirebaseConfigured } from '@/lib/firebase';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import { MORE_MODULES } from '@/constants';
 
 import { AccountCard } from './account-card';
-import { CurrencyToggle } from './currency-toggle';
 import { ModuleCard } from './module-card';
 import { NotificationsCard } from './notifications-card';
 import { RoleSwitcher } from './role-switcher';
+import { SettingsCard } from './settings-card';
 
 export function More() {
   const theme = useTheme();
@@ -31,8 +31,8 @@ export function More() {
       <ScrollView contentContainerStyle={styles.content}>
         <AccountCard />
         <NotificationsCard />
-        {isFirebaseConfigured ? null : <RoleSwitcher />}
-        <CurrencyToggle />
+        <SettingsCard />
+        {isSupabaseConfigured ? null : <RoleSwitcher />}
         <View style={styles.grid}>
           {modules.map((m) => (
             <ModuleCard key={m.id} module={m} />

@@ -33,12 +33,12 @@ export function FinanceTabs<T extends string>({ tabs, active, onChange }: Financ
             onPress={() => onChange(t.id)}
             accessibilityRole="button"
             accessibilityState={{ selected: on }}
-            style={[styles.tab, { backgroundColor: on ? theme.surfaceInverted : theme.surface, borderColor: on ? theme.surfaceInverted : theme.border }]}
+            style={[styles.tab, { backgroundColor: on ? theme.selectedSurface : theme.surface, borderColor: on ? theme.selectedBorder : theme.border }]}
           >
-            <Text style={[styles.label, { color: on ? theme.onDark.text : theme.textPrimary }]}>{t.label}</Text>
+            <Text style={[styles.label, { color: on ? theme.selectedText : theme.textPrimary }]}>{t.label}</Text>
             {typeof t.count === 'number' && t.count > 0 ? (
-              <View style={[styles.badge, { backgroundColor: on ? theme.onDark.accentWash : theme.draftWash }]}>
-                <Text style={[styles.badgeText, tabularNums, { color: on ? theme.onDark.text : theme.textSecondary }]}>{t.count}</Text>
+              <View style={[styles.badge, { backgroundColor: on ? theme.selectedBadge : theme.draftWash }]}>
+                <Text style={[styles.badgeText, tabularNums, { color: on ? theme.selectedBadgeText : theme.textSecondary }]}>{t.count}</Text>
               </View>
             ) : null}
           </Pressable>

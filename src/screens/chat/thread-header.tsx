@@ -16,7 +16,7 @@ export interface ThreadHeaderProps {
   onOptions?: () => void;
 }
 
-/** A person-identity layout (avatar + name + presence inline), not a title/subtitle stack — doesn't fit `ScreenHeader`'s shape, so it's bespoke like `DirectorSheet`'s header. */
+/** A person-identity layout (avatar + name + presence inline), not a title/subtitle stack — doesn't fit `ScreenHeader`'s shape, so it's bespoke. */
 export function ThreadHeader({ thread, onBack, onOptions }: ThreadHeaderProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();

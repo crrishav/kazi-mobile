@@ -24,18 +24,18 @@ export function BankView({ transactions, canEdit, onDelete }: BankViewProps) {
 
   return (
     <View style={styles.wrap}>
-      <Card elevation="inverted" style={styles.strip}>
+      <Card elevation="hero" style={styles.strip}>
         <View style={styles.stripCell}>
-          <Money npr={totalIn} compact onDark size={16} primaryStyle={{ color: theme.onDark.accent }} />
-          <Text style={[styles.stripLabel, { color: theme.onDark.textMuted }]}>In</Text>
+          <Money npr={totalIn} compact hero size={16} primaryStyle={{ color: theme.onHero.accent }} />
+          <Text style={[styles.stripLabel, { color: theme.onHero.textMuted }]}>In</Text>
         </View>
         <View style={styles.stripCell}>
-          <Money npr={totalOut} compact onDark size={16} primaryStyle={{ color: theme.onDark.dangerWashText }} />
-          <Text style={[styles.stripLabel, { color: theme.onDark.textMuted }]}>Out</Text>
+          <Money npr={totalOut} compact hero size={16} primaryStyle={{ color: theme.onHero.dangerWashText }} />
+          <Text style={[styles.stripLabel, { color: theme.onHero.textMuted }]}>Out</Text>
         </View>
         <View style={styles.stripCell}>
-          <Money npr={totalIn - totalOut} compact onDark size={16} />
-          <Text style={[styles.stripLabel, { color: theme.onDark.textMuted }]}>Net</Text>
+          <Money npr={totalIn - totalOut} compact hero size={16} />
+          <Text style={[styles.stripLabel, { color: theme.onHero.textMuted }]}>Net</Text>
         </View>
       </Card>
 
