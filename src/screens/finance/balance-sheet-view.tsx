@@ -4,15 +4,18 @@ import { Card } from '@/components/ui/card';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import type { BalanceSheet, BalanceSheetGroup } from '@/data/finance/pnl';
+import { money, useMoneySignature } from '@/lib/money';
 
 export interface BalanceSheetViewProps {
   sheet: BalanceSheet;
 }
 
-const npr = (n: number) => `रु ${Math.round(n).toLocaleString('en-IN')}`;
+const npr = (n: number) => money(n, { grouping: 'en-IN' });
 
 export function BalanceSheetView({ sheet }: BalanceSheetViewProps) {
   const theme = useTheme();
+  // These figures come from plain formatters, so the view subscribes to the currency itself.
+  useMoneySignature();
   const balanced = Math.abs(sheet.check) < 1;
 
   return (

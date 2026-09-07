@@ -1,6 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,10 +24,12 @@ import { attachmentLabel, firstName, groupByDay, isMe, messageText, personFor, t
 
 import { AttachmentSheet } from './attachment-sheet';
 import { Composer } from './composer';
+import { ContactSheet } from './contact-sheet';
 import { GroupSheet } from './group-sheet';
 import { MediaViewer } from './media-viewer';
 import { MessageActionsSheet } from './message-actions-sheet';
 import { MessageBubble } from './message-bubble';
+import { ReactionSheet } from './reaction-sheet';
 import { SelectionHeader, ThreadHeader } from './thread-header';
 import { ThreadActionsSheet } from './thread-actions-sheet';
 import { ThreadNotFound } from './thread-not-found';
@@ -97,11 +99,13 @@ export function ThreadView({
   const [draft, setDraft] = useState('');
   const [replyToId, setReplyToId] = useState<MessageId | null>(null);
   const [sheetTarget, setSheetTarget] = useState<MessageId | null>(null);
+  const [reactionTarget, setReactionTarget] = useState<MessageId | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<MessageId[]>([]);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
   const [groupSession, setGroupSession] = useState(0);
+  const [contactOpen, setContactOpen] = useState(false);
 
   const [attachOpen, setAttachOpen] = useState(false);
   const [pending, setPending] = useState<PendingAttachment | null>(null);
@@ -114,6 +118,9 @@ export function ThreadView({
 
   const replyTo = replyToId ? (byId.get(replyToId) ?? null) : null;
   const sheetMessage = sheetTarget ? (byId.get(sheetTarget) ?? null) : null;
+  // Re-resolved rather than held, so the list of who reacted updates live
+  // while the sheet is open instead of freezing at the moment it opened.
+  const reactionMessage = reactionTarget ? (byId.get(reactionTarget) ?? null) : null;
   const selectedMessages = selected.map((id) => byId.get(id)).filter((m): m is Message => !!m);
   const canDeleteSelection = selectedMessages.length > 0 && selectedMessages.every((m) => isMe(m.authorId) && !m.deleted);
 
@@ -160,7 +167,21 @@ export function ThreadView({
     toast.show({ message: items.length > 1 ? `${items.length} messages copied` : 'Message copied', tone: 'ok' });
   };
 
-  const scrollToEnd = () => requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+  const scrollToEnd = useCallback(
+    () => requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true })),
+    [],
+  );
+
+  /**
+   * The reply and attachment strips grow the composer, which shortens the list
+   * without moving it — so the newest messages, the ones you are replying to,
+   * slide out of sight behind the strip that just appeared. The content size
+   * has not changed, so `onContentSizeChange` never fires; this follows the
+   * layout instead.
+   */
+  useEffect(() => {
+    if (replyToId || pending) scrollToEnd();
+  }, [replyToId, pending, scrollToEnd]);
 
   /**
    * Send. The attachment goes up first and only then is the message written,
@@ -301,7 +322,12 @@ export function ThreadView({
             }}
           />
         ) : (
-          <ThreadHeader thread={thread} onBack={onBack} onOptions={() => setOptionsOpen(true)} />
+          <ThreadHeader
+            thread={thread}
+            onBack={onBack}
+            onOptions={() => setOptionsOpen(true)}
+            onIdentity={() => (isGroup ? openGroup() : setContactOpen(true))}
+          />
         )}
 
         <ScrollView
@@ -338,6 +364,7 @@ export function ThreadView({
                   onLongPress={() => handleBubbleLongPress(m)}
                   onReply={() => startReply(m.id)}
                   onToggleReaction={(emoji) => onToggleReaction(m.id, emoji)}
+                  onOpenReactions={() => setReactionTarget(m.id)}
                 />
               ))}
             </View>
@@ -420,6 +447,40 @@ export function ThreadView({
             onSaveGroup(name, memberIds);
             setGroupOpen(false);
           }}
+          muted={!!thread.muted}
+          onToggleMute={() => {
+            onSetFlag('muted', !thread.muted);
+            setGroupOpen(false);
+          }}
+          onLeave={() => {
+            haptics.committed();
+            setGroupOpen(false);
+            onDeleteThread();
+          }}
+        />
+
+        <ContactSheet
+          person={contactOpen && !isGroup ? personFor(thread.memberIds[0]) : null}
+          muted={!!thread.muted}
+          onClose={() => setContactOpen(false)}
+          onToggleMute={() => {
+            onSetFlag('muted', !thread.muted);
+            setContactOpen(false);
+          }}
+          onDeleteThread={() => {
+            haptics.committed();
+            setContactOpen(false);
+            onDeleteThread();
+          }}
+        />
+
+        <ReactionSheet
+          message={reactionMessage}
+          canPost={canPost}
+          onClose={() => setReactionTarget(null)}
+          onToggle={(emoji) => {
+            if (reactionMessage) onToggleReaction(reactionMessage.id, emoji);
+          }}
         />
 
         <MessageActionsSheet
@@ -437,6 +498,13 @@ export function ThreadView({
           }}
           onCopy={() => {
             if (sheetMessage) void copyToClipboard([sheetMessage]);
+            setSheetTarget(null);
+          }}
+          onSeeReactions={() => {
+            // Same hand-off the options sheet already uses for the group
+            // editor: the outgoing sheet plays its exit while the incoming one
+            // plays its entrance.
+            if (sheetMessage) setReactionTarget(sheetMessage.id);
             setSheetTarget(null);
           }}
           onSelect={() => {

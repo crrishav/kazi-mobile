@@ -2,6 +2,7 @@ import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Icon } from '@/components/ui/icon';
+import { prefetchRoute } from '@/data/prefetch';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import type { ModuleEntry } from '@/constants';
@@ -11,7 +12,12 @@ export function ModuleCard({ module }: { module: ModuleEntry }) {
 
   return (
     <Link href={module.route as never} asChild>
-      <Pressable style={StyleSheet.flatten([styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }])}>
+      <Pressable
+        // The module's first read starts here rather than on mount, so it runs
+        // underneath the push instead of after it.
+        onPressIn={() => prefetchRoute(module.route)}
+        style={StyleSheet.flatten([styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }])}
+      >
         <View style={[styles.iconWrap, { backgroundColor: theme.accentWash }]}>
           <Icon name={module.icon} size={20} color={theme.accentWashText} />
         </View>

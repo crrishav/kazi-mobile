@@ -26,6 +26,8 @@ export interface MessageActionsSheetProps {
   onCopy: () => void;
   onSelect: () => void;
   onDelete: () => void;
+  /** Opens the "who reacted with what" sheet. Offered only once something is on the message. */
+  onSeeReactions: () => void;
 }
 
 export function MessageActionsSheet({
@@ -39,6 +41,7 @@ export function MessageActionsSheet({
   onCopy,
   onSelect,
   onDelete,
+  onSeeReactions,
 }: MessageActionsSheetProps) {
   const theme = useTheme();
   const { recent, remember } = useRecentEmoji();
@@ -63,7 +66,15 @@ export function MessageActionsSheet({
   };
 
   return (
-    <BottomSheet visible={!!message} onClose={close} title={picking ? 'Pick a reaction' : 'Message'} maxHeight={picking ? 640 : 560}>
+    <BottomSheet
+      visible={!!message}
+      onClose={close}
+      title={picking ? 'Pick a reaction' : 'Message'}
+      maxHeight={picking ? 640 : 560}
+      // Two vertical scroll views cannot share one drag; while the emoji grid
+      // is up it is the only thing that should be moving.
+      scrollEnabled={!picking}
+    >
       {message ? (
         <>
           <View style={[styles.preview, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -131,6 +142,14 @@ export function MessageActionsSheet({
               ) : null}
               {canPost && thread.kind === 'group' && !mine ? (
                 <ActionRow icon="user" label={`Reply privately to ${author?.name.split(' ')[0]}`} detail="Opens a direct message" onPress={onReplyPrivately} />
+              ) : null}
+              {reactionCount(message) > 0 ? (
+                <ActionRow
+                  icon="smile"
+                  label="See who reacted"
+                  detail={message.reactions.map((r) => `${r.emoji} ${r.by.length}`).join('   ')}
+                  onPress={onSeeReactions}
+                />
               ) : null}
               {!message.deleted ? <ActionRow icon="copy" label="Copy text" onPress={onCopy} /> : null}
               <ActionRow icon="check-circle" label="Select messages" detail="Copy or delete several at once" onPress={onSelect} />

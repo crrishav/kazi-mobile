@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { TextField } from '@/components/ui/text-field';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
@@ -51,8 +53,52 @@ export function NewChatSheet({
   // A "group" of one is just a dm, so the second member is what unlocks Create.
   const canCreate = groupName.trim().length > 0 && picked.length >= 2;
 
+  /**
+   * Create floats over the list rather than sitting under it.
+   *
+   * The staff roster is longer than the sheet, so a footer button lands below
+   * the last person: you tick the four people you want, then have to scroll
+   * past everyone you did not pick to reach the action. Pinned bottom-right it
+   * is under the thumb that has been doing the ticking, and it carries the
+   * count so the button itself says what it is about to make.
+   */
+  const createAction =
+    mode === 'group' ? (
+      <Animated.View entering={FadeInDown.duration(180)} exiting={FadeOutDown.duration(120)}>
+        <Pressable
+          onPress={() => canCreate && !busy && onCreateGroup(groupName.trim(), picked)}
+          disabled={!canCreate || busy}
+          accessibilityLabel={canCreate ? `Create ${groupName.trim()} with ${picked.length} people` : 'Pick a name and two people first'}
+          style={({ pressed }) => [
+            styles.fab,
+            {
+              backgroundColor: canCreate ? theme.accent : theme.surface,
+              borderColor: canCreate ? theme.accent : theme.border,
+              opacity: pressed && canCreate ? 0.85 : 1,
+              boxShadow: theme.shadows.floating,
+            },
+          ]}
+        >
+          {busy ? (
+            <ActivityIndicator size="small" color={canCreate ? theme.accentText : theme.textSecondary} />
+          ) : (
+            <Icon name="check" size={18} color={canCreate ? theme.accentText : theme.textSecondary} />
+          )}
+          <Text style={[styles.fabLabel, { color: canCreate ? theme.accentText : theme.textSecondary }]}>
+            {busy ? 'Creating…' : picked.length > 0 ? `Create · ${picked.length}` : 'Create group'}
+          </Text>
+        </Pressable>
+      </Animated.View>
+    ) : null;
+
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={mode === 'pick' ? 'New message' : 'New group'} maxHeight={680}>
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title={mode === 'pick' ? 'New message' : 'New group'}
+      maxHeight={680}
+      overlay={createAction}
+    >
       {mode === 'pick' ? (
         // Shown either way. A position that cannot start groups is told so
         // here rather than being left to wonder where the option went — and
@@ -84,15 +130,10 @@ export function NewChatSheet({
 
       {mode === 'group' ? (
         <View style={styles.footer}>
-          <Button
-            label={busy ? 'Creating…' : 'Create group'}
-            variant="primary"
-            fullWidth
-            disabled={!canCreate}
-            loading={busy}
-            onPress={() => onCreateGroup(groupName.trim(), picked)}
-          />
           <Button label="Back to people" variant="ghost" fullWidth onPress={() => setMode('pick')} />
+          {/* Clears the floating action, which would otherwise sit on top of
+              the last row of the list. */}
+          <View style={styles.fabClearance} />
         </View>
       ) : null}
     </BottomSheet>
@@ -114,5 +155,24 @@ const styles = StyleSheet.create({
   },
   footer: {
     gap: 8,
+  },
+  // The floating action is 52 tall and sits 22 above the sheet's safe-area
+  // padding, so the scroll has to end at least that far up or the last row
+  // finishes underneath it.
+  fabClearance: {
+    height: 60,
+  },
+  fab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 52,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    borderWidth: 1,
+  },
+  fabLabel: {
+    fontFamily: fontFamily.semibold,
+    fontSize: 15,
   },
 });

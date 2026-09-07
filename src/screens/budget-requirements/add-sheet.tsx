@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Icon } from '@/components/ui/icon';
 import { TextField } from '@/components/ui/text-field';
-import { GBP_RATE, toGBP } from '@/lib/currency';
+import { toGBP } from '@/lib/currency';
+import { useCurrency } from '@/lib/currency-context';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii, tabularNums } from '@/theme';
 import { CATEGORY } from '@/data/budget-requirements/mock';
@@ -31,17 +32,20 @@ const PRIORITY_HINT: Record<Priority, string> = {
 
 export function AddSheet({ visible, draft, who, onClose, onChange, onSubmit }: AddSheetProps) {
   const theme = useTheme();
+  // The live GBP rate, so the two amount fields agree with what the rest of the
+  // app is converting at rather than with a constant from 2024.
+  const { rate, live } = useCurrency();
   const amountValue = parseInt(draft.amount.replace(/[^0-9]/g, ''), 10) || 0;
   const amountReady = amountValue > 0;
 
-  // Dual NPR ↔ GBP cost entry (item 17) — type either side, the other converts at GBP_RATE.
+  // Dual NPR ↔ GBP cost entry (item 17) — type either side, the other converts at the live rate.
   const handleAmount = (side: 'npr' | 'gbp', raw: string) => {
     if (side === 'npr') {
       const npr = parseInt(raw.replace(/[^0-9]/g, ''), 10) || 0;
-      onChange({ amount: raw, amountGBP: npr > 0 ? String(Math.round(toGBP(npr))) : '', autoSide: npr > 0 ? 'gbp' : null });
+      onChange({ amount: raw, amountGBP: npr > 0 ? String(Math.round(toGBP(npr, rate))) : '', autoSide: npr > 0 ? 'gbp' : null });
     } else {
       const g = parseFloat(raw.replace(/[^0-9.]/g, '')) || 0;
-      onChange({ amountGBP: raw, amount: g > 0 ? String(Math.round(g * GBP_RATE)) : '', autoSide: g > 0 ? 'npr' : null });
+      onChange({ amountGBP: raw, amount: g > 0 ? String(Math.round(g * rate)) : '', autoSide: g > 0 ? 'npr' : null });
     }
   };
 
@@ -100,7 +104,7 @@ export function AddSheet({ visible, draft, who, onClose, onChange, onSubmit }: A
           />
           {draft.autoSide === 'gbp' ? <Text style={[styles.autoTag, { color: theme.textSecondary, borderColor: theme.border }]}>auto</Text> : null}
         </View>
-        <Text style={[styles.hint, { color: theme.textSecondary }]}>Enter either — the other converts at £1 = रु {GBP_RATE}.</Text>
+        <Text style={[styles.hint, { color: theme.textSecondary }]}>Enter either — the other converts at £1 = रु {rate.toLocaleString('en-US', { maximumFractionDigits: 2 })}{live ? '' : ' (offline rate)'}.</Text>
       </View>
 
       <View style={styles.group}>

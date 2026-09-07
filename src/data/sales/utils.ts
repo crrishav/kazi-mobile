@@ -1,3 +1,5 @@
+import { moneyLakh } from '@/lib/money';
+
 import { STAGES, stageIndex } from './mock';
 import type { Order, OrderPriority, StageId } from './types';
 
@@ -11,9 +13,9 @@ export function initials(name: string): string {
     .toUpperCase();
 }
 
-/** "रु 43.2L" style lakh-compact formatting, matching the design's own `lakh()` helper. */
+/** "रु 43.2L" / "£21.6k" — the design's `lakh()` helper, in the display currency. */
 export function lakh(n: number): string {
-  return `रु ${(n / 100000).toFixed(1).replace(/\.0$/, '')}L`;
+  return moneyLakh(n);
 }
 
 /**

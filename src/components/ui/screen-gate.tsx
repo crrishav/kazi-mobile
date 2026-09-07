@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/theme/theme-provider';
@@ -63,35 +64,61 @@ export function hasFailed(...queries: GateQuery[]): boolean {
  *
  *     const tasksQuery = useTasks();
  *     const { data: tasks } = tasksQuery;
- *     if (isBlocked(tasksQuery)) return <ScreenGate queries={[tasksQuery]} />;
+ *     if (isBlocked(tasksQuery))
+ *       return <ScreenGate queries={[tasksQuery]} header={<ScreenHeader title="Tasks" />} />;
  */
-export function ScreenGate({ queries }: { queries: GateQuery[] }) {
+export interface ScreenGateProps {
+  queries: GateQuery[];
+  /**
+   * The screen's own `ScreenHeader`, drawn above the spinner.
+   *
+   * Any screen that owns its header should pass one. Without it the gate
+   * replaces the entire screen, so a module opened from More slid in as an
+   * empty page with no title and no back chevron, and the header only appeared
+   * once the read finished — which read as the navigation itself being slow,
+   * and left the only way out (the chevron) missing for as long as the network
+   * took.
+   *
+   * Holding the header still means the push lands on something that already
+   * looks like the module, and only the body it cannot know yet is waiting.
+   * Any subtitle counted off the data has to be dropped here, of course —
+   * pass the title alone, or a subtitle that doesn't depend on the read.
+   *
+   * Left out only by a gate that is already *inside* a screen whose header is
+   * drawn above it: the dashboard variants sit under `DashboardHeader`, so
+   * they gate their body and nothing else.
+   */
+  header?: ReactNode;
+}
+
+export function ScreenGate({ queries, header }: ScreenGateProps) {
   const theme = useTheme();
 
   const failed = queries.find(fatally);
-  if (failed) {
+  const body = failed ? (
     // Retry everything that broke, not just the one being shown — screens that
     // read from several modules usually lose them all to the same cause.
-    const broken = queries.filter((q) => q.isError);
-    return (
-      <View style={[styles.fill, { backgroundColor: theme.background }]}>
-        <ErrorState
-          error={failed.error}
-          onRetry={() => broken.forEach((q) => q.refetch())}
-          retrying={broken.some((q) => q.isFetching)}
-        />
-      </View>
-    );
-  }
+    <ErrorState
+      error={failed.error}
+      onRetry={() => queries.filter((q) => q.isError).forEach((q) => q.refetch())}
+      retrying={queries.some((q) => q.isError && q.isFetching)}
+    />
+  ) : (
+    <ActivityIndicator color={theme.accent} />
+  );
 
   return (
-    <View style={[styles.fill, styles.centre, { backgroundColor: theme.background }]}>
-      <ActivityIndicator color={theme.accent} />
+    <View style={[styles.screen, { backgroundColor: theme.background }]}>
+      {header}
+      <View style={[styles.fill, !failed && styles.centre]}>{body}</View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   fill: {
     flex: 1,
     justifyContent: 'center',

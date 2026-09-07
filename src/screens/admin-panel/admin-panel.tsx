@@ -34,7 +34,7 @@ import {
 import { countLevels, isDowngrade, isSuperTier, LEVEL_LABEL } from '@/data/admin-panel/utils';
 
 import { ChatGroupsCard } from './chat-groups-card';
-import { ConfirmSheet } from './confirm-sheet';
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { DirtyBar } from './dirty-bar';
 import { FinanceTabsCard } from './finance-tabs-card';
 import { PagesCard } from './pages-card';
@@ -138,7 +138,7 @@ export function AdminPanel() {
     return true;
   });
 
-  if (isBlocked(matrixQuery) || !matrix) return <ScreenGate queries={[matrixQuery]} />;
+  if (isBlocked(matrixQuery) || !matrix) return <ScreenGate queries={[matrixQuery]} header={<ScreenHeader title="Roles & permissions" />} />;
 
   const { roles, sections, financeTabs, perms, tabPerms, groupRights, people } = matrix;
   const activePeople = people.filter((p) => p.active);

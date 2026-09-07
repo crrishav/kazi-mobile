@@ -1,3 +1,5 @@
+import { money as displayMoney, moneyCompact } from '@/lib/money';
+
 import type { PurchaseDraft, PurchaseDraftLine, PurchaseEntry, PurchaseLine, VatBillState } from './types';
 
 export const VAT_RATE = 13;
@@ -11,13 +13,14 @@ export function fmt(n: number): string {
   return Math.round(n).toLocaleString('en-US');
 }
 
+/** A purchase total in the display currency. Screens that call it need `useMoneySignature()`. */
 export function money(n: number): string {
-  return `रु ${fmt(n)}`;
+  return displayMoney(n);
 }
 
-/** "रु 1.9L" style lakh-compact formatting, matching the design's own `short()` helper. */
+/** "रु 1.9L" / "£950" style compact formatting, matching the design's own `short()` helper. */
 export function short(n: number): string {
-  return n >= 100000 ? `रु ${(n / 100000).toFixed(1).replace(/\.0$/, '')}L` : `रु ${fmt(n)}`;
+  return moneyCompact(n);
 }
 
 export function lineAmount(quantity: number, rate: number): number {

@@ -1,3 +1,5 @@
+import { money } from '@/lib/money';
+
 import { EXCEPTIONS, TODAY_DAY } from './mock';
 import type { DayCell } from './types';
 
@@ -30,8 +32,9 @@ export function num(n: number): string {
   return Math.round(n).toLocaleString('en-US');
 }
 
+/** `NPR 1,234` / `GBP 6` — the display currency, spelled out as payroll paperwork does. */
 export function npr(n: number): string {
-  return `NPR ${num(n)}`;
+  return money(n, { symbol: 'code' });
 }
 
 export function formatHm(totalSeconds: number): string {

@@ -33,6 +33,7 @@ import { attendancePrefill } from '@/data/employees-hr/attendance-sync';
 import { BANKS, DEPTS, MONTHS } from '@/data/employees-hr/mock';
 import { npr, num, pay, toISODate } from '@/data/employees-hr/utils';
 import type { Employee, EmployeeDraft, EmployeeView, MonthKey, SheetMode } from '@/data/employees-hr/types';
+import { useMoneySignature } from '@/lib/money';
 
 import { DirectoryView } from './directory-view';
 import { EmployeeSheet } from './employee-sheet';
@@ -113,6 +114,9 @@ function changedFields(draft: EmployeeDraft, baseline: EmployeeDraft): (keyof Em
 
 export function EmployeesHR() {
   const theme = useTheme();
+  // Money is formatted by plain functions (`@/lib/money`), so this is what
+  // re-renders the screen when the currency preference or the rate changes.
+  useMoneySignature();
   const toast = useToast();
   const { can, canViewPayroll } = useAuth();
   const canEdit = can('employees-hr');
@@ -151,7 +155,12 @@ export function EmployeesHR() {
     return false;
   });
 
-  if (isBlocked(employeesQuery, approvalsQuery) || !employees || !approvals) return <ScreenGate queries={[employeesQuery, approvalsQuery]} />;
+  if (isBlocked(employeesQuery, approvalsQuery) || !employees || !approvals) return (
+      <ScreenGate
+        queries={[employeesQuery, approvalsQuery]}
+        header={<ScreenHeader title="Employees" rightSlot={<HeaderAccount />} />}
+      />
+    );
 
   const month = MONTHS.find((m) => m.key === monthKey) ?? AUG;
   const approved = !!approvals[month.key];

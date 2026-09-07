@@ -11,9 +11,9 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/text-field';
-import { formatAD } from '@/lib/nepaliDate';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii } from '@/theme';
+import { useDateText } from '@/lib/date-display';
 
 /** Which source doc the row came from — the reference's `sourceType`. */
 export type LedgerDraftKind = 'bank' | 'journal' | 'expense';
@@ -47,6 +47,7 @@ export interface LedgerEntrySheetProps {
 
 export function LedgerEntrySheet({ visible, draft, canEdit, onChange, onClose, onSave }: LedgerEntrySheetProps) {
   const theme = useTheme();
+  const dateText = useDateText();
   if (!draft) return null;
 
   const amount = parseInt(draft.amount.replace(/[^0-9]/g, ''), 10) || 0;
@@ -55,7 +56,7 @@ export function LedgerEntrySheet({ visible, draft, canEdit, onChange, onClose, o
   return (
     <BottomSheet visible={visible} onClose={onClose} title="Edit ledger entry">
       <Text style={[styles.meta, { color: theme.textSecondary }]}>
-        {KIND_LABEL[draft.kind]} · {draft.account} · {draft.date ? formatAD(draft.date) : '—'}
+        {KIND_LABEL[draft.kind]} · {draft.account} · {draft.date ? dateText(draft.date) : '—'}
         {draft.ref ? ` · ${draft.ref}` : ''}
       </Text>
 

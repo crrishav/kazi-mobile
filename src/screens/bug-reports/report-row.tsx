@@ -7,6 +7,8 @@ import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import { SEVERITY_META, STATUS_META } from '@/data/bug-reports/mock';
 import type { BugReport } from '@/data/bug-reports/types';
+import { useCalendarPreference } from '@/lib/calendar-preference';
+import { dateText, isoDay } from '@/lib/date-display';
 
 export interface ReportRowProps {
   report: BugReport;
@@ -15,11 +17,13 @@ export interface ReportRowProps {
 }
 
 function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  return dateText(isoDay(iso), { bsStyle: 'numeric' });
 }
 
 export function ReportRow({ report, index, onPress }: ReportRowProps) {
   const theme = useTheme();
+  // `shortDate` reads the calendar preference, so subscribe to it.
+  useCalendarPreference();
   const sev = SEVERITY_META[report.severity];
   const status = STATUS_META[report.status];
 

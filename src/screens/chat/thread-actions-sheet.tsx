@@ -68,7 +68,7 @@ export function ThreadActionsSheet({
             {thread.kind === 'group' && onGroupSettings ? (
               <ActionRow
                 icon="users"
-                label={canManageGroup ? 'Group settings' : 'See who is in this group'}
+                label={canManageGroup ? 'Group info & settings' : 'Group info'}
                 detail={canManageGroup ? 'Rename it, add or remove people' : `${thread.memberIds.length + 1} members`}
                 onPress={onGroupSettings}
               />

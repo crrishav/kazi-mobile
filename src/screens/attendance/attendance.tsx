@@ -24,6 +24,7 @@ import { MY_NAME, STATUS_LABELS } from '@/data/attendance/mock';
 import { dayLabelOf, formatHours } from '@/data/attendance/live-shared';
 import { currentMonthLabel, todayLabel } from '@/data/attendance/utils';
 import type { AttendanceStatus, AttendanceView, TeamFilter, TeamMember, TeamMonthStats } from '@/data/attendance/types';
+import { useMoneySignature } from '@/lib/money';
 
 import { ClockCard } from './clock-card';
 import { DayRosterSheet } from './day-roster-sheet';
@@ -43,6 +44,9 @@ const TWO_TAB_EMAIL = 'crrishav.business@gmail.com';
 
 export function Attendance() {
   const theme = useTheme();
+  // Money is formatted by plain functions (`@/lib/money`), so this is what
+  // re-renders the screen when the currency preference or the rate changes.
+  useMoneySignature();
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const { profile, can } = useAuth();
@@ -105,10 +109,15 @@ export function Attendance() {
     return () => clearInterval(id);
   }, [clockStatus?.clockedIn]);
 
-  if (isBlocked(clockStatusQuery, teamQuery) || !clockStatus || !team) return <ScreenGate queries={[clockStatusQuery, teamQuery]} />;
+  // Both gates below wear the loaded screen's header; the subtitle is the one
+  // part that has to wait, since it counts off the month that is still reading.
+  const attendanceGateHeader = <ScreenHeader title="Attendance" rightSlot={<HeaderAccount />} />;
+
+  if (isBlocked(clockStatusQuery, teamQuery) || !clockStatus || !team)
+    return <ScreenGate queries={[clockStatusQuery, teamQuery]} header={attendanceGateHeader} />;
   // The month loads progressively (MineView draws its own spinner), but a
   // failure there would leave that spinner up for ever.
-  if (hasFailed(monthQuery)) return <ScreenGate queries={[monthQuery]} />;
+  if (hasFailed(monthQuery)) return <ScreenGate queries={[monthQuery]} header={attendanceGateHeader} />;
 
   const counts: Record<TeamFilter, number> = { all: team.length, present: 0, late: 0, absent: 0, half: 0, leave: 0, off: 0 };
   team.forEach((m) => {

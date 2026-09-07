@@ -54,6 +54,7 @@ import type {
   QuotationStatus,
 } from '@/data/billing/types';
 import { appliesVAT, balance, clientNameOf, money, n0, nextDocNumber, npr, nprOf, paid, statusFull, total, vat } from '@/data/billing/utils';
+import { useMoneySignature } from '@/lib/money';
 
 import { ChallansSheet } from './challans-sheet';
 import { DocList } from './doc-list';
@@ -86,6 +87,9 @@ const BILLING_VIEW_ORDER = ['list', 'detail', 'doc'] as const;
 
 export function Billing({ focus, autoEdit }: BillingProps = {}) {
   const theme = useTheme();
+  // Money is formatted by plain functions (`@/lib/money`), so this is what
+  // re-renders the screen when the currency preference or the rate changes.
+  useMoneySignature();
   const toast = useToast();
   const { profile, can } = useAuth();
   const canEdit = can('billing');
@@ -172,7 +176,12 @@ export function Billing({ focus, autoEdit }: BillingProps = {}) {
     }
   }
 
-  if (isBlocked(invoicesQuery, openChallansQuery, challansQuery, quotationsQuery) || !invoices || !openChallans || !challans || !quotations) return <ScreenGate queries={[invoicesQuery, openChallansQuery, challansQuery, quotationsQuery]} />;
+  if (isBlocked(invoicesQuery, openChallansQuery, challansQuery, quotationsQuery) || !invoices || !openChallans || !challans || !quotations) return (
+      <ScreenGate
+        queries={[invoicesQuery, openChallansQuery, challansQuery, quotationsQuery]}
+        header={<ScreenHeader title="Billing" showBack={showBack} rightSlot={<HeaderAccount />} />}
+      />
+    );
 
   const docCounts: Record<DocType, number> = { invoice: invoices.length, challan: challans.length, quotation: quotations.length };
   const activeDoc =

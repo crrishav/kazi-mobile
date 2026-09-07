@@ -10,10 +10,16 @@ export interface Person {
   role: string;
   initials: string;
   avatarTint: AvatarTint;
-  /** On shift right now, derived from the person's schedule — not real presence. */
+  /** Clocked in and not yet clocked out — the real punch, not the roster. */
   online: boolean;
   status: string;
   email?: string;
+  /** Epoch ms of the clock-in they are still on, when they are on one. */
+  onShiftSince?: number;
+  /** The rest of the profile card. All RLS-gated on `fs_employees`, so any of them can be absent. */
+  phone?: string;
+  department?: string;
+  location?: string;
 }
 
 export interface Reaction {

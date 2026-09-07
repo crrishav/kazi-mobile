@@ -5,12 +5,12 @@ import { CollapsedSection } from '@/components/ui/collapsed-section';
 import { Avatar } from '@/components/ui/avatar';
 import { DualDate } from '@/components/ui/dual-date';
 import { EmptyState } from '@/components/ui/empty-state';
-import { formatAD } from '@/lib/nepaliDate';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import { CHALLAN_STATUSES, DOC_STATUS_PILL, QUOTATION_STATUSES } from '@/data/billing/mock';
 import type { Challan, Quotation } from '@/data/billing/types';
 import { calcTotals, money, n0 } from '@/data/billing/utils';
+import { useDateText } from '@/lib/date-display';
 
 
 type DocKind = 'challan' | 'quotation';
@@ -30,6 +30,7 @@ function isQuotation(d: AnyDoc): d is Quotation {
 
 export function DocList({ kind, docs, statusFilter, onStatusFilter, onOpen }: DocListProps) {
   const theme = useTheme();
+  const dateText = useDateText();
   const todayISO = new Date().toISOString().slice(0, 10);
   const statuses = kind === 'challan' ? CHALLAN_STATUSES : QUOTATION_STATUSES;
 
@@ -57,8 +58,8 @@ export function DocList({ kind, docs, statusFilter, onStatusFilter, onOpen }: Do
     const expired = quote && !!d.validUntil && d.validUntil < todayISO && (d.status === 'Draft' || d.status === 'Sent');
     const secondLine = quote
       ? expired
-        ? `expired ${formatAD(d.validUntil)}`
-        : `valid to ${d.validUntil ? formatAD(d.validUntil) : '—'}`
+        ? `expired ${dateText(d.validUntil)}`
+        : `valid to ${d.validUntil ? dateText(d.validUntil) : '—'}`
       : d.routeFrom || d.routeTo
         ? `${d.routeFrom || '—'} → ${d.routeTo || '—'}`
         : 'no route set';

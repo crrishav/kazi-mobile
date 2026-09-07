@@ -6,14 +6,19 @@
  * React state (which currency is "primary", persisted) lives in
  * `currency-context.tsx`.
  *
- * Mock-era simplification: one fixed rate, no live FX. Billing's per-invoice
- * booked rate and the live-rate popover (plan 2.3) layer on top later; they
- * do not change this contract.
+ * The rate is a parameter here, never a global read: `currency-store.ts` owns
+ * the live GBP→NPR rate (fetched like the reference app does) and passes it in.
+ * Billing's per-invoice *booked* rate deliberately stays the fixed `GBP_RATE` —
+ * a stored invoice total must not drift with the market.
  */
 
 export type Currency = 'NPR' | 'GBP';
 
-/** Matches the reference app's `GBP_RATE` in `src/constants.js`. 1 GBP = 200 NPR. */
+/**
+ * Matches the reference app's `GBP_RATE` in `src/constants.js`. 1 GBP = 200 NPR.
+ * This is the *fallback*: the live rate from `currency-store.ts` replaces it for
+ * display as soon as one arrives.
+ */
 export const GBP_RATE = 200;
 
 export const CURRENCY_SYMBOL: Record<Currency, string> = {
@@ -21,18 +26,18 @@ export const CURRENCY_SYMBOL: Record<Currency, string> = {
   GBP: '£',
 };
 
-export function toGBP(npr: number): number {
-  return npr / GBP_RATE;
+export function toGBP(npr: number, rate: number = GBP_RATE): number {
+  return npr / rate;
 }
 
-export function toNPR(value: number, from: Currency): number {
-  return from === 'GBP' ? value * GBP_RATE : value;
+export function toNPR(value: number, from: Currency, rate: number = GBP_RATE): number {
+  return from === 'GBP' ? value * rate : value;
 }
 
 /** Convert any amount between the two currencies. `convert(x, 'NPR', 'NPR')` is a no-op. */
-export function convert(value: number, from: Currency, to: Currency): number {
+export function convert(value: number, from: Currency, to: Currency, rate: number = GBP_RATE): number {
   if (from === to) return value;
-  return to === 'GBP' ? toGBP(value) : toNPR(value, from);
+  return to === 'GBP' ? toGBP(value, rate) : toNPR(value, from, rate);
 }
 
 /**
@@ -76,10 +81,42 @@ export interface MoneyParts {
  * Given an NPR amount and the user's preferred currency, produce both the
  * primary and secondary display strings.
  */
-export function moneyParts(npr: number, primaryCurrency: Currency, compact = false): MoneyParts {
+export function moneyParts(
+  npr: number,
+  primaryCurrency: Currency,
+  compact = false,
+  rate: number = GBP_RATE,
+): MoneyParts {
   const fmt = compact ? asCompactCurrency : asCurrency;
+  const gbp = compact ? asCompactConvertedGBP(toGBP(npr, rate)) : asConvertedGBP(toGBP(npr, rate));
   if (primaryCurrency === 'GBP') {
-    return { primary: fmt(toGBP(npr), 'GBP'), secondary: fmt(npr, 'NPR') };
+    return { primary: gbp, secondary: fmt(npr, 'NPR') };
   }
-  return { primary: fmt(npr, 'NPR'), secondary: fmt(toGBP(npr), 'GBP') };
+  return { primary: fmt(npr, 'NPR'), secondary: gbp };
+}
+
+/**
+ * A GBP amount that came from converting rupees, rather than one someone typed.
+ * The reference rounds these to whole pounds (`roundAmount(n / rate)`), which
+ * reads right for the invoice-sized numbers this ERP mostly shows — but a
+ * रु 22 trim would render as "£0", so anything under £100 keeps its pence.
+ */
+export function asConvertedGBP(value: number): string {
+  const sign = value < 0 ? '-' : '';
+  const abs = Math.abs(value);
+  // The minus belongs outside the symbol — "£-92.40" reads as a typo.
+  if (abs >= 100 || Number.isInteger(abs)) return `${sign}${asCurrency(Math.round(abs), 'GBP')}`;
+  return `${sign}${CURRENCY_SYMBOL.GBP}${abs.toLocaleString('en-GB', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+/**
+ * Compact pounds for a converted amount. `asCompactCurrency` only abbreviates
+ * from £1k up and prints exact pence below it, which is more precision than a
+ * KPI tile wants — under £1k this rounds the way {@link asConvertedGBP} does.
+ */
+export function asCompactConvertedGBP(value: number): string {
+  return Math.abs(value) < 1000 ? asConvertedGBP(value) : asCompactCurrency(value, 'GBP');
 }

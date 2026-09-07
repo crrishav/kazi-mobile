@@ -18,7 +18,6 @@
  */
 
 import { Easing } from 'react-native-reanimated';
-import { Easing as RNEasing } from 'react-native';
 
 export const duration = {
   fast: 150,
@@ -31,22 +30,18 @@ export const distance = {
   rise: 6,
   /** Horizontal travel for a forward/back swap inside a screen. */
   push: 24,
-  /** Horizontal travel for a tab scene, which is a longer trip. */
-  scene: 12,
 } as const;
 
 /** Ease-out cubic — the design's only easing curve, for Reanimated. */
 export const easeOut = Easing.out(Easing.cubic);
 
-/** The same curve for React Navigation / RN `Animated`, which take an RN easing. */
-export const easeOutRN = RNEasing.out(RNEasing.cubic);
-
 /**
- * Transition spec for the bottom-tab navigator. `timing` rather than `spring`:
- * a tab switch should feel decisive and identical every time, and a spring's
- * settle reads as lag when you are moving between tabs quickly.
+ * How long a pushed screen takes to slide in over the one behind it.
+ *
+ * Handed to the native stack rather than to Reanimated, so it is a plain
+ * number. `slow` (300ms) was the design token for "arriving from off screen",
+ * but a stack push is the one transition standing between a tap and the thing
+ * that was tapped, and at 300ms-plus it reads as the app thinking rather than
+ * as the screen travelling.
  */
-export const tabTransitionSpec = {
-  animation: 'timing',
-  config: { duration: duration.base, easing: easeOutRN },
-} as const;
+export const pushDuration = 220;

@@ -14,10 +14,12 @@ export interface ThreadHeaderProps {
   onBack: () => void;
   /** Opens the thread's own actions sheet — mark unread, pin, mute, delete. */
   onOptions?: () => void;
+  /** Opens contact info (a dm) or group info. The identity is inert without it. */
+  onIdentity?: () => void;
 }
 
 /** A person-identity layout (avatar + name + presence inline), not a title/subtitle stack — doesn't fit `ScreenHeader`'s shape, so it's bespoke. */
-export function ThreadHeader({ thread, onBack, onOptions }: ThreadHeaderProps) {
+export function ThreadHeader({ thread, onBack, onOptions, onIdentity }: ThreadHeaderProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -28,7 +30,14 @@ export function ThreadHeader({ thread, onBack, onOptions }: ThreadHeaderProps) {
       </Pressable>
 
       {thread ? (
-        <View style={styles.identity}>
+        // The whole identity is the target, the way it is in every messenger —
+        // the name, the avatar and the presence line are one thing to tap.
+        <Pressable
+          onPress={onIdentity}
+          disabled={!onIdentity}
+          accessibilityLabel={`About ${threadTitle(thread)}`}
+          style={({ pressed }) => [styles.identity, pressed && onIdentity ? { opacity: 0.65 } : null]}
+        >
           <Avatar initials={threadInitials(thread)} tint={threadTint(thread)} size="md" />
           <View style={styles.textWrap}>
             <View style={styles.nameRow}>
@@ -44,7 +53,8 @@ export function ThreadHeader({ thread, onBack, onOptions }: ThreadHeaderProps) {
               </Text>
             </View>
           </View>
-        </View>
+          {onIdentity ? <Icon name="chevron-right" size={15} color={theme.textSecondary} /> : null}
+        </Pressable>
       ) : (
         <Text style={[styles.fallbackTitle, { color: theme.textPrimary }]}>Thread</Text>
       )}

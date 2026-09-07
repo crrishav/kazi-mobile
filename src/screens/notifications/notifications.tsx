@@ -10,6 +10,8 @@ import type { NotificationRecord } from '@/data/notifications/types';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
+import { useCalendarPreference } from '@/lib/calendar-preference';
+import { dateText, isoDay } from '@/lib/date-display';
 
 import { FilterChips, type NotifFilter } from './filter-chips';
 import { NotificationRow } from './notification-row';
@@ -22,11 +24,13 @@ function dayLabel(iso: string): string {
   const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
   if (sameDay(d, today)) return 'Today';
   if (sameDay(d, yest)) return 'Yesterday';
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return dateText(isoDay(iso));
 }
 
 export function Notifications() {
   const theme = useTheme();
+  // `dayLabel` reads the calendar preference, so subscribe to it.
+  useCalendarPreference();
   const { records, loading, error, unreadCount, markAllRead, markReadById } = useNotifications();
   const [filter, setFilter] = useState<NotifFilter>('all');
   const [refreshing, setRefreshing] = useState(false);

@@ -3,24 +3,25 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 
-export interface FinanceTabDef<T extends string> {
+export interface TabDef<T extends string> {
   id: T;
   label: string;
   /** Optional count badge (e.g. unpaid expenses, VAT bills). */
   count?: number;
 }
 
-export interface FinanceTabsProps<T extends string> {
-  tabs: FinanceTabDef<T>[];
+export interface TabStripProps<T extends string> {
+  tabs: TabDef<T>[];
   active: T;
   onChange: (id: T) => void;
 }
 
 /**
- * Horizontal tab strip for the Finance hub. The reference `Finance.jsx` is a
- * 9-tab page; mobile adds tabs here as each one is built (plan items 6–11).
+ * The horizontal pill tab strip used by every multi-tab hub screen — Finance
+ * and Inventory both mirror a wide reference page whose tabs cannot fit across
+ * a phone, so the strip scrolls instead of wrapping or collapsing.
  */
-export function FinanceTabs<T extends string>({ tabs, active, onChange }: FinanceTabsProps<T>) {
+export function TabStrip<T extends string>({ tabs, active, onChange }: TabStripProps<T>) {
   const theme = useTheme();
 
   return (

@@ -22,7 +22,7 @@
 
 import { tintFromSeed } from '@/components/ui/avatar';
 import { getSupabase } from '@/lib/supabase';
-import { arr, num, str } from '@/lib/data/normalise';
+import { num, str } from '@/lib/data/normalise';
 
 import { myId } from './identity';
 import type {
@@ -48,69 +48,80 @@ const ms = (v: unknown): number => {
 
 // ------------------------------------------------------------- directory
 
-const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const DEFAULT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-
 function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (!parts.length) return '?';
   return ((parts[0][0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase();
 }
 
-const minutesOf = (hhmm: string): number => {
-  const [h, m] = hhmm.split(':').map((n) => parseInt(n, 10));
-  return (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+const clockOf = (atMs: number): string => {
+  const d = new Date(atMs);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
 /**
- * The presence dot. There is no presence service and inventing one would be a
- * lie, so "online" means *rostered on right now* — the same schedule fields
- * Attendance reads (`scheduleStart` / `scheduleEnd` / `scheduleWorkingDays`).
- * The status line under a name says which it is, so nobody reads the dot as
- * "they have the app open".
+ * Who is on the clock, as `person_id → clock-in time`.
+ *
+ * This used to be derived from the schedule on `fs_employees`, which is a
+ * roster and not a fact — it announced "Off shift · starts 09:00" under the
+ * name of somebody who had punched in an hour early and was sitting across the
+ * room. Presence is now the punch itself.
+ *
+ * `chat_presence` (migration 0109) exists because `clock_ins` is RLS'd to your
+ * own rows unless you hold attendance at tier >= 2, so reading the punches
+ * directly would show everyone but the reader as off. It exposes only the id
+ * and the clock-in time, and already drops punches older than sixteen hours —
+ * a forgotten clock-out is not a person still at their machine.
  */
-function shiftOf(row: Row): { online: boolean; status: string } {
-  const start = str(row.scheduleStart).trim() || '09:00';
-  const end = str(row.scheduleEnd).trim() || '18:00';
-  const days = arr<unknown>(row.scheduleWorkingDays).map((d) => str(d).trim().slice(0, 3)).filter(Boolean);
-  const working = days.length ? days : DEFAULT_DAYS;
-
-  const now = new Date();
-  const today = DAY_KEYS[now.getDay()];
-  if (!working.includes(today)) return { online: false, status: 'Not rostered today' };
-
-  const minutes = now.getHours() * 60 + now.getMinutes();
-  if (minutes < minutesOf(start)) return { online: false, status: `Off shift · starts ${start}` };
-  if (minutes > minutesOf(end)) return { online: false, status: `Off shift · ended ${end}` };
-  return { online: true, status: `On shift · until ${end}` };
+async function fetchPresence(): Promise<Map<PersonId, number>> {
+  const { data, error } = await getSupabase().from('chat_presence').select('*');
+  // Presence is decoration on a directory that has to render either way: a
+  // missing view (an environment where 0109 has not been applied) or a denied
+  // read means "nobody is known to be on the clock", not a broken screen.
+  if (error) {
+    console.warn('[chat] presence read failed', error.message);
+    return new Map();
+  }
+  const out = new Map<PersonId, number>();
+  for (const row of (data ?? []) as Row[]) {
+    const id = str(row.personId).trim();
+    if (id) out.set(id, ms(row.since));
+  }
+  return out;
 }
 
-function toPerson(row: Row): Person | null {
+function toPerson(row: Row, presence: Map<PersonId, number>): Person | null {
   const id = str(row.id).trim();
   const name = str(row.name).trim();
   if (!id || !name) return null;
   if (/inactive|disabled|left/i.test(str(row.status))) return null;
 
-  const initials = initialsOf(name);
-  const shift = shiftOf(row);
+  const since = presence.get(id);
   return {
     id,
     name,
     role: str(row.role).trim() || str(row.department).trim() || 'Staff',
-    initials,
+    initials: initialsOf(name),
     avatarTint: tintFromSeed(id),
-    online: shift.online,
-    status: shift.status,
-    email: str(row.email).trim(),
+    online: since != null,
+    status: since ? `On shift · since ${clockOf(since)}` : 'Not clocked in',
+    onShiftSince: since,
+    email: str(row.email).trim() || undefined,
+    phone: str(row.phone).trim() || undefined,
+    department: str(row.department).trim() || undefined,
+    location: str(row.location).trim() || undefined,
   };
 }
 
 /** Every active member of staff. `fs_employees` runs as owner, so this is the whole roster whatever the caller's position. */
 export async function fetchDirectory(): Promise<Person[]> {
-  const { data, error } = await getSupabase().from('fs_employees').select('*');
-  if (error) throw failed('directory', error);
-  return ((data ?? []) as Row[])
-    .map(toPerson)
+  const [staff, presence] = await Promise.all([
+    getSupabase().from('fs_employees').select('*'),
+    fetchPresence(),
+  ]);
+  if (staff.error) throw failed('directory', staff.error);
+  return ((staff.data ?? []) as Row[])
+    .map((row) => toPerson(row, presence))
     .filter((p): p is Person => !!p)
     .sort((a, b) => a.name.localeCompare(b.name));
 }

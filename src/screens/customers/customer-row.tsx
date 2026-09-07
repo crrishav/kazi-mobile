@@ -53,6 +53,9 @@ export function CustomerRow({ customer, index, isOpen, onSwipeOpen, onSwipeClose
 
   const balance = owed(customer);
   const tint = AVATAR_TINTS[index % AVATAR_TINTS.length];
+  // The web table's Contact / Email columns, collapsed into one line and
+  // em-dashed where the row has neither — same as its empty cells.
+  const sub = [customer.contact, customer.email].filter(Boolean).join(' · ') || '—';
 
   return (
     <Animated.View entering={FadeInUp.delay(Math.min(index, 6) * 30).duration(220)} style={[styles.wrap, { backgroundColor: onDelete ? theme.danger : theme.surface }]}>
@@ -69,20 +72,13 @@ export function CustomerRow({ customer, index, isOpen, onSwipeOpen, onSwipeClose
             onPress={isOpen ? onSwipeClose : onPress}
             style={[styles.card, { backgroundColor: theme.surface, boxShadow: theme.shadows.card }]}
           >
-            <Avatar initials={initials(customer.name)} tint={tint} size="md" shape={customer.type === 'person' ? 'circle' : 'tile'} />
+            <Avatar initials={initials(customer.name)} tint={tint} size="md" shape="tile" />
             <View style={styles.textWrap}>
-              <View style={styles.nameRow}>
-                <Text style={[styles.name, { color: theme.textPrimary }]} numberOfLines={1}>
-                  {customer.name}
-                </Text>
-                {customer.type === 'person' ? (
-                  <View style={[styles.personTag, { backgroundColor: theme.draftWash }]}>
-                    <Text style={[styles.personTagText, { color: theme.textSecondary }]}>person</Text>
-                  </View>
-                ) : null}
-              </View>
+              <Text style={[styles.name, { color: theme.textPrimary }]} numberOfLines={1}>
+                {customer.name}
+              </Text>
               <Text style={[styles.sub, tabularNums, { color: theme.textSecondary }]} numberOfLines={1}>
-                {customer.contact} · {customer.type === 'company' ? customer.role : customer.email}
+                {sub}
               </Text>
             </View>
             <View style={styles.rightCol}>
@@ -104,10 +100,7 @@ const styles = StyleSheet.create({
   deleteLabel: { fontSize: 13.5, fontWeight: '600' },
   card: { flexDirection: 'row', alignItems: 'center', gap: 11, borderRadius: 20, padding: 14 },
   textWrap: { flex: 1, gap: 3, minWidth: 0 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 7, minWidth: 0 },
-  name: { fontFamily: fontFamily.semibold, fontSize: 15.5, letterSpacing: -0.01 * 15.5, flexShrink: 1 },
-  personTag: { borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2, flexShrink: 0 },
-  personTagText: { fontFamily: fontFamily.mono, fontSize: 9, letterSpacing: 0.1 * 9, textTransform: 'uppercase' },
+  name: { fontFamily: fontFamily.semibold, fontSize: 15.5, letterSpacing: -0.01 * 15.5 },
   sub: { fontFamily: fontFamily.mono, fontSize: 10.5 },
   rightCol: { alignItems: 'flex-end', gap: 5, flexShrink: 0 },
   city: { fontSize: 14, fontWeight: '600' },

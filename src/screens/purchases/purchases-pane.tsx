@@ -5,13 +5,13 @@ import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
-import { formatAD } from '@/lib/nepaliDate';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import { useAdjustStock, useStock } from '@/data/inventory/hooks';
 import { useAddEntry, useDeleteEntry, useEntries, useRestoreEntries, useUpdateEntry } from '@/data/purchases/hooks';
 import { buildEntry, draftFromEntry, emptyDraft } from '@/data/purchases/utils';
 import type { PurchaseDraft, PurchaseEntry, PurchaseFilter } from '@/data/purchases/types';
+import { useDateText } from '@/lib/date-display';
 
 import { AddSheet } from './add-sheet';
 import { EntryGroup } from './entry-group';
@@ -46,6 +46,7 @@ export function PurchasesPane({
   inset = true,
 }: PurchasesPaneProps) {
   const theme = useTheme();
+  const dateText = useDateText();
   const toast = useToast();
   const { profile, can } = useAuth();
   const canEdit = can('purchases');
@@ -123,7 +124,7 @@ export function PurchasesPane({
   filtered.forEach((e) => {
     let b = buckets.find((x) => x.key === e.date);
     if (!b) {
-      b = { key: e.date, title: formatAD(e.date), entries: [] };
+      b = { key: e.date, title: dateText(e.date), entries: [] };
       buckets.push(b);
     }
     b.entries.push(e);

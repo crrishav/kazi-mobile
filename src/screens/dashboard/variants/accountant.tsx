@@ -6,6 +6,7 @@ import { ScreenGate } from '@/components/ui/screen-gate';
 import { useAccountantDashboard } from '@/data/dashboard/hooks';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
+import { moneyCompact } from '@/lib/money';
 
 import { DashboardClockInCard } from '../clock-in-card';
 import { DashboardCard, DashboardScroll } from '../dashboard-card';
@@ -13,10 +14,8 @@ import { InvoicesCard } from '../invoices-card';
 import { KpiRow } from '../kpi-tile';
 import { QuickLinks } from '../quick-links';
 
-function compactNpr(n: number): string {
-  if (n >= 100_000) return `रु ${(n / 100_000).toFixed(1).replace(/\.0$/, '')}L`;
-  return `रु ${Math.round(n).toLocaleString('en-US')}`;
-}
+/** Compact money in the display currency — `useMoneySignature()` in the dashboard hooks re-renders it. */
+const compactNpr = moneyCompact;
 
 /**
  * `accountant` — Sunam Deepa. Bar is Dashboard / Finance / Chat / Billing, so

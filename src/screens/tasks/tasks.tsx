@@ -46,7 +46,7 @@ export function Tasks() {
   // Non-admins get the progress-only sheet instead of the full editor.
   const [progressTask, setProgressTask] = useState<Task | null>(null);
 
-  if (isBlocked(tasksQuery) || !tasks) return <ScreenGate queries={[tasksQuery]} />;
+  if (isBlocked(tasksQuery) || !tasks) return <ScreenGate queries={[tasksQuery]} header={<ScreenHeader title="Tasks" showBack={showBack} />} />;
 
   const q = query.trim().toLowerCase();
   const matchesQuery = (t: Task) => !q || `${t.title} ${t.assignee}`.toLowerCase().includes(q);

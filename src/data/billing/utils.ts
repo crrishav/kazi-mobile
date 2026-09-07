@@ -1,3 +1,5 @@
+import { money as displayMoney, moneyLakh } from '@/lib/money';
+
 import { CLIENTS, RATES, SYM, VAT_RATE } from './mock';
 import type { Currency, DiscountMode, DocLine, Invoice, InvoiceStatus, InvoiceStatusFull } from './types';
 
@@ -9,17 +11,31 @@ export function n2(n: number): string {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/**
+ * An NPR-normalised figure (anything through `nprOf`) in the display currency.
+ * Screens that call it need `useMoneySignature()`.
+ */
 export function npr(n: number): string {
+  return displayMoney(n);
+}
+
+/** Literal rupees, whatever the display currency — for the FX arithmetic a payment sheet spells out. */
+export function nprLiteral(n: number): string {
   return `रु ${n0(n)}`;
 }
 
+/**
+ * An amount in *the document's own* currency. A GBP invoice is a GBP invoice:
+ * its lines, totals and the balance you are paying off are never re-expressed
+ * in the display currency, or the sheet would stop agreeing with the paperwork.
+ */
 export function money(cur: Currency, n: number): string {
-  return cur === 'NPR' ? npr(n) : `${SYM[cur]}${n2(n)}`;
+  return cur === 'NPR' ? nprLiteral(n) : `${SYM[cur]}${n2(n)}`;
 }
 
-/** "रु 41.2L" style lakh-compact formatting, matching the design's own `lakh()` helper. */
+/** "रु 41.2L" / "£20.6k" — the design's `lakh()` helper, in the display currency. */
 export function lakh(n: number): string {
-  return `रु ${(n / 100000).toFixed(1).replace(/\.0$/, '')}L`;
+  return moneyLakh(n);
 }
 
 export function short(cur: Currency, n: number): string {

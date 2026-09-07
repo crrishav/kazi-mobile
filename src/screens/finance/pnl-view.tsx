@@ -7,16 +7,22 @@ import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import type { PurchaseEntry } from '@/data/purchases/types';
 import type { ProfitAndLoss } from '@/data/finance/pnl';
+import { money, moneyDigits, useMoneySignature } from '@/lib/money';
 
 export interface PnlViewProps {
   pnl: ProfitAndLoss;
   purchases: PurchaseEntry[];
 }
 
-const npr = (n: number) => `रु ${Math.round(n).toLocaleString('en-IN')}`;
+const npr = (n: number) => money(n, { grouping: 'en-IN' });
+
+/** Category rows print bare digits under a heading that already names the currency. */
+const num = (n: number) => moneyDigits(n, 'en-IN');
 
 export function PnlView({ pnl, purchases }: PnlViewProps) {
   const theme = useTheme();
+  // These figures come from plain formatters, so the view subscribes to the currency itself.
+  useMoneySignature();
 
   const incomeRows = [
     { label: 'Sales revenue', value: pnl.salesRevenue, note: 'collected invoices' },
@@ -106,7 +112,7 @@ export function PnlView({ pnl, purchases }: PnlViewProps) {
               <View style={[styles.catTrack, { backgroundColor: theme.draftWash }]}>
                 <View style={[styles.catFill, { width: `${Math.max(4, (val / catMax) * 100)}%`, backgroundColor: theme.accent }]} />
               </View>
-              <Text style={[styles.catVal, tabularNums, { color: theme.textSecondary }]}>{npr(val).replace('रु ', '')}</Text>
+              <Text style={[styles.catVal, tabularNums, { color: theme.textSecondary }]}>{num(val)}</Text>
             </View>
           ))}
         </Card>

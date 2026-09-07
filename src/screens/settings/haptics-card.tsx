@@ -1,5 +1,3 @@
-import { View, StyleSheet } from 'react-native';
-
 import { Switch } from '@/components/ui/switch';
 import { setHapticsEnabled, useHapticsEnabled } from '@/lib/haptics';
 
@@ -20,6 +18,7 @@ export function HapticsCard() {
 
   return (
     <SettingRow
+      inline
       label="Haptics"
       meta={
         enabled
@@ -27,15 +26,7 @@ export function HapticsCard() {
           : 'Off — the app gives feedback on screen only'
       }
     >
-      <View style={styles.row}>
-        <Switch value={enabled} onValueChange={() => setHapticsEnabled(!enabled)} />
-      </View>
+      <Switch value={enabled} onValueChange={() => setHapticsEnabled(!enabled)} />
     </SettingRow>
   );
 }
-
-const styles = StyleSheet.create({
-  // The other cards fill the width with a segmented control; a lone switch
-  // reads better pushed to the end of the row than stretched across it.
-  row: { alignItems: 'flex-start' },
-});

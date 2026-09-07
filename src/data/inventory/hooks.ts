@@ -4,7 +4,18 @@ import { notify } from '@/data/notifications/notify';
 
 import { inventoryKeys } from './keys';
 import * as api from './api';
-import type { StockItem, StockMoveKind, StockMovement } from './types';
+import { fabricFromDraft, processFromDraft, techPackFromDraft } from './library';
+import type {
+  Fabric,
+  FabricDraft,
+  Process,
+  ProcessDraft,
+  StockItem,
+  StockMoveKind,
+  StockMovement,
+  TechPack,
+  TechPackDraft,
+} from './types';
 
 function lowStockNotify(item: StockItem | undefined, projectedQty: number) {
   if (!item || projectedQty > item.threshold) return;
@@ -20,8 +31,20 @@ export function useStock() {
   return useQuery({ queryKey: inventoryKeys.stock(), queryFn: api.fetchStock });
 }
 
-export function useLibrary() {
-  return useQuery({ queryKey: inventoryKeys.library(), queryFn: api.fetchLibrary });
+export function useFabrics() {
+  return useQuery({ queryKey: inventoryKeys.fabrics(), queryFn: api.fetchFabrics });
+}
+
+export function useProcesses() {
+  return useQuery({ queryKey: inventoryKeys.processes(), queryFn: api.fetchProcesses });
+}
+
+export function useTechPacks() {
+  return useQuery({ queryKey: inventoryKeys.techPacks(), queryFn: api.fetchTechPacks });
+}
+
+export function useItemCosts() {
+  return useQuery({ queryKey: inventoryKeys.itemCosts(), queryFn: api.fetchItemCosts });
 }
 
 export function useStockMovements() {
@@ -114,5 +137,141 @@ export function useAdjustStock() {
       queryClient.invalidateQueries({ queryKey: inventoryKeys.stock() });
       queryClient.invalidateQueries({ queryKey: inventoryKeys.movements() });
     },
+  });
+}
+
+// ------------------------------------------------------------------ library
+//
+// Fabrics, processes and tech packs all save the same way: the draft is written
+// into the cached list straight away so the editor can close onto a list that
+// already shows the change, and `onSettled` refetches so a server-side
+// difference — a trimmed value, a generated id, a refused write — wins.
+//
+// A refused write matters here: RLS gates these three tables on the `library`
+// section, which is a grant of its own. The mutation rejects, the editor keeps
+// the draft on screen and says so, and the refetch puts the real row back.
+
+/** Roll the cached list back to the snapshot taken before an optimistic write. */
+function rollback<T>(queryClient: ReturnType<typeof useQueryClient>, key: readonly unknown[], previous: T[] | undefined) {
+  queryClient.setQueryData<T[]>(key, previous);
+}
+
+export function useSaveFabric() {
+  const queryClient = useQueryClient();
+  const key = inventoryKeys.fabrics();
+  return useMutation({
+    mutationFn: ({ id, draft }: { id: string | null; draft: FabricDraft }) => api.saveFabric(id, draft),
+    onMutate: async ({ id, draft }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Fabric[]>(key);
+      // A create has no id yet; a placeholder keeps the row keyed until refetch.
+      const row = fabricFromDraft(id ?? `pending-${Date.now()}`, draft);
+      queryClient.setQueryData<Fabric[]>(key, (old) =>
+        id ? (old ?? []).map((f) => (f.id === id ? row : f)) : [row, ...(old ?? [])],
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => rollback<Fabric>(queryClient, key, context?.previous),
+    onSuccess: (_data, { draft }) => {
+      notify({ eventType: 'inventory.library_changed', section: 'inventory', payload: { label: draft.name.trim() } });
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+}
+
+export function useDeleteFabric() {
+  const queryClient = useQueryClient();
+  const key = inventoryKeys.fabrics();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteFabric(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Fabric[]>(key);
+      queryClient.setQueryData<Fabric[]>(key, (old) => (old ?? []).filter((f) => f.id !== id));
+      return { previous };
+    },
+    onError: (_err, _id, context) => rollback<Fabric>(queryClient, key, context?.previous),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+}
+
+export function useSaveProcess() {
+  const queryClient = useQueryClient();
+  const key = inventoryKeys.processes();
+  return useMutation({
+    mutationFn: ({ id, draft }: { id: string | null; draft: ProcessDraft }) => api.saveProcess(id, draft),
+    onMutate: async ({ id, draft }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Process[]>(key);
+      const row = processFromDraft(id ?? `pending-${Date.now()}`, draft);
+      queryClient.setQueryData<Process[]>(key, (old) =>
+        id ? (old ?? []).map((p) => (p.id === id ? row : p)) : [row, ...(old ?? [])],
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => rollback<Process>(queryClient, key, context?.previous),
+    onSuccess: (_data, { draft }) => {
+      notify({ eventType: 'inventory.library_changed', section: 'inventory', payload: { label: draft.name.trim() } });
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+}
+
+export function useDeleteProcess() {
+  const queryClient = useQueryClient();
+  const key = inventoryKeys.processes();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteProcess(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Process[]>(key);
+      queryClient.setQueryData<Process[]>(key, (old) => (old ?? []).filter((p) => p.id !== id));
+      return { previous };
+    },
+    onError: (_err, _id, context) => rollback<Process>(queryClient, key, context?.previous),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+}
+
+export function useSaveTechPack() {
+  const queryClient = useQueryClient();
+  const key = inventoryKeys.techPacks();
+  return useMutation({
+    mutationFn: ({ id, draft }: { id: string | null; draft: TechPackDraft }) => api.saveTechPack(id, draft),
+    onMutate: async ({ id, draft }) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<TechPack[]>(key);
+      const row = techPackFromDraft(id ?? `pending-${Date.now()}`, draft);
+      queryClient.setQueryData<TechPack[]>(key, (old) =>
+        id ? (old ?? []).map((t) => (t.id === id ? row : t)) : [row, ...(old ?? [])],
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => rollback<TechPack>(queryClient, key, context?.previous),
+    onSuccess: (_data, { draft }) => {
+      notify({
+        eventType: 'inventory.library_changed',
+        section: 'inventory',
+        targetRef: draft.styleNo.trim() || undefined,
+        payload: { label: draft.name.trim() },
+      });
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
+  });
+}
+
+export function useDeleteTechPack() {
+  const queryClient = useQueryClient();
+  const key = inventoryKeys.techPacks();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteTechPack(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<TechPack[]>(key);
+      queryClient.setQueryData<TechPack[]>(key, (old) => (old ?? []).filter((t) => t.id !== id));
+      return { previous };
+    },
+    onError: (_err, _id, context) => rollback<TechPack>(queryClient, key, context?.previous),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
   });
 }

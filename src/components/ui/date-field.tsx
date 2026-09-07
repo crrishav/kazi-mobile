@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { formatAD, formatBS } from '@/lib/nepaliDate';
+import { datePair } from '@/lib/date-display';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii, tabularNums } from '@/theme';
 
-import { setCalendarPreference, useCalendarPreference } from './calendar-preference';
+import { setCalendarPreference, useCalendarPreference } from '@/lib/calendar-preference';
 import { Icon } from './icon';
 import { NepaliDatePicker } from './nepali-date-picker';
 
@@ -32,11 +32,9 @@ export function DateField({ label, value, onChange, pickerTitle, compact = false
   const preferred = useCalendarPreference();
   const [open, setOpen] = useState(false);
 
-  const bs = formatBS(value, compact ? 'numeric' : 'long');
-  const ad = formatAD(value);
-  const primary = preferred === 'bs' ? bs : ad;
-  const secondary = preferred === 'bs' ? ad : bs;
-  const secondarySuffix = preferred === 'bs' ? 'A.D.' : 'B.S.';
+  const { primary, secondary, secondarySuffix } = datePair(value, preferred, {
+    bsStyle: compact ? 'numeric' : 'long',
+  });
 
   return (
     <View style={[styles.group, style]}>

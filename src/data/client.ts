@@ -27,10 +27,20 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       // Data is live Postgres shared with the web ERP, so it can change under
-      // us. Keep a short stale window (snappy navigation) but re-read on every
-      // screen mount so an edit made elsewhere shows up on the next visit.
-      staleTime: 1000 * 15,
-      refetchOnMount: 'always',
+      // us, and every screen re-reads on mount so an edit made elsewhere shows
+      // up on the next visit.
+      //
+      // `refetchOnMount` is `true` rather than `'always'`: `'always'` ignores
+      // `staleTime` entirely and fires a request on every single mount, so
+      // stepping from a module back to More and straight into it again — or
+      // any of the tab hopping the bottom bar invites — re-read Postgres each
+      // time and made the app feel like it was fetching constantly. `true`
+      // honours the window below: inside it a revisit is served from cache and
+      // draws instantly, outside it the read happens in the background with
+      // the cached rows still on screen. Either way nothing blanks, because
+      // the gate only stops a screen that has never loaded.
+      staleTime: 1000 * 30,
+      refetchOnMount: true,
       retry: 1,
     },
     mutations: {

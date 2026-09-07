@@ -10,6 +10,7 @@ import { fontFamily } from '@/theme';
 import type { Person, PersonId, Thread } from '@/data/chat/types';
 import { personFor, threadInitials, threadTint } from '@/data/chat/utils';
 
+import { ActionRow } from './action-row';
 import { PeoplePicker } from './people-picker';
 
 export interface GroupSheetProps {
@@ -22,6 +23,10 @@ export interface GroupSheetProps {
   error?: string | null;
   onClose: () => void;
   onSave: (name: string, memberIds: PersonId[]) => void;
+  /** Thread-level actions, offered when the sheet is opened as "group info" from the header. */
+  muted?: boolean;
+  onToggleMute?: () => void;
+  onLeave?: () => void;
 }
 
 /**
@@ -34,7 +39,18 @@ export interface GroupSheetProps {
  * Remounted per open by the caller (`key`), so the draft starts from the
  * group as it currently stands without an effect resetting it.
  */
-export function GroupSheet({ thread, people, canManage, busy, error, onClose, onSave }: GroupSheetProps) {
+export function GroupSheet({
+  thread,
+  people,
+  canManage,
+  busy,
+  error,
+  onClose,
+  onSave,
+  muted = false,
+  onToggleMute,
+  onLeave,
+}: GroupSheetProps) {
   const theme = useTheme();
   const [name, setName] = useState(thread?.name ?? '');
   const [members, setMembers] = useState<PersonId[]>(thread?.memberIds ?? []);
@@ -48,9 +64,14 @@ export function GroupSheet({ thread, people, canManage, busy, error, onClose, on
 
   const owner = thread?.ownerId ? personFor(thread.ownerId) : null;
   const leaving = (thread?.memberIds ?? []).filter((id) => !members.includes(id));
+  // Presence, not roster: how many of them have an open punch right now.
+  const onShift = (thread?.memberIds ?? []).filter((id) => personFor(id).online).length;
+  const started = thread?.createdAt
+    ? new Date(thread.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
 
   return (
-    <BottomSheet visible={!!thread} onClose={onClose} title={canManage ? 'Group settings' : 'Group members'} maxHeight={700}>
+    <BottomSheet visible={!!thread} onClose={onClose} title="Group info" maxHeight={700}>
       {thread ? (
         <>
           <View style={[styles.identity, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -60,8 +81,13 @@ export function GroupSheet({ thread, people, canManage, busy, error, onClose, on
                 {thread.name}
               </Text>
               <Text style={[styles.meta, { color: theme.textSecondary }]} numberOfLines={1}>
-                {thread.memberIds.length + 1} members{owner ? ` · started by ${owner.name}` : ''}
+                {thread.memberIds.length + 1} members · {onShift} on shift
               </Text>
+              {owner || started ? (
+                <Text style={[styles.meta, { color: theme.textSecondary }]} numberOfLines={1}>
+                  {[owner ? `Started by ${owner.name}` : null, started].filter(Boolean).join(' · ')}
+                </Text>
+              ) : null}
             </View>
           </View>
 
@@ -109,6 +135,28 @@ export function GroupSheet({ thread, people, canManage, busy, error, onClose, on
               ) : null}
             </View>
           ) : null}
+
+          {onToggleMute || onLeave ? (
+            <View style={styles.actions}>
+              {onToggleMute ? (
+                <ActionRow
+                  icon={muted ? 'bell' : 'bell-off'}
+                  label={muted ? 'Unmute this group' : 'Mute this group'}
+                  detail={muted ? 'Notifications come back on' : 'No notifications from this group'}
+                  onPress={onToggleMute}
+                />
+              ) : null}
+              {onLeave ? (
+                <ActionRow
+                  icon="log-out"
+                  label="Leave this group"
+                  detail="You stop receiving its messages"
+                  destructive
+                  onPress={onLeave}
+                />
+              ) : null}
+            </View>
+          ) : null}
         </>
       ) : null}
     </BottomSheet>
@@ -143,4 +191,5 @@ const styles = StyleSheet.create({
   error: { fontFamily: fontFamily.mono, fontSize: 11, lineHeight: 11 * 1.5 },
   hint: { fontFamily: fontFamily.mono, fontSize: 10.5, textAlign: 'center' },
   footer: { gap: 8 },
+  actions: { gap: 2 },
 });

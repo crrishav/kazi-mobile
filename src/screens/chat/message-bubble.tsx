@@ -38,6 +38,8 @@ export interface MessageBubbleProps {
   onLongPress: () => void;
   onReply: () => void;
   onToggleReaction: (emoji: string) => void;
+  /** Opens the "who reacted with what" sheet. Groups only — see the chip's `onPress`. */
+  onOpenReactions: () => void;
   /** View-only profiles can read a thread but not reply into or react to it. */
   canPost: boolean;
 }
@@ -54,6 +56,7 @@ export function MessageBubble({
   onLongPress,
   onReply,
   onToggleReaction,
+  onOpenReactions,
   canPost,
 }: MessageBubbleProps) {
   const theme = useTheme();
@@ -201,7 +204,14 @@ export function MessageBubble({
                     return (
                       <Pressable
                         key={r.emoji}
-                        onPress={() => canPost && onToggleReaction(r.emoji)}
+                        // In a group the count is the question — three people
+                        // agreed and the chip will not say which — so a tap
+                        // opens the list, and taking your own back is a row in
+                        // it. A dm has exactly one other person, so there is
+                        // nothing to look up and the tap stays a toggle.
+                        onPress={() => (isGroup ? onOpenReactions() : canPost && onToggleReaction(r.emoji))}
+                        onLongPress={onOpenReactions}
+                        delayLongPress={280}
                         style={[
                           styles.chip,
                           {

@@ -55,7 +55,12 @@ export function Marketing() {
     return false;
   });
 
-  if (isBlocked(entriesQuery) || !entries) return <ScreenGate queries={[entriesQuery]} />;
+  if (isBlocked(entriesQuery) || !entries) return (
+      <ScreenGate
+        queries={[entriesQuery]}
+        header={<ScreenHeader title="Marketing" showBack={showBack} rightSlot={<HeaderAccount size="md" />} />}
+      />
+    );
 
   const monthEntries = entries.filter((e) => e.y === cursor.y && e.m === cursor.m);
   const dayEntries = entries.filter((e) => e.y === selected.y && e.m === selected.m && e.d === selected.d);

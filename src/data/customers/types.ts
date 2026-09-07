@@ -1,6 +1,3 @@
-export type CustomerType = 'company' | 'person';
-export type CustomersFilter = 'all' | 'company' | 'person' | 'owing';
-export type CustomersView = 'list' | 'detail' | 'form';
 export type InvoiceStatus = 'open' | 'paid' | 'overdue';
 export type OrderStageId = 'sourcing' | 'cutting' | 'finishing' | 'packing';
 
@@ -17,21 +14,25 @@ export interface CustomerInvoice {
   status: InvoiceStatus;
 }
 
+/**
+ * One row of the reference ERP's `customers` table. The editable half is
+ * exactly the web app's form (`src/pages/Customers.jsx`) minus `region`, which
+ * mobile does not ask for; `since`, `orders` and `invoices` are derived —
+ * `since` from `created_at`, the two arrays from the Sales/Billing joins.
+ */
 export interface Customer {
   id: string;
-  type: CustomerType;
   name: string;
   contact: string;
-  role: string;
   email: string;
   phone: string;
   city: string;
   country: string;
   address: string;
-  terms: string;
+  notes: string;
   since: string;
   orders: CustomerOrder[];
   invoices: CustomerInvoice[];
 }
 
-export type CustomerDraft = Pick<Customer, 'type' | 'name' | 'contact' | 'role' | 'email' | 'phone' | 'city' | 'country' | 'address' | 'terms'>;
+export type CustomerDraft = Pick<Customer, 'name' | 'contact' | 'email' | 'phone' | 'city' | 'country' | 'address' | 'notes'>;

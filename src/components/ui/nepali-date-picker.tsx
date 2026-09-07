@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { BS_MONTHS_EN, bsFromAD, bsToAD, formatAD, type BSParts } from '@/lib/nepaliDate';
+import { datePair } from '@/lib/date-display';
+import { BS_MONTHS_EN, bsFromAD, bsToAD, type BSParts } from '@/lib/nepaliDate';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 
-import { setCalendarPreference, useCalendarPreference, type DateCalendar } from './calendar-preference';
+import { setCalendarPreference, useCalendarPreference, type DateCalendar } from '@/lib/calendar-preference';
 import { BottomSheet } from './bottom-sheet';
 import { Button } from './button';
 
@@ -102,6 +103,7 @@ export function NepaliDatePicker({
 
   const bs = bsFromAD(iso);
   const ad = adFromISO(iso);
+  const preview = datePair(iso, calendar);
 
   const bsYears = yearsAround(bsFromAD(anchor).year, yearsBack, yearsForward);
   const adYears = yearsAround(adFromISO(anchor).year, yearsBack, yearsForward);
@@ -190,11 +192,13 @@ export function NepaliDatePicker({
         )}
       </View>
 
+      {/* The calendar being entered in leads here as well, so the big line and
+          the columns above it are never reading different dates. */}
       <View style={[styles.preview, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Text style={[styles.previewBS, { color: theme.textPrimary }]}>
-          {bs.date} {BS_MONTHS_EN[bs.month - 1]} {bs.year}
+        <Text style={[styles.previewBS, { color: theme.textPrimary }]}>{preview.primary}</Text>
+        <Text style={[styles.previewAD, tabularNums, { color: theme.textSecondary }]}>
+          {preview.secondary} {preview.secondarySuffix}
         </Text>
-        <Text style={[styles.previewAD, tabularNums, { color: theme.textSecondary }]}>{formatAD(iso)}</Text>
       </View>
 
       <View style={styles.actions}>

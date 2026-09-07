@@ -31,7 +31,7 @@ export function Overview({ expenses, onBrowseYears }: OverviewProps) {
           </View>
           <View style={[styles.gap5, styles.alignEnd]}>
             <Text style={[styles.eyebrow, { color: theme.onHero.textMuted }]}>Net position</Text>
-            <Text style={[styles.netValue, tabularNums, { color: theme.onHero.text }]}>+रु 41.2L</Text>
+            <Text style={[styles.netValue, tabularNums, { color: theme.onHero.text }]}>{`+${lakh(4_120_000)}`}</Text>
           </View>
         </View>
         <View style={styles.marginChart}>
@@ -59,19 +59,19 @@ export function Overview({ expenses, onBrowseYears }: OverviewProps) {
       <View style={styles.pairRow}>
         <Card elevation="raised" style={[styles.pairCard, { borderLeftColor: theme.danger }]}>
           <Text style={[styles.pairLabel, { color: theme.textSecondary }]}>Payable</Text>
-          <Text style={[styles.pairValue, tabularNums, { color: theme.textPrimary }]}>रु 92.4L</Text>
+          <Text style={[styles.pairValue, tabularNums, { color: theme.textPrimary }]}>{lakh(9_240_000)}</Text>
           <View style={[styles.pairPill, { backgroundColor: theme.dangerWash }]}>
             <View style={[styles.pairDot, { backgroundColor: theme.danger }]} />
-            <Text style={[styles.pairPillText, { color: theme.dangerWashText }]}>रु 18.8L overdue</Text>
+            <Text style={[styles.pairPillText, { color: theme.dangerWashText }]}>{`${lakh(1_880_000)} overdue`}</Text>
           </View>
           <Text style={[styles.pairMeta, tabularNums, { color: theme.textSecondary }]}>14 bills · 4 suppliers</Text>
         </Card>
         <Card elevation="raised" style={[styles.pairCard, { borderLeftColor: theme.accent }]}>
           <Text style={[styles.pairLabel, { color: theme.textSecondary }]}>Receivable</Text>
-          <Text style={[styles.pairValue, tabularNums, { color: theme.textPrimary }]}>रु 133.6L</Text>
+          <Text style={[styles.pairValue, tabularNums, { color: theme.textPrimary }]}>{lakh(13_360_000)}</Text>
           <View style={[styles.pairPill, { backgroundColor: theme.accentWash }]}>
             <View style={[styles.pairDot, { backgroundColor: theme.scheme === 'light' ? '#22A97A' : theme.accent }]} />
-            <Text style={[styles.pairPillText, { color: theme.accentWashText }]}>रु 31.5L this week</Text>
+            <Text style={[styles.pairPillText, { color: theme.accentWashText }]}>{`${lakh(3_150_000)} this week`}</Text>
           </View>
           <Text style={[styles.pairMeta, tabularNums, { color: theme.textSecondary }]}>9 invoices · 6 customers</Text>
         </Card>

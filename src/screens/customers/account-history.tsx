@@ -1,21 +1,25 @@
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
 
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import { STAGE } from '@/data/customers/mock';
 import type { Customer } from '@/data/customers/types';
 import { gbp, hasOverdue, lifetime, owed } from '@/data/customers/utils';
 
-export interface DetailViewProps {
+export interface AccountHistoryProps {
   customer: Customer;
-  /** Omitted for view-only users — the Delete button then hides. */
-  onDelete?: () => void;
 }
 
-export function DetailView({ customer, onDelete }: DetailViewProps) {
+/**
+ * What the ledger already knows about a customer, shown read-only beneath the
+ * editable fields: the balance, the live orders and the invoices. The web app
+ * has no equivalent — it lists customers and nothing else — so this is the one
+ * part of the sheet that is mobile's own, and it is deliberately inert: the
+ * only thing this sheet saves is the contact record.
+ */
+export function AccountHistory({ customer }: AccountHistoryProps) {
   const theme = useTheme();
   const balance = owed(customer);
   const overdue = hasOverdue(customer);
@@ -26,16 +30,13 @@ export function DetailView({ customer, onDelete }: DetailViewProps) {
     ? `${gbp(balance)} outstanding across ${customer.invoices.filter((v) => v.status !== 'paid').length} invoice(s)`
     : 'Nothing outstanding';
 
-  const contactRows = [
-    { label: 'Contact', value: `${customer.contact} · ${customer.role}`, action: null as 'mail' | 'call' | null },
-    { label: 'Email', value: customer.email, action: 'mail' as const },
-    { label: 'Phone', value: customer.phone, action: 'call' as const },
-    { label: 'Address', value: customer.address, action: null },
-    { label: 'Payment terms', value: customer.terms, action: null },
-  ];
+  const reach = [
+    customer.email ? { icon: 'mail' as const, label: 'Email', url: `mailto:${customer.email}` } : null,
+    customer.phone ? { icon: 'phone' as const, label: 'Call', url: `tel:${customer.phone.replace(/\s+/g, '')}` } : null,
+  ].filter((r): r is { icon: 'mail' | 'phone'; label: string; url: string } => r !== null);
 
   return (
-    <Animated.View entering={FadeInUp.duration(220)} style={styles.wrap}>
+    <View style={styles.wrap}>
       <Card elevation="hero" style={styles.summaryCard}>
         <View style={styles.summaryRow}>
           <View style={styles.gap5}>
@@ -54,24 +55,20 @@ export function DetailView({ customer, onDelete }: DetailViewProps) {
         </View>
       </Card>
 
-      <Card elevation="raised" style={styles.contactCard}>
-        {contactRows.map((row, i) => (
-          <View key={row.label} style={[styles.contactRow, i < contactRows.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.border }]}>
-            <View style={styles.contactTextWrap}>
-              <Text style={[styles.contactLabel, { color: theme.textSecondary }]}>{row.label}</Text>
-              <Text style={[styles.contactValue, { color: theme.textPrimary }]}>{row.value}</Text>
-            </View>
-            {row.action ? (
-              <Pressable
-                onPress={() => Linking.openURL(row.action === 'mail' ? `mailto:${customer.email}` : `tel:${customer.phone.replace(/\s+/g, '')}`)}
-                style={[styles.actionChip, { backgroundColor: theme.accentWash }]}
-              >
-                <Text style={[styles.actionChipText, { color: theme.accentWashText }]}>{row.action}</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        ))}
-      </Card>
+      {reach.length ? (
+        <View style={styles.reachRow}>
+          {reach.map((r) => (
+            <Pressable
+              key={r.label}
+              onPress={() => Linking.openURL(r.url)}
+              style={[styles.reachChip, { backgroundColor: theme.accentWash }]}
+            >
+              <Icon name={r.icon} size={13} color={theme.accentWashText} />
+              <Text style={[styles.reachLabel, { color: theme.accentWashText }]}>{r.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       <Card elevation="raised" style={styles.section}>
         <View style={styles.sectionHeader}>
@@ -106,29 +103,31 @@ export function DetailView({ customer, onDelete }: DetailViewProps) {
             {customer.invoices.length} total · {gbp(lifetime(customer))}
           </Text>
         </View>
-        {customer.invoices.map((v) => {
-          const fg = v.status === 'paid' ? theme.accentWashText : v.status === 'overdue' ? theme.dangerWashText : theme.warningWashText;
-          const label = v.status === 'paid' ? 'Paid' : v.status === 'overdue' ? 'Overdue' : 'Open';
-          return (
-            <View key={v.ref} style={styles.invoiceRow}>
-              <View style={styles.orderTextWrap}>
-                <Text style={[styles.invoiceRef, tabularNums, { color: theme.textPrimary }]}>{v.ref}</Text>
-                <Text style={[styles.orderMeta, tabularNums, { color: theme.textSecondary }]}>{v.due}</Text>
+        {customer.invoices.length === 0 ? (
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nothing invoiced to this account yet.</Text>
+        ) : (
+          customer.invoices.map((v) => {
+            const fg = v.status === 'paid' ? theme.accentWashText : v.status === 'overdue' ? theme.dangerWashText : theme.warningWashText;
+            const label = v.status === 'paid' ? 'Paid' : v.status === 'overdue' ? 'Overdue' : 'Open';
+            return (
+              <View key={v.ref} style={styles.invoiceRow}>
+                <View style={styles.orderTextWrap}>
+                  <Text style={[styles.invoiceRef, tabularNums, { color: theme.textPrimary }]}>{v.ref}</Text>
+                  <Text style={[styles.orderMeta, tabularNums, { color: theme.textSecondary }]}>{v.due}</Text>
+                </View>
+                <Text style={[styles.invoiceAmount, tabularNums, { color: theme.textPrimary }]}>{gbp(v.amount)}</Text>
+                <Text style={[styles.invoiceStatus, { color: fg }]}>{label}</Text>
               </View>
-              <Text style={[styles.invoiceAmount, tabularNums, { color: theme.textPrimary }]}>{gbp(v.amount)}</Text>
-              <Text style={[styles.invoiceStatus, { color: fg }]}>{label}</Text>
-            </View>
-          );
-        })}
+            );
+          })
+        )}
       </Card>
-
-      {onDelete ? <Button label="Delete customer" variant="dangerOutline" onPress={onDelete} fullWidth /> : null}
-    </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { gap: 12 },
+  wrap: { gap: 10 },
   summaryCard: { padding: 18, gap: 14 },
   summaryRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 14 },
   gap5: { gap: 5 },
@@ -141,13 +140,9 @@ const styles = StyleSheet.create({
   balanceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   balanceLine: { flex: 1, fontSize: 13, lineHeight: 13 * 1.4 },
   since: { fontFamily: fontFamily.mono, fontSize: 10.5, flexShrink: 0 },
-  contactCard: { paddingHorizontal: 16, paddingVertical: 2 },
-  contactRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13 },
-  contactTextWrap: { flex: 1, gap: 3, minWidth: 0 },
-  contactLabel: { fontFamily: fontFamily.mono, fontSize: 9.5, letterSpacing: 0.11 * 9.5, textTransform: 'uppercase' },
-  contactValue: { fontSize: 14.5, lineHeight: 14.5 * 1.35 },
-  actionChip: { borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6, flexShrink: 0 },
-  actionChipText: { fontFamily: fontFamily.mono, fontSize: 10.5, letterSpacing: 0.06 * 10.5, textTransform: 'uppercase' },
+  reachRow: { flexDirection: 'row', gap: 8 },
+  reachChip: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 34, paddingHorizontal: 13, borderRadius: 11 },
+  reachLabel: { fontFamily: fontFamily.semibold, fontSize: 12.5 },
   section: { padding: 16, gap: 12 },
   sectionHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 },
   sectionTitle: { fontFamily: fontFamily.semibold, fontSize: 15 },

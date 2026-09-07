@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { TextField } from '@/components/ui/text-field';
-import { GBP_RATE } from '@/lib/currency';
+import { useCurrency } from '@/lib/currency-context';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii, tabularNums } from '@/theme';
 import { BUDGET_CATEGORIES, BUDGET_CATEGORY } from '@/data/budget-requirements/mock';
@@ -22,8 +22,10 @@ const PRIORITIES: Priority[] = ['Low', 'Medium', 'High'];
 
 export function RequestSheet({ visible, draft, who, onClose, onChange, onSubmit }: RequestSheetProps) {
   const theme = useTheme();
+  // Live rate, so this echo agrees with what the request will read as once filed.
+  const { rate } = useCurrency();
   const amountGBP = parseFloat(draft.amountGBP.replace(/[^0-9.]/g, '')) || 0;
-  const amountNPR = Math.round(amountGBP * GBP_RATE);
+  const amountNPR = Math.round(amountGBP * rate);
   const justificationReady = draft.justification.trim().length >= 12;
   const ready = amountGBP > 0 && justificationReady;
 
@@ -68,7 +70,7 @@ export function RequestSheet({ visible, draft, who, onClose, onChange, onSubmit 
           />
         </View>
         <Text style={[styles.convert, tabularNums, { color: theme.textSecondary }]}>
-          ≈ {short(amountNPR)} · auto-converted at {GBP_RATE}
+          ≈ {short(amountNPR)} · auto-converted at {rate.toLocaleString('en-US', { maximumFractionDigits: 2 })}
         </Text>
       </View>
 

@@ -4,10 +4,10 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { Avatar } from '@/components/ui/avatar';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
-import { formatAD } from '@/lib/nepaliDate';
 import { INVOICE_PILL, PAN_REQUIRED_ABOVE_NPR } from '@/data/billing/mock';
 import type { Invoice } from '@/data/billing/types';
 import { appliesVAT, balance, clientInitialsOf, clientNameOf, money, npr, nprOf, paid, statusFull, total as invTotal, vat } from '@/data/billing/utils';
+import { useDateText } from '@/lib/date-display';
 
 export interface InvoiceRowProps {
   invoice: Invoice;
@@ -18,6 +18,7 @@ export interface InvoiceRowProps {
 
 export function InvoiceRow({ invoice: v, index, showFx, onPress }: InvoiceRowProps) {
   const theme = useTheme();
+  const dateText = useDateText();
   const st = statusFull(v);
   const pill = INVOICE_PILL[st];
   const tot = invTotal(v);
@@ -37,8 +38,8 @@ export function InvoiceRow({ invoice: v, index, showFx, onPress }: InvoiceRowPro
       ? `${v.challans[0].no} +${v.challans.length - 1}`
       : v.challans[0].no
     : (v.relatedQuotation ?? v.relatedChallan ?? v.so ?? '');
-  const issued = v.issuedISO ? formatAD(v.issuedISO) : v.issued;
-  const due = v.cancelled ? 'voided' : st === 'Paid' ? 'settled' : late ? `due ${v.due} · ${Math.abs(v.dueDays)}d late` : `due ${v.dueISO ? formatAD(v.dueISO) : v.due}`;
+  const issued = v.issuedISO ? dateText(v.issuedISO) : v.issued;
+  const due = v.cancelled ? 'voided' : st === 'Paid' ? 'settled' : late ? `due ${v.due} · ${Math.abs(v.dueDays)}d late` : `due ${v.dueISO ? dateText(v.dueISO) : v.due}`;
   const paidPct = tot > 0 ? Math.min(100, (pd / tot) * 100) : 0;
 
   return (

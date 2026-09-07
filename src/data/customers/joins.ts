@@ -10,6 +10,7 @@ import { CLIENTS } from '@/data/billing/mock';
 import type { Invoice } from '@/data/billing/types';
 import { nprOf, statusFull, total } from '@/data/billing/utils';
 import type { Order } from '@/data/sales/types';
+import { currentRate } from '@/lib/currency-store';
 import { toGBP } from '@/lib/currency';
 
 import type { CustomerInvoice, CustomerOrder, InvoiceStatus, OrderStageId } from './types';
@@ -63,7 +64,7 @@ export function invoicesForCustomer(invoices: Invoice[], name: string): Customer
       const status = toCustomerInvoiceStatus(v);
       if (!status) return null;
       // GBP invoices are already in GBP; others convert via their booked NPR rate.
-      const amountGBP = v.cur === 'GBP' ? Math.round(total(v)) : Math.round(toGBP(nprOf(v, total(v))));
+      const amountGBP = v.cur === 'GBP' ? Math.round(total(v)) : Math.round(toGBP(nprOf(v, total(v)), currentRate()));
       const due = status === 'paid' ? `paid · ${v.issued}` : status === 'overdue' ? `overdue · was due ${v.due}` : `due ${v.due}`;
       return { ref: v.ref, amount: amountGBP, due, status };
     })

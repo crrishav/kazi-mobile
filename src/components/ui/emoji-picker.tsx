@@ -105,7 +105,18 @@ export function EmojiPicker({ onPick, active = [], recent = [], height = 300 }: 
         </ScrollView>
       ) : null}
 
-      <ScrollView ref={scrollRef} style={{ height }} contentContainerStyle={styles.grid} keyboardShouldPersistTaps="handled">
+      {/* `nestedScrollEnabled` is the Android half of the fix; the sheet
+          freezing its own ScrollView is the other half (see `scrollEnabled`
+          on `BottomSheet`). Without both, the drag is taken by whichever
+          scroll view is outermost and the grid never moves. */}
+      <ScrollView
+        ref={scrollRef}
+        style={{ height }}
+        contentContainerStyle={styles.grid}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+        showsVerticalScrollIndicator
+      >
         {searching ? (
           results.length ? (
             <View style={styles.row}>{results.map((e, i) => cell(e, `${e}-${i}`))}</View>

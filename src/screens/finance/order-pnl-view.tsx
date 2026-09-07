@@ -7,6 +7,7 @@ import { Money } from '@/components/ui/money';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import type { OrderPnlRow, OrderPnlSummary } from '@/data/finance/order-pnl';
+import { money, useMoneySignature } from '@/lib/money';
 
 export type OrderPnlFilter = 'all' | 'active' | 'delivered';
 
@@ -21,10 +22,12 @@ export interface OrderPnlViewProps {
   onOpenCosts: (row: OrderPnlRow) => void;
 }
 
-const npr0 = (n: number) => `रु ${Math.round(n).toLocaleString('en-IN')}`;
+const npr0 = (n: number) => money(n, { grouping: 'en-IN' });
 
 export function OrderPnlView({ rows, summary, labourRate, filter, filterCounts, onFilterChange, canEdit, onOpenCosts }: OrderPnlViewProps) {
   const theme = useTheme();
+  // Figures come from a plain formatter, so subscribe to the currency.
+  useMoneySignature();
 
   const kpis: { label: string; value: number; margin?: boolean }[] = [
     { label: 'Total revenue', value: summary.revenue },

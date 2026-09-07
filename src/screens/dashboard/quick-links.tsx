@@ -7,6 +7,7 @@ import { tabLayoutFor } from '@/auth/tab-layout';
 import { Card } from '@/components/ui/card';
 import { Icon, type IconName } from '@/components/ui/icon';
 import { MODULES_BY_ID } from '@/constants';
+import { prefetchRoute } from '@/data/prefetch';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 
@@ -22,9 +23,13 @@ import { fontFamily } from '@/theme';
  * More still holds the full grid — this is the shortcut, not the index.
  */
 
-/** Tasks has no `MORE_MODULES` card, so name it here. */
+/**
+ * Tasks has no `MORE_MODULES` card, so name it here. Like the cards, it points
+ * at the pushed `/module/...` copy rather than the tab path — a quick link is a
+ * page you come back from, not a change of tab.
+ */
 const TAB_MODULE_LINKS: Partial<Record<SectionId, { label: string; route: string; icon: IconName }>> = {
-  tasks: { label: 'Tasks', route: '/tasks', icon: 'check-square' },
+  tasks: { label: 'Tasks', route: '/module/tasks', icon: 'check-square' },
 };
 
 /** Sections that never earn a shortcut: reached elsewhere, or not a destination. */
@@ -62,6 +67,7 @@ export function QuickLinks({ sections }: QuickLinksProps) {
           <Pressable
             key={link.id}
             onPress={() => router.push(link.route as never)}
+            onPressIn={() => prefetchRoute(link.route)}
             accessibilityRole="button"
             style={({ pressed }) => [styles.cell, pressed && styles.pressed]}
           >

@@ -14,7 +14,7 @@ export function Purchases() {
   const entriesQuery = useEntries();
   const { data: entries } = entriesQuery;
 
-  if (isBlocked(entriesQuery) || !entries) return <ScreenGate queries={[entriesQuery]} />;
+  if (isBlocked(entriesQuery) || !entries) return <ScreenGate queries={[entriesQuery]} header={<ScreenHeader title="Purchases" rightSlot={<HeaderAccount />} />} />;
 
   return (
     <View style={[styles.flex, { backgroundColor: theme.background }]}>

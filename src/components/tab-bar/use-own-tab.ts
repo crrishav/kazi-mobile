@@ -4,7 +4,7 @@ import { useAuth } from '@/auth/auth-context';
 import type { SectionId } from '@/auth/permissions';
 import { tabLayoutFor } from '@/auth/tab-layout';
 
-import { useHideTabBar } from './tab-bar-visibility';
+import { useHideTabBar, useInTabs } from './tab-bar-visibility';
 
 /**
  * Is this module one of the signed-in person's bottom-bar buttons?
@@ -38,14 +38,24 @@ export interface ModulePresentation {
 /**
  * The two presentations a dual-nature module has to support, resolved once.
  *
- * A module that isn't in your bar was reached from More or a dashboard link,
- * and should behave like every other pushed screen: the bottom bar folds away
- * so it isn't offering to jump somewhere else mid-task, and the header's
- * chevron takes you back where you came from. For whoever *does* live in it,
- * nothing changes — it is still their root destination.
+ * Decided by *where this copy of the screen is being drawn*, not by whose tab
+ * the module is. A module reached from More or a dashboard link is opened as a
+ * pushed route (`/module/<name>`, see `app/(app)/module/`) and behaves like
+ * every other pushed screen: full page, bottom bar folded away rather than
+ * offering to jump somewhere else mid-task, chevron back to where you came
+ * from. The same component mounted as a tab scene is a root destination and
+ * keeps the bar and drops the chevron.
+ *
+ * This used to key off `useIsOwnTab` alone, which answered the wrong question:
+ * for whoever had Production in their bar, More's Production card jumped to the
+ * tab — no push, no animation, no way back — while for everyone else the same
+ * card opened a proper page.
  */
 export function useModulePresentation(section: SectionId): ModulePresentation {
-  const isOwnTab = useIsOwnTab(section);
+  // Both hooks run unconditionally — `&&` on the calls themselves would make
+  // the second one conditional.
+  const inTabs = useInTabs();
+  const isOwnTab = useIsOwnTab(section) && inTabs;
   const insets = useSafeAreaInsets();
 
   useHideTabBar(!isOwnTab);

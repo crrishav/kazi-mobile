@@ -11,7 +11,8 @@ import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { useBackHandler } from '@/lib/use-back-handler';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { ViewSwap } from '@/components/ui/view-swap';
-import { GBP_RATE, toGBP } from '@/lib/currency';
+import { toGBP } from '@/lib/currency';
+import { useCurrency } from '@/lib/currency-context';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
 import {
@@ -26,6 +27,7 @@ import {
 } from '@/data/budget-requirements/hooks';
 import { CAP, REVIEW_STATUS, STATUS, seedRequirements } from '@/data/budget-requirements/mock';
 import { gbp, money, short } from '@/data/budget-requirements/utils';
+import { useMoneySignature } from '@/lib/money';
 import type {
   BudgetRequest,
   BudgetRequestDraft,
@@ -65,6 +67,11 @@ const BUDGET_VIEW_ORDER = ['list', 'requirement', 'request'] as const;
 
 export function BudgetRequirements() {
   const theme = useTheme();
+  // Money is formatted by plain functions (`@/lib/money`), so this is what
+  // re-renders the screen when the currency preference or the rate changes.
+  useMoneySignature();
+  // The NPR/GBP twin a request is filed with is booked at the rate of the day.
+  const { rate } = useCurrency();
   const toast = useToast();
   const { profile, can } = useAuth();
 
@@ -110,7 +117,12 @@ export function BudgetRequirements() {
     return false;
   });
 
-  if (isBlocked(requirementsQuery, requestsQuery) || !requirements || !requests) return <ScreenGate queries={[requirementsQuery, requestsQuery]} />;
+  if (isBlocked(requirementsQuery, requestsQuery) || !requirements || !requests) return (
+      <ScreenGate
+        queries={[requirementsQuery, requestsQuery]}
+        header={<ScreenHeader title="Budget & Requirements" />}
+      />
+    );
 
   const pendingReqs = requirements.filter((r) => r.status === 'pending');
   const pendingRequests = requests.filter((r) => r.status === 'Pending');
@@ -177,7 +189,7 @@ export function BudgetRequirements() {
       return;
     }
     const gbpTyped = parseFloat(draft.amountGBP.replace(/[^0-9.]/g, ''));
-    const amountGBP = gbpTyped > 0 ? Math.round(gbpTyped) : Math.round(toGBP(amount));
+    const amountGBP = gbpTyped > 0 ? Math.round(gbpTyped) : Math.round(toGBP(amount, rate));
     const before = requirements;
     const n = 185 + (requirements.length - seedRequirements.length);
     const entry: Requirement = {
@@ -239,7 +251,7 @@ export function BudgetRequirements() {
       title: reqDraft.title.trim() || 'Untitled request',
       category: reqDraft.category,
       amountGBP,
-      amountNPR: Math.round(amountGBP * GBP_RATE),
+      amountNPR: Math.round(amountGBP * rate),
       urgency: reqDraft.urgency,
       status: 'Pending',
       justification: reqDraft.justification.trim(),

@@ -1,4 +1,4 @@
-import { asCurrency } from '@/lib/currency';
+import { money as displayMoney, moneyCompact, moneyFromGBP } from '@/lib/money';
 
 import { PRIORITY } from './mock';
 import type { Priority } from './types';
@@ -13,16 +13,21 @@ export function fmt(n: number): string {
   return n.toLocaleString('en-US');
 }
 
+/** A request amount in the display currency. Screens that call it need `useMoneySignature()`. */
 export function money(n: number): string {
-  return `रु ${fmt(n)}`;
+  return displayMoney(n);
 }
 
-/** "रु 1.9L" style lakh-compact formatting, matching the design's own `short()` helper. */
+/** "रु 1.9L" / "£950" style compact formatting, matching the design's own `short()` helper. */
 export function short(n: number): string {
-  return n >= 100000 ? `रु ${(n / 100000).toFixed(1).replace(/\.0$/, '')}L` : `रु ${fmt(n)}`;
+  return moneyCompact(n);
 }
 
-/** GBP display for the Budget Requests tab (item 17) — `£1,450`, pence only when not round. */
+/**
+ * The request's own `amountGBP` field (item 17). Shown as `£1,450` in pounds and
+ * converted back at the live rate when the display currency is rupees, so the
+ * two amounts on a request never read as different money.
+ */
 export function gbp(n: number): string {
-  return asCurrency(n, 'GBP');
+  return moneyFromGBP(n);
 }

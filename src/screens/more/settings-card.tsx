@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { useCalendarPreference } from '@/components/ui/calendar-preference';
+import { useCalendarPreference } from '@/lib/calendar-preference';
 import { Icon } from '@/components/ui/icon';
 import { useCurrency } from '@/lib/currency-context';
 import { useTheme, useThemeMode } from '@/theme/theme-provider';

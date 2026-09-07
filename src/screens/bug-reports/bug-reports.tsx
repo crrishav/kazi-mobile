@@ -42,7 +42,7 @@ export function BugReports() {
   const [draft, setDraft] = useState<BugReportDraft | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  if (isBlocked(reportsQuery) || !reports) return <ScreenGate queries={[reportsQuery]} />;
+  if (isBlocked(reportsQuery) || !reports) return <ScreenGate queries={[reportsQuery]} header={<ScreenHeader title="Bug Report" />} />;
 
   const selected = reports.find((r) => r.id === selectedId) ?? null;
 

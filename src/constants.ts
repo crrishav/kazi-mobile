@@ -25,17 +25,24 @@ export interface ModuleEntry {
 // they just no longer earn a card of their own. Billing does: it is document
 // work (invoices, quotations, challans, payments), a separate `sections` row in
 // Postgres, and nobody's Finance tab.
+//
+// Five of these modules are also somebody's bottom-bar tab, and their `route`
+// points at the `/module/...` copy rather than the tab path on purpose: opening
+// a module from More or a quick link is a push with a back chevron for
+// everyone, instead of silently jumping to the tab for whoever happens to live
+// in it. The tab paths (`/production`, `/inventory`, …) stay exactly as they
+// were, so the bar and every stored deep link are untouched.
 export const MORE_MODULES: ModuleEntry[] = [
   { id: 'sales', label: 'Sales', route: '/sales', icon: 'trending-up', blurb: 'Pipeline overview' },
-  { id: 'order-management', label: 'Production', route: '/production', icon: 'tool', blurb: 'Order pipeline, stages, priority' },
-  { id: 'inventory', label: 'Inventory', route: '/inventory', icon: 'package', blurb: 'Stock levels, movements, library' },
+  { id: 'order-management', label: 'Production', route: '/module/production', icon: 'tool', blurb: 'Order pipeline, stages, priority' },
+  { id: 'inventory', label: 'Inventory', route: '/module/inventory', icon: 'package', blurb: 'Stock levels, movements, library' },
   { id: 'customers', label: 'Customers', route: '/customers', icon: 'users', blurb: 'Accounts and contacts' },
-  { id: 'billing', label: 'Billing', route: '/billing', icon: 'file-text', blurb: 'Invoices, challans, payments' },
-  { id: 'finance', label: 'Finance', route: '/finance', icon: 'dollar-sign', blurb: 'Expenses, purchases, ledger, P&L' },
+  { id: 'billing', label: 'Billing', route: '/module/billing', icon: 'file-text', blurb: 'Invoices, challans, payments' },
+  { id: 'finance', label: 'Finance', route: '/module/finance', icon: 'dollar-sign', blurb: 'Expenses, purchases, ledger, P&L' },
   { id: 'budget-requirements', label: 'Budget & Requirements', route: '/budget-requirements', icon: 'briefcase', blurb: 'Requests and approvals' },
   { id: 'employees-hr', label: 'Employees & HR', route: '/employees-hr', icon: 'clipboard', blurb: 'Staff registry, roles' },
   { id: 'attendance', label: 'Attendance', route: '/attendance', icon: 'clock', blurb: 'Daily shift records' },
-  { id: 'marketing', label: 'Marketing', route: '/marketing', icon: 'send', blurb: 'Campaigns and leads' },
+  { id: 'marketing', label: 'Marketing', route: '/module/marketing', icon: 'send', blurb: 'Campaigns and leads' },
   { id: 'admin-panel', label: 'Admin Panel', route: '/admin-panel', icon: 'shield', blurb: 'Access and roles' },
   { id: 'changelog', label: 'Changelog', route: '/changelog', icon: 'list', blurb: "What's new" },
   { id: 'bug-report', label: 'Bug Report', route: '/bug-report', icon: 'alert-triangle', blurb: 'Log an issue you hit' },

@@ -10,6 +10,9 @@ import { STAGES, stageById, stageIndex } from '@/data/sales/mock';
 import { EMBELLISHMENT_TYPES } from '@/data/sales/types';
 import type { Embellishment, Order } from '@/data/sales/types';
 import { lakh, priorityOf } from '@/data/sales/utils';
+import { money } from '@/lib/money';
+import { useCalendarPreference } from '@/lib/calendar-preference';
+import { dateText, isoDay } from '@/lib/date-display';
 
 import { StageTimeline } from './stage-timeline';
 
@@ -28,7 +31,7 @@ function when(iso: string): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return dateText(isoDay(iso));
 }
 
 const PRIORITY_LABEL = { urgent: 'Urgent', high: 'High', normal: 'Normal' } as const;
@@ -44,6 +47,8 @@ export function OrderDetail({
   onAddNote,
 }: OrderDetailProps) {
   const theme = useTheme();
+  // Dates here go through `fmtDate`, which reads the calendar preference.
+  useCalendarPreference();
   const [note, setNote] = useState('');
 
   const idx = stageIndex(order.stage);
@@ -65,12 +70,12 @@ export function OrderDetail({
     { label: 'Order date', value: when(order.orderDate) },
     { label: 'Delivery date', value: order.deliveryDate ? when(order.deliveryDate) : 'Not set' },
     { label: 'Quantity', value: `${order.qty.toLocaleString('en-US')} pcs` },
-    { label: 'Price / pc', value: order.pricePerPc ? `रु ${order.pricePerPc.toLocaleString('en-US')}` : '—' },
+    { label: 'Price / pc', value: order.pricePerPc ? money(order.pricePerPc) : '—' },
     { label: 'Order value', value: order.value ? lakh(order.value) : '—' },
     { label: 'Fabric', value: order.fabricType || '—' },
     { label: 'Colorway', value: order.colorway || '—' },
     { label: 'Fabric / pc', value: order.fabricGramsUsed ? `${order.fabricGramsUsed} g` : '—' },
-    { label: 'Fabric cost / pc', value: order.fabricCostPerPc ? `रु ${order.fabricCostPerPc.toLocaleString('en-US')}` : '—' },
+    { label: 'Fabric cost / pc', value: order.fabricCostPerPc ? money(order.fabricCostPerPc) : '—' },
     { label: 'Invoice / challan', value: order.invoiceRef || '—' },
     { label: 'Assigned to', value: order.assignedTo || 'Unassigned' },
     { label: 'Sample', value: order.sampleName || '—' },

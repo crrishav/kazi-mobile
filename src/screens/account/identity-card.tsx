@@ -6,16 +6,20 @@ import { ROLE_LABEL } from '@/auth/roles';
 import type { Profile } from '@/auth/permissions';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily } from '@/theme';
+import { useCalendarPreference } from '@/lib/calendar-preference';
+import { dateText, isoDay } from '@/lib/date-display';
 
 function formatSince(iso?: string): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return dateText(isoDay(d));
 }
 
 export function IdentityCard({ profile }: { profile: Profile }) {
   const theme = useTheme();
+  // `formatSince` reads the calendar preference, so subscribe to it.
+  useCalendarPreference();
   const since = formatSince(profile.createdAt);
 
   const facts: { label: string; value: string }[] = [

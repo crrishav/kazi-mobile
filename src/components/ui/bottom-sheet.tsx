@@ -28,6 +28,19 @@ export interface BottomSheetProps {
   headerAccessory?: ReactNode;
   /** Hands the content ScrollView back, so the caller can scroll it too. */
   scrollRef?: RefObject<ScrollView | null>;
+  /**
+   * Freezes the sheet's own scrolling. A sheet that puts a *scrolling* control
+   * inside itself — the emoji grid — otherwise has two vertical scroll views
+   * competing for one drag, and the outer one wins: the grid looks scrollable
+   * and refuses to move. Turning this off while such a control is open leaves
+   * exactly one thing responding to the gesture.
+   */
+  scrollEnabled?: boolean;
+  /**
+   * Pinned over the content, clear of the scroll — a floating primary action.
+   * Laid out in the sheet's bottom-right, above the safe-area inset.
+   */
+  overlay?: ReactNode;
 }
 
 const OFF_SCREEN = 640;
@@ -42,6 +55,8 @@ export function BottomSheet({
   blockClose,
   headerAccessory,
   scrollRef,
+  scrollEnabled = true,
+  overlay,
 }: BottomSheetProps) {
   const theme = useTheme();
   const ownScrollRef = useRef<ScrollView | null>(null);
@@ -108,9 +123,15 @@ export function BottomSheet({
               </Pressable>
             </View>
           </View>
-          <ScrollView ref={scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            ref={scroll}
+            scrollEnabled={scrollEnabled}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+          >
             {children}
           </ScrollView>
+          {overlay ? <View style={styles.overlay}>{overlay}</View> : null}
         </Animated.View>
       </View>
     </Modal>
@@ -174,5 +195,14 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 26,
     gap: 20,
+  },
+  // Sized to its content and anchored to the sheet's padding box, so it sits
+  // above the safe-area inset and lets the content scroll past on either side
+  // of it rather than blocking the whole width.
+  overlay: {
+    position: 'absolute',
+    right: 22,
+    bottom: 22,
+    alignItems: 'flex-end',
   },
 });

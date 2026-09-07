@@ -13,6 +13,7 @@ const SECTION_ICON: Record<SectionId, IconName> = {
   dashboard: 'grid',
   tasks: 'check-square',
   inventory: 'box',
+  library: 'layers',
   finance: 'dollar-sign',
   sales: 'trending-up',
   'order-management': 'grid',

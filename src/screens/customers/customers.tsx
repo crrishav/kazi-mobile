@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
-import { ViewSwap } from '@/components/ui/view-swap';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { SearchField } from '@/components/ui/search-field';
 import { useBackHandler } from '@/lib/use-back-handler';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
@@ -16,22 +17,36 @@ import { useInvoices } from '@/data/billing/hooks';
 import { useAddCustomer, useCustomers, useDeleteCustomer, useRestoreCustomers, useUpdateCustomer } from '@/data/customers/hooks';
 import { invoicesForCustomer, ordersForCustomer } from '@/data/customers/joins';
 import { blankDraft } from '@/data/customers/mock';
-import type { Customer, CustomerDraft, CustomersFilter, CustomersView } from '@/data/customers/types';
-import { owed } from '@/data/customers/utils';
+import type { Customer, CustomerDraft } from '@/data/customers/types';
+import { useMoneySignature } from '@/lib/money';
 import { useOrders } from '@/data/sales/hooks';
 
-import { ConfirmDeleteSheet } from './confirm-delete-sheet';
-import { CustomerForm } from './customer-form';
 import { CustomerRow } from './customer-row';
-import { DetailView } from './detail-view';
-import { FormHeader } from './form-header';
-import { ListSummary } from './list-summary';
+import { CustomerSheet } from './customer-sheet';
 
-/** Outermost first — `ViewSwap` reads the direction of travel from this. */
-const CUSTOMER_VIEW_ORDER: readonly CustomersView[] = ['list', 'detail', 'form'];
+/** The editable half of a record — what the sheet's draft is diffed against. */
+function draftOf(c: Customer): CustomerDraft {
+  return {
+    name: c.name,
+    contact: c.contact,
+    email: c.email,
+    phone: c.phone,
+    city: c.city,
+    country: c.country,
+    address: c.address,
+    notes: c.notes,
+  };
+}
+
+function sameDraft(a: CustomerDraft, b: CustomerDraft): boolean {
+  return (Object.keys(a) as (keyof CustomerDraft)[]).every((k) => a[k] === b[k]);
+}
 
 export function Customers() {
   const theme = useTheme();
+  // Money is formatted by plain functions (`@/lib/money`), so this is what
+  // re-renders the screen when the currency preference or the rate changes.
+  useMoneySignature();
   const toast = useToast();
   const { can } = useAuth();
   const canEdit = can('customers');
@@ -46,29 +61,24 @@ export function Customers() {
   const restoreCustomers = useRestoreCustomers();
 
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<CustomersFilter>('all');
-  const [view, setView] = useState<CustomersView>('list');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<CustomerDraft | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [touched, setTouched] = useState(false);
+  // The delete confirmation cannot sit on top of the editor's own modal, so
+  // opening it closes the sheet — and cancelling puts the sheet back exactly
+  // as it was, unsaved edits included.
+  const [reopenAfterCancel, setReopenAfterCancel] = useState(false);
 
-  // Form and detail are views inside this route, so system back has to step
-  // through them — same route the Cancel and chevron buttons take.
+  // The sheet is driven by a boolean rather than by `draft === null`, so the
+  // draft and the record it was opened on survive the closing animation:
+  // nothing to crash on, and the sheet does not change identity on its way out.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [draft, setDraft] = useState<CustomerDraft>({ ...blankDraft });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [opened, setOpened] = useState<Customer | null>(null);
+
+  // The sheet is a `Modal` and takes Android back itself, so this only has to
+  // close a swiped-open row.
   useBackHandler(() => {
-    if (view === 'form') {
-      setView(editingId ? 'detail' : 'list');
-      setDraft(null);
-      setEditingId(null);
-      return true;
-    }
-    if (view === 'detail') {
-      setView('list');
-      setSelectedId(null);
-      return true;
-    }
     if (swipeOpenId) {
       setSwipeOpenId(null);
       return true;
@@ -76,55 +86,40 @@ export function Customers() {
     return false;
   });
 
-  if (isBlocked(customersQuery) || !customers) return <ScreenGate queries={[customersQuery]} />;
+  if (isBlocked(customersQuery) || !customers) return <ScreenGate queries={[customersQuery]} header={<ScreenHeader title="Customers" />} />;
 
   const q = query.trim().toLowerCase();
   let rows = customers;
-  if (filter === 'company') rows = rows.filter((c) => c.type === 'company');
-  else if (filter === 'person') rows = rows.filter((c) => c.type === 'person');
-  else if (filter === 'owing') rows = rows.filter((c) => owed(c) > 0);
-  if (q) rows = rows.filter((c) => `${c.name} ${c.contact} ${c.city} ${c.country}`.toLowerCase().includes(q));
+  if (q) rows = rows.filter((c) => `${c.name} ${c.contact} ${c.email} ${c.city} ${c.country}`.toLowerCase().includes(q));
   rows = rows.slice().sort((a, b) => a.name.localeCompare(b.name));
 
-  const filters: { id: CustomersFilter; label: string; count: number }[] = [
-    { id: 'all', label: 'All', count: customers.length },
-    { id: 'company', label: 'Companies', count: customers.filter((c) => c.type === 'company').length },
-    { id: 'person', label: 'Individuals', count: customers.filter((c) => c.type === 'person').length },
-    { id: 'owing', label: 'Owing', count: customers.filter((c) => owed(c) > 0).length },
-  ];
-
-  const selected = customers.find((c) => c.id === selectedId) ?? null;
+  // Falls back to the record the sheet was opened on, so deleting it — or
+  // saving and briefly outrunning the refetch — cannot turn an open "Edit
+  // customer" sheet into a "New customer" one mid-animation.
+  const editing = editingId ? (customers.find((c) => c.id === editingId) ?? opened) : null;
   const pending = customers.find((c) => c.id === pendingId) ?? null;
+  const saving = addCustomer.isPending || updateCustomer.isPending;
+  // Only meaningful while the sheet is up: a closing sheet must not flash its
+  // unsaved-changes bar, and must not re-arm the guard it just let go of.
+  const dirty = sheetOpen && !sameDraft(draft, editing ? draftOf(editing) : blankDraft);
 
-  // Item 35 — join the detail view's history to the live Sales + Billing collections
+  // Item 35 — join the sheet's history to the live Sales + Billing collections
   // by customer name; fall back to the seed arrays when nothing matches.
-  let detailCustomer = selected;
-  if (selected) {
-    const liveOrders = salesOrders ? ordersForCustomer(salesOrders, selected.name) : [];
-    const liveInvoices = billingInvoices ? invoicesForCustomer(billingInvoices, selected.name) : [];
+  let editingWithHistory = editing;
+  if (editing) {
+    const liveOrders = salesOrders ? ordersForCustomer(salesOrders, editing.name) : [];
+    const liveInvoices = billingInvoices ? invoicesForCustomer(billingInvoices, editing.name) : [];
     if (liveOrders.length || liveInvoices.length) {
-      detailCustomer = {
-        ...selected,
-        orders: liveOrders.length ? liveOrders : selected.orders,
-        invoices: liveInvoices.length ? liveInvoices : selected.invoices,
+      editingWithHistory = {
+        ...editing,
+        orders: liveOrders.length ? liveOrders : editing.orders,
+        invoices: liveInvoices.length ? liveInvoices : editing.invoices,
       };
     }
   }
-  const totalOwed = customers.reduce((n, c) => n + owed(c), 0);
-  const nameOk = draft ? draft.name.trim().length > 1 : false;
 
   const flash = (message: string, before: Customer[]) => {
     toast.show({ message, tone: 'ok', action: { label: 'Undo', onPress: () => restoreCustomers.mutate(before) } });
-  };
-
-  const openDetail = (id: string) => {
-    setSwipeOpenId(null);
-    setView('detail');
-    setSelectedId(id);
-  };
-  const backToList = () => {
-    setView('list');
-    setSelectedId(null);
   };
 
   const startAdd = () => {
@@ -132,77 +127,53 @@ export function Customers() {
     setSwipeOpenId(null);
     setDraft({ ...blankDraft });
     setEditingId(null);
-    setTouched(false);
-    setView('form');
+    setOpened(null);
+    setSheetOpen(true);
   };
-  const startEdit = () => {
-    if (!selected || !canEdit) return;
-    setDraft({
-      type: selected.type,
-      name: selected.name,
-      contact: selected.contact,
-      role: selected.role,
-      email: selected.email,
-      phone: selected.phone,
-      city: selected.city,
-      country: selected.country,
-      address: selected.address,
-      terms: selected.terms,
-    });
-    setEditingId(selected.id);
-    setTouched(false);
-    setView('form');
+  const openCustomer = (c: Customer) => {
+    setSwipeOpenId(null);
+    setDraft(draftOf(c));
+    setEditingId(c.id);
+    setOpened(c);
+    setSheetOpen(true);
   };
-  const cancelForm = () => {
-    setView(editingId ? 'detail' : 'list');
-    setDraft(null);
-    setEditingId(null);
+  const closeSheet = () => {
+    setSheetOpen(false);
+    setReopenAfterCancel(false);
   };
-  const patchDraft = (patch: Partial<CustomerDraft>) => setDraft((d) => (d ? { ...d, ...patch } : d));
+  const discard = () => {
+    setDraft(editing ? draftOf(editing) : { ...blankDraft });
+    setSheetOpen(false);
+  };
+  const patchDraft = (patch: Partial<CustomerDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
   const handleSave = () => {
-    if (!draft) return;
-    if (!nameOk) {
-      setTouched(true);
-      return;
-    }
+    const name = draft.name.trim();
+    if (!name) return;
     const before = customers;
+    const fields: CustomerDraft = { ...draft, name };
     if (editingId) {
-      updateCustomer.mutate({ id: editingId, updates: { ...draft } });
-      setView('detail');
-      setSelectedId(editingId);
-      setDraft(null);
-      setEditingId(null);
-      flash(`${draft.name.trim()} updated`, before);
+      updateCustomer.mutate({ id: editingId, updates: fields });
+      flash(`${name} updated`, before);
     } else {
-      const id = `n${Date.now()}`;
-      const entry: Customer = {
-        ...draft,
-        id,
-        name: draft.name.trim(),
-        contact: draft.contact.trim() || draft.name.trim(),
-        role: draft.role.trim() || 'Primary contact',
-        since: 'Added today',
-        orders: [],
-        invoices: [],
-      };
-      addCustomer.mutate(entry);
-      setView('list');
-      setDraft(null);
-      setEditingId(null);
-      setFilter('all');
+      addCustomer.mutate({ ...fields, id: `n${Date.now()}`, since: 'Added today', orders: [], invoices: [] });
       setQuery('');
-      flash(`${entry.name} added to the book`, before);
+      flash(`${name} added to the book`, before);
     }
+    setSheetOpen(false);
   };
 
-  const askDelete = (id: string) => {
+  const askDelete = (id: string, fromSheet: boolean) => {
     if (!canEdit) return;
+    if (fromSheet) setSheetOpen(false);
+    setReopenAfterCancel(fromSheet);
     setPendingId(id);
   };
   const cancelDelete = () => {
     setSwipeOpenId(null);
     setPendingId(null);
+    if (reopenAfterCancel) setSheetOpen(true);
+    setReopenAfterCancel(false);
   };
   const confirmDelete = () => {
     if (!pending) return;
@@ -210,11 +181,9 @@ export function Customers() {
     const before = customers;
     deleteCustomer.mutate(pending.id);
     setPendingId(null);
+    setReopenAfterCancel(false);
     setSwipeOpenId(null);
-    setView('list');
-    setSelectedId(null);
-    setDraft(null);
-    setEditingId(null);
+    setSheetOpen(false);
     flash(`${pending.name} deleted`, before);
   };
 
@@ -224,53 +193,11 @@ export function Customers() {
       : `${pending.invoices.length} invoice(s) stay in the ledger — only the contact record is removed.`
     : '';
 
-  if (view === 'form' && draft) {
-    return (
-      <ViewSwap viewKey="form" order={CUSTOMER_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
-        <FormHeader
-          title={editingId ? 'Edit customer' : 'New customer'}
-          saveLabel="Save"
-          saveEnabled={nameOk}
-          onCancel={cancelForm}
-          onSave={handleSave}
-        />
-        <ScrollView contentContainerStyle={styles.content}>
-          <CustomerForm draft={draft} touched={touched} nameOk={nameOk} isEditing={!!editingId} onChange={patchDraft} onDelete={() => editingId && askDelete(editingId)} />
-        </ScrollView>
-        <ConfirmDeleteSheet visible={!!pending} name={pending?.name ?? ''} warning={pendingWarning} onCancel={cancelDelete} onConfirm={confirmDelete} />
-      </ViewSwap>
-    );
-  }
-
-  if (view === 'detail' && selected && detailCustomer) {
-    return (
-      <ViewSwap viewKey="detail" order={CUSTOMER_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
-        <ScreenHeader
-          title={selected.name}
-          subtitle={selected.type === 'company' ? `${selected.city} · ${selected.terms}` : `Individual · ${selected.city}`}
-          onBack={backToList}
-          rightSlot={
-            canEdit ? (
-              <Pressable onPress={startEdit} style={[styles.editButton, { borderColor: theme.scheme === 'light' ? '#CFD8D2' : theme.border, backgroundColor: theme.surface }]}>
-                <Icon name="edit-2" size={13} color={theme.textPrimary} />
-              </Pressable>
-            ) : undefined
-          }
-        />
-        <ScrollView contentContainerStyle={styles.content}>
-          <PermissionNotice section="customers" />
-          <DetailView customer={detailCustomer} onDelete={canEdit ? () => askDelete(selected.id) : undefined} />
-        </ScrollView>
-        <ConfirmDeleteSheet visible={!!pending} name={pending?.name ?? ''} warning={pendingWarning} onCancel={cancelDelete} onConfirm={confirmDelete} />
-      </ViewSwap>
-    );
-  }
-
   return (
-    <ViewSwap viewKey="list" order={CUSTOMER_VIEW_ORDER} style={[styles.flex, { backgroundColor: theme.background }]}>
+    <View style={[styles.flex, { backgroundColor: theme.background }]}>
       <ScreenHeader
         title="Customers"
-        subtitle={`${customers.length} accounts · KTM + LDN book`}
+        subtitle={`${customers.length} client${customers.length === 1 ? '' : 's'}`}
         rightSlot={
           canEdit ? (
             <Pressable onPress={startAdd} style={[styles.addButton, { backgroundColor: theme.accent, boxShadow: theme.scheme === 'light' ? '0 6px 16px -10px rgba(20,122,87,0.9)' : undefined }]}>
@@ -281,26 +208,19 @@ export function Customers() {
       />
       <ScrollView contentContainerStyle={styles.content}>
         <PermissionNotice section="customers" />
-        <ListSummary
-          query={query}
-          onQueryChange={setQuery}
-          filters={filters}
-          activeFilter={filter}
-          onFilterChange={(f) => {
-            setSwipeOpenId(null);
-            setFilter(f);
-          }}
-          totalCount={customers.length}
-          splitLabel={`${customers.filter((c) => c.type === 'company').length} co · ${customers.filter((c) => c.type === 'person').length} ind`}
-          owedTotal={totalOwed ? `£${totalOwed.toLocaleString()}` : '£0'}
-          hasOwed={totalOwed > 0}
-        />
+        <SearchField value={query} onChange={setQuery} placeholder="Name, contact or city" />
 
         {rows.length === 0 ? (
           <EmptyState
             icon="users"
-            title="No customer matches"
-            message={q ? `Nothing matches "${query.trim()}". Try a city, or clear the search.` : 'This filter is empty right now.'}
+            title={q ? 'No customer matches' : 'No customers yet'}
+            message={
+              q
+                ? `Nothing matches "${query.trim()}". Try a city, or clear the search.`
+                : canEdit
+                  ? 'Tap + to add the first one.'
+                  : 'The customer book is empty.'
+            }
           />
         ) : (
           rows.map((c, i) => (
@@ -311,22 +231,41 @@ export function Customers() {
               isOpen={swipeOpenId === c.id}
               onSwipeOpen={() => setSwipeOpenId(c.id)}
               onSwipeClose={() => setSwipeOpenId(null)}
-              onPress={() => openDetail(c.id)}
-              onDelete={canEdit ? () => askDelete(c.id) : undefined}
+              onPress={() => openCustomer(c)}
+              onDelete={canEdit ? () => askDelete(c.id, false) : undefined}
             />
           ))
         )}
       </ScrollView>
 
-      <ConfirmDeleteSheet visible={!!pending} name={pending?.name ?? ''} warning={pendingWarning} onCancel={cancelDelete} onConfirm={confirmDelete} />
-    </ViewSwap>
+      <CustomerSheet
+        visible={sheetOpen}
+        draft={draft}
+        editing={editingWithHistory}
+        dirty={dirty}
+        saving={saving}
+        canEdit={canEdit}
+        onChange={patchDraft}
+        onClose={closeSheet}
+        onDiscard={discard}
+        onSave={handleSave}
+        onDelete={() => editingId && askDelete(editingId, true)}
+      />
+
+      <ConfirmSheet
+        visible={!!pending}
+        title={`Delete ${pending?.name ?? ''}?`}
+        body={pendingWarning}
+        confirmLabel="Delete"
+        onCancel={cancelDelete}
+        onConfirm={confirmDelete}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, paddingTop: 12, paddingBottom: 32, gap: 12 },
   addButton: { width: 36, height: 36, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  editButton: { height: 34, paddingHorizontal: 12, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
 });

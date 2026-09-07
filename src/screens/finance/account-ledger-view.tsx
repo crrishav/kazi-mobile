@@ -5,6 +5,9 @@ import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums, type Theme } from '@/theme';
 import type { AccountLedger, AccountSummary, LedgerRow } from '@/data/finance/ledger';
 import type { AccountType } from '@/data/finance/types';
+import { money, moneyDigits, useMoneySignature } from '@/lib/money';
+import { useCalendarPreference } from '@/lib/calendar-preference';
+import { dateText } from '@/lib/date-display';
 
 export interface AccountLedgerViewProps {
   ledgers: AccountLedger[];
@@ -20,11 +23,13 @@ export interface AccountLedgerViewProps {
   onOpenRow: (accountName: string, row: LedgerRow) => void;
 }
 
-const npr = (n: number) => `रु ${Math.round(n).toLocaleString('en-IN')}`;
+const npr = (n: number) => money(n, { grouping: 'en-IN' });
+
+/** Table columns print the amount bare — the currency is on the account card above them. */
+const num = (n: number) => moneyDigits(n, 'en-IN');
 
 /** `05 Sep 26` — the row's meta line also carries the reference, so it stays short. */
-const shortDate = (iso: string) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+const shortDate = (iso: string) => dateText(iso, { bsStyle: 'numeric' });
 
 function typeColor(theme: Theme, type: AccountType, balance: number): string {
   if (type === 'Asset' || type === 'Expense') return balance >= 0 ? theme.textPrimary : theme.dangerWashText;
@@ -42,6 +47,10 @@ export function AccountLedgerView({
   onOpenRow,
 }: AccountLedgerViewProps) {
   const theme = useTheme();
+  // These figures come from plain formatters, so the view subscribes to the currency itself.
+  useMoneySignature();
+  // `shortDate` reads the calendar preference too.
+  useCalendarPreference();
 
   const shown = activeFilter === 'all' ? ledgers : ledgers.filter((l) => l.account === activeFilter);
   const otherAccounts = summaries.filter((s) => !ledgers.some((l) => l.account === s.name) && (s.count > 0 || s.balance !== 0));
@@ -108,13 +117,13 @@ export function AccountLedgerView({
                   </Text>
                 </View>
                 <Text style={[styles.tdNum, tabularNums, { color: r.dr ? theme.accentWashText : theme.textSecondary }]}>
-                  {r.dr ? npr(r.dr).replace('रु ', '') : '—'}
+                  {r.dr ? num(r.dr) : '—'}
                 </Text>
                 <Text style={[styles.tdNum, tabularNums, { color: r.cr ? theme.dangerWashText : theme.textSecondary }]}>
-                  {r.cr ? npr(r.cr).replace('रु ', '') : '—'}
+                  {r.cr ? num(r.cr) : '—'}
                 </Text>
                 <Text style={[styles.tdNum, tabularNums, { color: theme.textPrimary, fontWeight: '600' }]}>
-                  {npr(r.balance).replace('रु ', '')}
+                  {num(r.balance)}
                 </Text>
               </Pressable>
             ))
@@ -140,7 +149,7 @@ export function AccountLedgerView({
                   {npr(s.balance)}
                 </Text>
                 <Text style={[styles.gridMeta, tabularNums, { color: theme.textSecondary }]}>
-                  Dr {npr(s.dr).replace('रु ', '')} · Cr {npr(s.cr).replace('रु ', '')} · {s.count} {s.count === 1 ? 'entry' : 'entries'}
+                  Dr {num(s.dr)} · Cr {num(s.cr)} · {s.count} {s.count === 1 ? 'entry' : 'entries'}
                 </Text>
               </View>
             ))}

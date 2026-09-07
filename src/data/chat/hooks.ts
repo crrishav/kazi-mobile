@@ -20,9 +20,19 @@ const parseMentions = (text: string): string[] =>
  * The staff roster. Every name, avatar and job title in chat resolves through
  * `identity.ts`, which this fills — so it is fetched once and kept fresh
  * rather than being read per screen.
+ *
+ * It also carries presence, which is the reason for the poll: names and job
+ * titles change about once a quarter, but a clock-in changes the dot beside
+ * every one of them, and nothing pushes that. Five minutes is well inside the
+ * granularity anyone reads a presence dot at.
  */
 export function useDirectory() {
-  const query = useQuery({ queryKey: chatKeys.directory(), queryFn: api.fetchDirectory, staleTime: 5 * 60_000 });
+  const query = useQuery({
+    queryKey: chatKeys.directory(),
+    queryFn: api.fetchDirectory,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+  });
   const people = query.data;
   useEffect(() => {
     if (people) setChatDirectory(people);

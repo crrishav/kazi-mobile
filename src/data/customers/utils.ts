@@ -1,3 +1,5 @@
+import { moneyFromGBP } from '@/lib/money';
+
 import type { Customer } from './types';
 
 export function initials(name: string): string {
@@ -10,8 +12,12 @@ export function initials(name: string): string {
     .toUpperCase();
 }
 
+/**
+ * Customer invoices are booked in pounds, so this converts the other way when
+ * the display currency is rupees. Screens that call it need `useMoneySignature()`.
+ */
 export function gbp(n: number): string {
-  return `£${n.toLocaleString()}`;
+  return moneyFromGBP(n);
 }
 
 export function owed(c: Customer): number {

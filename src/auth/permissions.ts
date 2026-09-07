@@ -21,6 +21,13 @@ export type SectionId =
   | 'dashboard'
   | 'tasks'
   | 'inventory'
+  // The product library — fabrics & trims, processes, tech packs. A grant of
+  // its own in Postgres (`sections.library`), separate from `inventory`: the
+  // two coordinator positions may read the library and not touch it, and the
+  // RLS on `fabrics` / `processes` / `patterns` reads THIS section, so the
+  // Inventory screen has to gate its library editors on it rather than on the
+  // stock grant beside them.
+  | 'library'
   | 'finance'
   | 'sales'
   | 'order-management'
@@ -93,7 +100,7 @@ export interface Profile {
 }
 
 export const ALL_SECTIONS: SectionId[] = [
-  'dashboard', 'tasks', 'inventory', 'finance', 'sales', 'order-management', 'customers', 'billing',
+  'dashboard', 'tasks', 'inventory', 'library', 'finance', 'sales', 'order-management', 'customers', 'billing',
   'purchases', 'production', 'accounting', 'budget-requirements',
   'employees-hr', 'attendance', 'marketing', 'messenger', 'admin-panel', 'changelog',
   'bug-report',
@@ -104,12 +111,12 @@ export const NAV_BY_ROLE: Record<Role, SectionId[]> = {
   super_admin: ALL_SECTIONS,
   uk_admin: ALL_SECTIONS.filter((s) => s !== 'admin-panel'),
   nepal_admin: [
-    'dashboard', 'tasks', 'inventory', 'finance', 'sales', 'order-management', 'customers', 'billing',
+    'dashboard', 'tasks', 'inventory', 'library', 'finance', 'sales', 'order-management', 'customers', 'billing',
     'purchases', 'production', 'accounting', 'budget-requirements',
     'employees-hr', 'attendance', 'marketing', 'messenger', 'changelog', 'bug-report',
   ],
   nepal_staff: [
-    'dashboard', 'tasks', 'inventory', 'production',
+    'dashboard', 'tasks', 'inventory', 'library', 'production',
     'budget-requirements', 'attendance', 'marketing', 'messenger',
     'customers', 'sales', 'order-management', 'changelog', 'bug-report',
   ],
@@ -121,7 +128,7 @@ const EDIT_BY_ROLE: Record<Role, SectionId[] | '*'> = {
   super_admin: '*',
   uk_admin: '*',
   nepal_admin: '*',
-  nepal_staff: ['tasks', 'attendance', 'messenger', 'production', 'inventory', 'budget-requirements', 'marketing', 'order-management', 'bug-report'],
+  nepal_staff: ['tasks', 'attendance', 'messenger', 'production', 'inventory', 'library', 'budget-requirements', 'marketing', 'order-management', 'bug-report'],
   employee: ['tasks', 'attendance', 'messenger', 'budget-requirements', 'bug-report'],
 };
 

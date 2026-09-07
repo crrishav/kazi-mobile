@@ -41,9 +41,16 @@ const SECTION_TO_MOBILE: Record<string, SectionId> = {
   admin: 'admin-panel',
   changelog: 'changelog',
   bug_report: 'bug-report',
-  // `library` and `content` exist in Postgres for the web app; the mobile app
-  // has no screen for them, so they are intentionally dropped, and
-  // `quality_control` joined them when the QC module was retired: `qc_logs`
+  // The product library has no screen of its own on mobile — fabrics & trims,
+  // processes and tech packs are tabs inside Inventory, so whether you SEE them
+  // follows the `inventory` grant. What the `library` row settles is whether you
+  // may edit those rows, which is what its RLS on `fabrics` / `processes` /
+  // `patterns` asks. So it is mapped from `can_edit`, not `can_view`, below —
+  // the two coordinator positions read the library and may not touch it.
+  library: 'library',
+  // `content` exists in Postgres for the web app; the mobile app has no screen
+  // for it, so it is intentionally dropped, and `quality_control` joined it
+  // when the QC module was retired: `qc_logs`
   // held four rows ever — two written by the migration's own seed, and one real
   // inspection saved twice by a double-tap. `directors` joined them in turn when
   // the role register was dropped from mobile — it only ever *read* `positions` /
@@ -126,7 +133,8 @@ export async function fetchIdentityResult(): Promise<IdentityResult> {
       if (!key || key === 'finance') continue;
       // An explicit `false` matters: `sectionVisible` treats it as final, which
       // is what stops a stale role default from re-granting something.
-      permissions[key] = row.can_view;
+      // `library` is the one section read off `can_edit` — see the note above.
+      permissions[key] = key === 'library' ? row.can_edit : row.can_view;
     }
 
     const finance: Partial<Record<FinanceTabId, boolean>> = {};

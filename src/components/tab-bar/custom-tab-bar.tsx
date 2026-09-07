@@ -5,6 +5,7 @@ import type { BottomTabBarProps } from 'expo-router/js-tabs';
 
 import { useAuth } from '@/auth/auth-context';
 import { tabLayoutFor } from '@/auth/tab-layout';
+import { prefetchTab } from '@/data/prefetch';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii } from '@/theme';
 import { duration, easeOut } from '@/theme/motion';
@@ -63,6 +64,7 @@ interface TabCellProps {
   label: string;
   Icon: (props: NavIconProps) => React.JSX.Element;
   onPress: () => void;
+  onPressIn?: () => void;
 }
 
 /**
@@ -78,7 +80,7 @@ interface TabCellProps {
  * `backgroundColor`: opacity and transform run on the UI thread without
  * touching the JS one, and a tab bar is exactly where a dropped frame shows.
  */
-function TabCell({ focused, label, Icon, onPress }: TabCellProps) {
+function TabCell({ focused, label, Icon, onPress, onPressIn }: TabCellProps) {
   const theme = useTheme();
   const selected = useSharedValue(focused ? 1 : 0);
   const pressed = useSharedValue(0);
@@ -104,6 +106,7 @@ function TabCell({ focused, label, Icon, onPress }: TabCellProps) {
       onPress={onPress}
       onPressIn={() => {
         pressed.value = withTiming(1, { duration: duration.fast, easing: easeOut });
+        onPressIn?.();
       }}
       onPressOut={() => {
         pressed.value = withTiming(0, { duration: duration.fast, easing: easeOut });
@@ -168,7 +171,18 @@ export function CustomTabBar({ state, navigation, insets }: CustomTabBarProps) {
           }
         };
 
-        return <TabCell key={route.key} focused={isFocused} label={label} Icon={IconComponent} onPress={onPress} />;
+        return (
+          <TabCell
+            key={route.key}
+            focused={isFocused}
+            label={label}
+            Icon={IconComponent}
+            onPress={onPress}
+            // Warms the tab's reads while the finger is still down. Skipped for
+            // the tab you are already on, which has nothing to arrive at.
+            onPressIn={isFocused ? undefined : () => prefetchTab(name)}
+          />
+        );
       })}
     </View>
   );

@@ -46,6 +46,20 @@ export function useTabBarHidden(): boolean {
 }
 
 /**
+ * Is this component being drawn *inside* the tab navigator?
+ *
+ * The provider wraps `<Tabs>` and nothing else, so its presence is an exact
+ * answer to "am I a tab scene or a pushed screen" — which is what a module
+ * with both presentations actually needs to know. Asking whether the module is
+ * one of your bottom-bar buttons is a different question, and answering the
+ * first with the second is what used to make Production open without a back
+ * chevron when it was reached from More.
+ */
+export function useInTabs(): boolean {
+  return useContext(TabBarVisibilityContext) !== null;
+}
+
+/**
  * Hide the bar for as long as this component is mounted, or while `active`.
  * Releases on unmount, so a back gesture mid-animation cannot leave the bar
  * folded away.

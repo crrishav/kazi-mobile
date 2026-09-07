@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 import { useAuth } from '@/auth/auth-context';
 import { useToast } from '@/components/toast/toast-provider';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
+import { ScreenHeader } from '@/components/ui/screen-header';
 import { ViewSwap } from '@/components/ui/view-swap';
 import { useTheme } from '@/theme/theme-provider';
 import {
@@ -99,7 +100,12 @@ export function Chat() {
     !messages ||
     !unread
   ) {
-    return <ScreenGate queries={[directoryQuery, threadsQuery, messagesQuery, unreadQuery]} />;
+    return (
+      <ScreenGate
+        queries={[directoryQuery, threadsQuery, messagesQuery, unreadQuery]}
+        header={<ScreenHeader title="Chat" showBack={false} />}
+      />
+    );
   }
 
   // The rights read is not in the gate: it decides whether one row is offered,

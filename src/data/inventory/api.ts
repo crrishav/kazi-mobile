@@ -7,6 +7,10 @@
  * movements ledger — stock movements patch `openingStock` to the new level and
  * the ledger rows stay mock-only. Snapshot-undo restore is not reversed
  * server-side.
+ *
+ * Fabrics, processes and tech packs are read AND written — the Inventory tabs
+ * edit them in place. Item costs stay read-only: that tab is a costing sheet
+ * kept on the web.
  */
 
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -16,15 +20,27 @@ import { liveWrite } from '@/lib/supabase/write';
 import * as live from './supabase';
 import * as writeLive from './supabase-write';
 import * as mock from './mock-api';
-import type { StockItem, StockMoveKind, StockMovement } from './types';
+import type { FabricDraft, ProcessDraft, StockItem, StockMoveKind, StockMovement, TechPackDraft } from './types';
 
 export const fetchStock = isSupabaseConfigured
   ? liveRead('inventory/stock', live.fetchStock)
   : mock.fetchStock;
 
-export const fetchLibrary = isSupabaseConfigured
-  ? liveRead('inventory/library', live.fetchLibrary)
-  : mock.fetchLibrary;
+export const fetchFabrics = isSupabaseConfigured
+  ? liveRead('inventory/fabrics', live.fetchFabrics)
+  : mock.fetchFabrics;
+
+export const fetchProcesses = isSupabaseConfigured
+  ? liveRead('inventory/processes', live.fetchProcesses)
+  : mock.fetchProcesses;
+
+export const fetchTechPacks = isSupabaseConfigured
+  ? liveRead('inventory/techPacks', live.fetchTechPacks)
+  : mock.fetchTechPacks;
+
+export const fetchItemCosts = isSupabaseConfigured
+  ? liveRead('inventory/itemCosts', live.fetchItemCosts)
+  : mock.fetchItemCosts;
 
 export const fetchMovements = isSupabaseConfigured
   ? liveRead('inventory/movements', live.fetchMovements)
@@ -51,3 +67,24 @@ export const adjustStockByName = liveWrite(
   (name: string, delta: number) => writeLive.adjustStockByName(name, delta),
   mock.adjustStockByName,
 );
+
+export const saveFabric = liveWrite(
+  'inventory/saveFabric',
+  (id: string | null, draft: FabricDraft) => writeLive.saveFabric(id, draft),
+  mock.saveFabric,
+);
+export const deleteFabric = liveWrite('inventory/deleteFabric', writeLive.deleteFabric, mock.deleteFabric);
+
+export const saveProcess = liveWrite(
+  'inventory/saveProcess',
+  (id: string | null, draft: ProcessDraft) => writeLive.saveProcess(id, draft),
+  mock.saveProcess,
+);
+export const deleteProcess = liveWrite('inventory/deleteProcess', writeLive.deleteProcess, mock.deleteProcess);
+
+export const saveTechPack = liveWrite(
+  'inventory/saveTechPack',
+  (id: string | null, draft: TechPackDraft) => writeLive.saveTechPack(id, draft),
+  mock.saveTechPack,
+);
+export const deleteTechPack = liveWrite('inventory/deleteTechPack', writeLive.deleteTechPack, mock.deleteTechPack);

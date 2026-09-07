@@ -6,6 +6,7 @@ import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
 import { useTheme } from '@/theme/theme-provider';
 import { useOrders } from '@/data/sales/hooks';
+import { useMoneySignature } from '@/lib/money';
 
 import { StageBreakdown } from './stage-breakdown';
 import { Summary } from './summary';
@@ -17,10 +18,13 @@ import { TopCustomers } from './top-customers';
  */
 export function Sales() {
   const theme = useTheme();
+  // Money is formatted by plain functions (`@/lib/money`), so this is what
+  // re-renders the screen when the currency preference or the rate changes.
+  useMoneySignature();
   const ordersQuery = useOrders();
   const { data: orders } = ordersQuery;
 
-  if (isBlocked(ordersQuery) || !orders) return <ScreenGate queries={[ordersQuery]} />;
+  if (isBlocked(ordersQuery) || !orders) return <ScreenGate queries={[ordersQuery]} header={<ScreenHeader title="Sales" rightSlot={<HeaderAccount />} />} />;
 
   const active = orders.filter((o) => o.stage !== 'delivered').length;
 

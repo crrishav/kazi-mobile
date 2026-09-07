@@ -215,8 +215,11 @@ export function MediaViewer({ attachment, onClose, onShare }: MediaViewerProps) 
               </Text>
               {attachment ? (
                 <Text style={styles.meta}>
-                  {fileSize(attachment.size)}
-                  {isVideo ? '' : ' · pinch or double-tap to zoom'}
+                  {/* Size is omitted for a picture we did not upload — the
+                      library screens open a remote URL whose byte count we
+                      never learn, and "0 B" reads as a broken file. */}
+                  {attachment.size > 0 ? `${fileSize(attachment.size)}${isVideo ? '' : ' · '}` : ''}
+                  {isVideo ? '' : 'pinch or double-tap to zoom'}
                 </Text>
               ) : null}
             </View>

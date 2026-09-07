@@ -29,6 +29,7 @@ import {
 import { STAGES, STAGE_IDS, nextOrderRef, shipDays, shipLabel, stageById } from '@/data/sales/mock';
 import type { Embellishment, Order, OrderDraft, OrderStatus, OrdersFilter, StageId } from '@/data/sales/types';
 import { groupOf, isOpen, priorityOf } from '@/data/sales/utils';
+import { useMoneySignature } from '@/lib/money';
 
 import { OrderDetail } from './order-detail';
 import { OrderListRow } from './order-list-row';
@@ -91,6 +92,9 @@ function emptyDraft(): OrderDraft {
  */
 export function Production() {
   const theme = useTheme();
+  // Money is formatted by plain functions (`@/lib/money`), so this is what
+  // re-renders the screen when the currency preference or the rate changes.
+  useMoneySignature();
   const toast = useToast();
   const { can } = useAuth();
   const canEdit = can('order-management');
@@ -127,7 +131,7 @@ export function Production() {
     return false;
   });
 
-  if (isBlocked(ordersQuery) || !orders) return <ScreenGate queries={[ordersQuery]} />;
+  if (isBlocked(ordersQuery) || !orders) return <ScreenGate queries={[ordersQuery]} header={<ScreenHeader title="Production" showBack={showBack} />} />;
 
   const selected = orders.find((o) => o.id === selectedId) ?? null;
   const openCount = orders.filter(isOpen).length;

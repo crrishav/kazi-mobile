@@ -5,7 +5,7 @@ import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, radii, tabularNums } from '@/theme';
 import { ACCOUNTS, METHODS, SYM } from '@/data/billing/mock';
 import type { Currency, Invoice, PaymentMethod } from '@/data/billing/types';
-import { balance, money, n2, npr, todaysRate } from '@/data/billing/utils';
+import { balance, money, n2, nprLiteral, todaysRate } from '@/data/billing/utils';
 
 export interface PayDraft {
   amount: string;
@@ -41,10 +41,10 @@ export function PaySheet({ visible, invoice: v, draft, onClose, onChange, onSave
   const conversionLine =
     draft.cur === 'NPR'
       ? amt
-        ? `${npr(amt)} ÷ ${n2(v.rate)} = ${money(v.cur, amt / v.rate)} off the invoice`
+        ? `${nprLiteral(amt)} ÷ ${n2(v.rate)} = ${money(v.cur, amt / v.rate)} off the invoice`
         : `Enter an NPR amount to credit against ${v.cur}`
       : amt
-        ? `${SYM[draft.cur]}${n2(amt)} × ${n2(rate)} = ${npr(nprIn)}`
+        ? `${SYM[draft.cur]}${n2(amt)} × ${n2(rate)} = ${nprLiteral(nprIn)}`
         : `Enter a ${draft.cur} amount to see the NPR credit`;
 
   const fxLabel = hasFxDiff
@@ -54,7 +54,7 @@ export function PaySheet({ visible, invoice: v, draft, onClose, onChange, onSave
     : draft.cur === 'NPR'
       ? 'Credited at the invoice rate — no FX difference'
       : 'No FX difference at this rate';
-  const fxValue = hasFxDiff ? `${fxDiff > 0 ? '+' : '−'}${npr(Math.abs(fxDiff))}` : 'रु 0';
+  const fxValue = hasFxDiff ? `${fxDiff > 0 ? '+' : '−'}${nprLiteral(Math.abs(fxDiff))}` : 'रु 0';
   const fxBg = hasFxDiff ? (fxDiff > 0 ? theme.accentWash : theme.dangerWash) : theme.surfaceRaised;
   const fxFg = hasFxDiff ? (fxDiff > 0 ? theme.accentWashText : theme.dangerWashText) : theme.textSecondary;
 

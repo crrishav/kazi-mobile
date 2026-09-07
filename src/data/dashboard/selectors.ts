@@ -30,13 +30,16 @@ import type {
   TaskBoardCounts,
 } from './types';
 
+import { moneyCompact } from '@/lib/money';
+
 const thisMonth = (): string => new Date().toISOString().slice(0, 7);
 
-/** "रु 41.2L" above a lakh, plain grouped rupees below it. */
-function compactNpr(n: number): string {
-  if (n >= 100_000) return `रु ${(n / 100_000).toFixed(1).replace(/\.0$/, '')}L`;
-  return `रु ${Math.round(n).toLocaleString('en-US')}`;
-}
+/**
+ * "रु 41.2L" above a lakh, plain grouped rupees below it — or the pound
+ * equivalent. The hooks that call these selectors keep `moneySignature()` in
+ * their `useMemo` deps, so a currency change re-derives the tiles.
+ */
+const compactNpr = moneyCompact;
 
 function firstName(name: string | undefined): string {
   return (name ?? '').trim().split(/\s+/)[0]?.toLowerCase() ?? '';

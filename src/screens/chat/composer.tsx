@@ -49,11 +49,31 @@ export function Composer({
   // An attachment on its own is a message; the caption is optional.
   const canSend = (draft.trim().length > 0 || !!attachment) && !busy;
 
-  // Swiping a message to reply should land you in the input, not leave you to
-  // tap it yourself.
+  /**
+   * Starting a reply should land you in the input with the keyboard already
+   * up, not leave you to tap it yourself.
+   *
+   * It focuses twice on purpose. A reply started from the long-press sheet
+   * arrives while that sheet is still playing its 200ms exit, and a `Modal`
+   * that is still mounted owns the focus — the first call is swallowed and the
+   * keyboard never appears. The second runs once the modal is gone. The
+   * `isFocused` guard keeps it from re-opening a keyboard the person has
+   * deliberately dismissed in the meantime, and makes the swipe path (where
+   * the first call works) a no-op rather than a second flash.
+   *
+   * Keyed on the id, not the message: `replyTo` is re-resolved from the thread
+   * on every refetch, so watching the object would re-raise the keyboard each
+   * time a realtime update landed mid-reply.
+   */
+  const replyToId = replyTo?.id;
   useEffect(() => {
-    if (replyTo) inputRef.current?.focus();
-  }, [replyTo]);
+    if (!replyToId) return;
+    inputRef.current?.focus();
+    const retry = setTimeout(() => {
+      if (!inputRef.current?.isFocused()) inputRef.current?.focus();
+    }, 260);
+    return () => clearTimeout(retry);
+  }, [replyToId]);
 
   if (!canPost) {
     return (

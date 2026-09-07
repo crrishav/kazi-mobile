@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/icon';
 import { PermissionNotice } from '@/components/ui/permission-notice';
 import { isBlocked, ScreenGate } from '@/components/ui/screen-gate';
 import { ScreenHeader } from '@/components/ui/screen-header';
+import { TabStrip, type TabDef } from '@/components/ui/tab-strip';
 import { useModulePresentation } from '@/components/tab-bar/use-own-tab';
 import { useBackHandler } from '@/lib/use-back-handler';
 import { useTheme } from '@/theme/theme-provider';
@@ -52,11 +53,12 @@ import { accountLedger, accountSummaries, type LedgerRow } from '@/data/finance/
 import { BANK_ACCOUNTS, CASH_ACCOUNT, LAST_MONTH_UNITS_PASSED, LEDGER, YEARS, expenseCategory } from '@/data/finance/mock';
 import { autoLabourRate, buildOrderPnl, summariseOrderPnl, type OrderPnlRow } from '@/data/finance/order-pnl';
 import { buildBalanceSheet, buildProfitAndLoss } from '@/data/finance/pnl';
-import { fmt, lakh } from '@/data/finance/utils';
+import { lakh } from '@/data/finance/utils';
 import { toCSV } from '@/lib/export/csv';
 import type { Expense, ExpenseCategoryId, JournalEntry, LedgerRowType, OrderCosts, VatBill } from '@/data/finance/types';
 
 import { PurchasesPane } from '@/screens/purchases/purchases-pane';
+import { money, useMoneySignature } from '@/lib/money';
 
 import { AccountLedgerView } from './account-ledger-view';
 import { AccountingKpis } from './accounting-kpis';
@@ -75,7 +77,6 @@ import { OrderCostsSheet, type OrderCostsDraft } from './order-costs-sheet';
 import { OrderPnlView, type OrderPnlFilter } from './order-pnl-view';
 import { Overview } from './overview';
 import { PnlView } from './pnl-view';
-import { FinanceTabs, type FinanceTabDef } from './tabs';
 import { VatBillSheet, type VatBillDraft } from './vat-bill-sheet';
 import { VatBillsView } from './vat-bills-view';
 import { YearsView } from './years-view';
@@ -135,6 +136,9 @@ export interface FinanceProps {
 
 export function Finance({ variant = 'finance' }: FinanceProps = {}) {
   const theme = useTheme();
+  // Money is formatted by plain functions (`@/lib/money`), so this is what
+  // re-renders the screen when the currency preference or the rate changes.
+  useMoneySignature();
   const toast = useToast();
   const router = useRouter();
   const { profile, can, financeTab } = useAuth();
@@ -298,12 +302,17 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
     [orderPnlRows],
   );
 
-  if (isBlocked(expensesQuery, vatBillsQuery, accountsQuery, journalQuery, bankTransactionsQuery, purchasesQuery, invoicesQuery, employeesQuery, ordersQuery, orderCostsQuery) || !expenses || !vatBills || !accounts || !journal || !bankTransactions || !purchases || !invoices || !employees || !orders || !orderCosts) return <ScreenGate queries={[expensesQuery, vatBillsQuery, accountsQuery, journalQuery, bankTransactionsQuery, purchasesQuery, invoicesQuery, employeesQuery, ordersQuery, orderCostsQuery]} />;
+  if (isBlocked(expensesQuery, vatBillsQuery, accountsQuery, journalQuery, bankTransactionsQuery, purchasesQuery, invoicesQuery, employeesQuery, ordersQuery, orderCostsQuery) || !expenses || !vatBills || !accounts || !journal || !bankTransactions || !purchases || !invoices || !employees || !orders || !orderCosts) return (
+      <ScreenGate
+        queries={[expensesQuery, vatBillsQuery, accountsQuery, journalQuery, bankTransactionsQuery, purchasesQuery, invoicesQuery, employeesQuery, ordersQuery, orderCostsQuery]}
+        header={<ScreenHeader title={isAccounting ? 'Accounting' : 'Finance'} showBack={showBack} />}
+      />
+    );
 
   const year = YEARS.find((y) => y.id === yearId) ?? null;
   const yearLedger = year ? (LEDGER[year.id] ?? []) : [];
 
-  const tabs: FinanceTabDef<FinanceTabId>[] = isAccounting
+  const tabs: TabDef<FinanceTabId>[] = isAccounting
     ? [
         { id: 'journal' as const, label: 'Journal', count: journal.length },
         { id: 'ledger' as const, label: 'Ledger' },
@@ -397,7 +406,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
           type: r.type,
           title: r.title,
           meta: r.meta,
-          amount: `${r.dir === 'in' ? '+' : '−'}रु ${fmt(r.amount)}`,
+          amount: `${r.dir === 'in' ? '+' : '−'}${money(r.amount)}`,
           positive: r.dir === 'in',
         })),
       };
@@ -752,9 +761,9 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
             onFilterChange={setTypeFilter}
             months={months}
             totalEntries={year?.entries ?? 0}
-            moneyIn={`रु ${fmt(moneyInSum)}`}
-            moneyOut={`रु ${fmt(moneyOutSum)}`}
-            net={`${netSum >= 0 ? '+' : '−'}रु ${fmt(Math.abs(netSum))}`}
+            moneyIn={money(moneyInSum)}
+            moneyOut={money(moneyOutSum)}
+            net={`${netSum >= 0 ? '+' : '−'}${money(Math.abs(netSum))}`}
             netPositive={netSum >= 0}
             breakdown={ledgerBreakdown}
             yearLabel={year?.label ?? ''}
@@ -795,7 +804,7 @@ export function Finance({ variant = 'finance' }: FinanceProps = {}) {
           />
         )}
       </View>
-      <FinanceTabs tabs={tabs} active={tab} onChange={setTab} />
+      <TabStrip tabs={tabs} active={tab} onChange={setTab} />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: 110 + bottomInset }]}>
         {!canEdit ? <PermissionNotice section={section} /> : null}

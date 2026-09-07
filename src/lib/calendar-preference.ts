@@ -48,6 +48,11 @@ void AsyncStorage.getItem(CALENDAR_KEY)
   })
   .catch(() => {});
 
+/** The current preference, for the pure formatters in `date-display.ts`. */
+export function getCalendarPreference(): DateCalendar {
+  return calendar;
+}
+
 export function useCalendarPreference(): DateCalendar {
   return useSyncExternalStore(
     subscribe,

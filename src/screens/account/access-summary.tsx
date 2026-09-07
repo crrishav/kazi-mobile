@@ -10,6 +10,7 @@ const SECTION_LABEL: Record<SectionId, string> = {
   dashboard: 'Dashboard',
   tasks: 'Tasks',
   inventory: 'Inventory',
+  library: 'Product library',
   finance: 'Finance',
   sales: 'Sales',
   'order-management': 'Orders',

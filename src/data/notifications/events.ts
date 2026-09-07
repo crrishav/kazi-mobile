@@ -11,6 +11,8 @@ const SECTION_ROUTE: Record<SectionId, string> = {
   dashboard: '/',
   tasks: '/tasks',
   inventory: '/inventory',
+  // The library lives inside Inventory; it has no route of its own.
+  library: '/inventory',
   finance: '/finance',
   sales: '/sales',
   'order-management': '/production',

@@ -6,6 +6,8 @@ import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
 import { STAGES, stageIndex } from '@/data/sales/mock';
 import type { StageHistoryEntry, StageId } from '@/data/sales/types';
+import { useCalendarPreference } from '@/lib/calendar-preference';
+import { dateText, isoDay } from '@/lib/date-display';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -20,7 +22,7 @@ function when(iso: string): string {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  return dateText(isoDay(iso));
 }
 
 /**
@@ -31,6 +33,8 @@ function when(iso: string): string {
  */
 export function StageTimeline({ stage, history }: StageTimelineProps) {
   const theme = useTheme();
+  // `fmtDate` reads the calendar preference, so subscribe to it.
+  useCalendarPreference();
   const [openId, setOpenId] = useState<StageId | null>(stage);
   const current = stageIndex(stage);
 

@@ -6,16 +6,15 @@ import { ScreenGate } from '@/components/ui/screen-gate';
 import { useMyDayDashboard } from '@/data/dashboard/hooks';
 import { useTheme } from '@/theme/theme-provider';
 import { fontFamily, tabularNums } from '@/theme';
+import { moneyCompact } from '@/lib/money';
 
 import { DashboardClockInCard } from '../clock-in-card';
 import { DashboardCard, DashboardScroll } from '../dashboard-card';
 import { MyTasksCard } from '../my-tasks-card';
 import { QuickLinks } from '../quick-links';
 
-function compactNpr(n: number): string {
-  if (n >= 100_000) return `रु ${(n / 100_000).toFixed(1).replace(/\.0$/, '')}L`;
-  return `रु ${Math.round(n).toLocaleString('en-US')}`;
-}
+/** Compact money in the display currency — `useMoneySignature()` in the dashboard hooks re-renders it. */
+const compactNpr = moneyCompact;
 
 /** `employee` / `nepal_staff` — just their own day. */
 export function MyDayDashboard() {
